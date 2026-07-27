@@ -1,64 +1,80 @@
+import 'package:dental_lab_app/core/di/dependency_injection.dart';
 import 'package:dental_lab_app/core/theming/colors.dart';
 import 'package:dental_lab_app/core/theming/styles.dart';
-import 'package:dental_lab_app/core/widgets/custom_button_widget.dart';
-import 'package:dental_lab_app/core/widgets/custom_text_field_widget.dart';
+import 'package:dental_lab_app/core/widgets/show_toast_widget.dart';
+import 'package:dental_lab_app/features/cities/logic/cities/cities_cubit.dart';
+import 'package:dental_lab_app/features/employees/data/models/create_employee_request_model.dart';
+import 'package:dental_lab_app/features/employees/data/models/employee_model.dart';
+import 'package:dental_lab_app/features/employees/data/models/update_employee_request_model.dart';
+import 'package:dental_lab_app/features/employees/logic/employee_form/employee_form_cubit.dart';
+import 'package:dental_lab_app/features/employees/logic/employee_form/employee_form_state.dart';
+import 'package:dental_lab_app/features/employees/ui/widgets/employee_form_fields.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 
-// Mock options until the Cities lookup is wired in from the API.
-const List<String> _mockCities = ['دمشق', 'حلب', 'حمص', 'اللاذقية'];
-
-enum _Gender { male, female }
-
-/// Add/edit employee screen — design only for now (no Cubit / API wiring
-/// yet). Pass [initialEmployee] to open in edit mode.
-class EmployeeFormPage extends StatefulWidget {
+/// Add/edit employee screen. Pass [initialEmployee] to open in edit mode.
+///
+/// Submission is driven by [EmployeeFormCubit]; the city picker is fed by the
+/// standalone [CitiesCubit].
+class EmployeeFormPage extends StatelessWidget {
   const EmployeeFormPage({super.key, this.initialEmployee});
 
-  final Map<String, dynamic>? initialEmployee;
+  final EmployeeModel? initialEmployee;
 
   @override
-  State<EmployeeFormPage> createState() => _EmployeeFormPageState();
-}
-
-class _EmployeeFormPageState extends State<EmployeeFormPage> {
-  final _formKey = GlobalKey<FormState>();
-  late final _firstNameController = TextEditingController(
-    text: widget.initialEmployee?['firstName'] as String? ?? '',
-  );
-  late final _lastNameController = TextEditingController(
-    text: widget.initialEmployee?['lastName'] as String? ?? '',
-  );
-  late final _nationalNumberController = TextEditingController(
-    text: widget.initialEmployee?['nationalNumber'] as String? ?? '',
-  );
-  late final _codeController = TextEditingController(
-    text: widget.initialEmployee?['code'] as String? ?? '',
-  );
-  late final _phoneController = TextEditingController(
-    text: widget.initialEmployee?['phoneNumber'] as String? ?? '',
-  );
-  late final _addressController = TextEditingController(
-    text: widget.initialEmployee?['address'] as String? ?? '',
-  );
-  late final _bankNameController = TextEditingController(
-    text: widget.initialEmployee?['bankName'] as String? ?? '',
-  );
-  late final _bankAccountNumberController = TextEditingController(
-    text: widget.initialEmployee?['bankAccountNumber'] as String? ?? '',
-  );
-
-  _Gender _gender = _Gender.male;
-  DateTime? _dateOfBirth;
-  String? _cityName;
-  late String? _imagePath = widget.initialEmployee?['imagePath'] as String?;
-
-  bool get _isEditing => widget.initialEmployee != null;
-
-  void _onUploadImage() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('سيتم ربط رفع الصورة بالـ API لاحقاً')),
+  Widget build(BuildContext context) {
+    return MultiBlocProvider(
+      providers: [
+        BlocProvider(create: (_) => getIt<EmployeeFormCubit>()),
+        BlocProvider(create: (_) => getIt<CitiesCubit>()..getCities()),
+      ],
+      child: _EmployeeFormView(initialEmployee: initialEmployee),
     );
   }
+}
+
+class _EmployeeFormView extends StatefulWidget {
+  const _EmployeeFormView({this.initialEmployee});
+
+  final EmployeeModel? initialEmployee;
+
+  @override
+  State<_EmployeeFormView> createState() => _EmployeeFormViewState();
+}
+
+class _EmployeeFormViewState extends State<_EmployeeFormView> {
+  final _formKey = GlobalKey<FormState>();
+  late final _firstNameController = TextEditingController(
+    text: widget.initialEmployee?.firstName ?? '',
+  );
+  late final _lastNameController = TextEditingController(
+    text: widget.initialEmployee?.lastName ?? '',
+  );
+  late final _nationalNumberController = TextEditingController(
+    text: widget.initialEmployee?.nationalNumber ?? '',
+  );
+  late final _codeController = TextEditingController(
+    text: widget.initialEmployee?.code ?? '',
+  );
+  late final _phoneController = TextEditingController(
+    text: widget.initialEmployee?.phoneNumber ?? '',
+  );
+  late final _addressController = TextEditingController(
+    text: widget.initialEmployee?.address ?? '',
+  );
+  late final _bankNameController = TextEditingController(
+    text: widget.initialEmployee?.bankName ?? '',
+  );
+  late final _bankAccountController = TextEditingController(
+    text: widget.initialEmployee?.bankAccountNumber ?? '',
+  );
+
+  late EmployeeGender _gender =
+      widget.initialEmployee?.gender ?? EmployeeGender.male;
+  late DateTime? _dateOfBirth = _parseDate(widget.initialEmployee?.dateOfBirth);
+  late String? _cityId = widget.initialEmployee?.cityId;
+
+  bool get _isEditing => widget.initialEmployee != null;
 
   @override
   void dispose() {
@@ -69,8 +85,21 @@ class _EmployeeFormPageState extends State<EmployeeFormPage> {
     _phoneController.dispose();
     _addressController.dispose();
     _bankNameController.dispose();
-    _bankAccountNumberController.dispose();
+    _bankAccountController.dispose();
     super.dispose();
+  }
+
+  static DateTime? _parseDate(String? value) {
+    if (value == null || value.isEmpty) return null;
+    return DateTime.tryParse(value);
+  }
+
+  /// `yyyy-MM-dd` — the format the API's `dateOfBirth` field expects.
+  String? _formatDate(DateTime? date) {
+    if (date == null) return null;
+    final month = date.month.toString().padLeft(2, '0');
+    final day = date.day.toString().padLeft(2, '0');
+    return '${date.year}-$month-$day';
   }
 
   Future<void> _pickDateOfBirth() async {
@@ -84,17 +113,48 @@ class _EmployeeFormPageState extends State<EmployeeFormPage> {
     if (picked != null) setState(() => _dateOfBirth = picked);
   }
 
+  String? _optional(TextEditingController controller) {
+    final value = controller.text.trim();
+    return value.isEmpty ? null : value;
+  }
+
   void _onSavePressed() {
-    final isFormValid = _formKey.currentState?.validate() ?? false;
-    if (isFormValid && _dateOfBirth == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('تاريخ الميلاد مطلوب')),
+    if (!(_formKey.currentState?.validate() ?? false)) return;
+
+    final cubit = context.read<EmployeeFormCubit>();
+
+    if (_isEditing) {
+      cubit.updateEmployee(
+        id: widget.initialEmployee!.id,
+        updateEmployeeRequestBody: UpdateEmployeeRequestModel(
+          firstName: _firstNameController.text.trim(),
+          lastName: _lastNameController.text.trim(),
+          nationalNumber: _optional(_nationalNumberController),
+          code: _optional(_codeController),
+          gender: _gender.apiValue,
+          dateOfBirth: _formatDate(_dateOfBirth),
+          cityId: _cityId,
+          phoneNumber: _optional(_phoneController),
+          address: _optional(_addressController),
+          bankName: _optional(_bankNameController),
+          bankAccountNumber: _optional(_bankAccountController),
+        ),
       );
-      return;
-    }
-    if (isFormValid) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('سيتم ربط حفظ الموظف بالـ API لاحقاً')),
+    } else {
+      cubit.createEmployee(
+        CreateEmployeeRequestModel(
+          firstName: _firstNameController.text.trim(),
+          lastName: _lastNameController.text.trim(),
+          nationalNumber: _optional(_nationalNumberController),
+          code: _optional(_codeController),
+          gender: _gender.apiValue,
+          dateOfBirth: _formatDate(_dateOfBirth),
+          cityId: _cityId,
+          phoneNumber: _optional(_phoneController),
+          address: _optional(_addressController),
+          bankName: _optional(_bankNameController),
+          bankAccountNumber: _optional(_bankAccountController),
+        ),
       );
     }
   }
@@ -110,305 +170,63 @@ class _EmployeeFormPageState extends State<EmployeeFormPage> {
         ),
       ),
       body: SafeArea(
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            final isWide = constraints.maxWidth >= 600;
-            final contentWidth = isWide ? 560.0 : constraints.maxWidth;
+        child: BlocConsumer<EmployeeFormCubit, EmployeeFormState>(
+          listener: (context, state) {
+            switch (state) {
+              case EmployeeFormSuccess():
+                ShowToast(
+                  message: _isEditing ? 'تم حفظ التعديلات' : 'تمت إضافة الموظف',
+                  state: toastState.success,
+                );
+                Navigator.of(context).pop(true);
+              case EmployeeFormError(:final message):
+                ShowToast(message: message, state: toastState.error);
+              default:
+                break;
+            }
+          },
+          builder: (context, state) {
+            return LayoutBuilder(
+              builder: (context, constraints) {
+                final isWide = constraints.maxWidth >= 600;
+                final contentWidth = isWide ? 560.0 : constraints.maxWidth;
 
-            return Center(
-              child: SingleChildScrollView(
-                padding: EdgeInsets.symmetric(
-                  horizontal: isWide ? 32 : 20,
-                  vertical: 20,
-                ),
-                child: ConstrainedBox(
-                  constraints: BoxConstraints(maxWidth: contentWidth),
-                  child: Form(
-                    key: _formKey,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Center(
-                          child: GestureDetector(
-                            onTap: _onUploadImage,
-                            child: Stack(
-                              children: [
-                                CircleAvatar(
-                                  radius: 44,
-                                  backgroundColor: AppColorsManger.primarySurface,
-                                  backgroundImage: _imagePath == null
-                                      ? null
-                                      : NetworkImage(_imagePath!),
-                                  child: _imagePath == null
-                                      ? const Icon(
-                                          Icons.person_outline,
-                                          size: 44,
-                                          color: AppColorsManger.primary,
-                                        )
-                                      : null,
-                                ),
-                                Positioned(
-                                  bottom: 0,
-                                  left: 0,
-                                  child: Container(
-                                    padding: const EdgeInsets.all(4),
-                                    decoration: const BoxDecoration(
-                                      color: AppColorsManger.primary,
-                                      shape: BoxShape.circle,
-                                    ),
-                                    child: const Icon(
-                                      Icons.camera_alt_outlined,
-                                      size: 16,
-                                      color: Colors.white,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 24),
-                        Text('الاسم الأول', style: AppTextStyles.font14MediumText),
-                        const SizedBox(height: 8),
-                        AppTextFormField(
-                          controller: _firstNameController,
-                          hintText: 'أدخل الاسم الأول',
-                          textInputAction: TextInputAction.next,
-                          prefixIcon: const Icon(
-                            Icons.person_outline,
-                            color: AppColorsManger.textSecondary,
-                          ),
-                          validator: (value) => (value == null || value.trim().isEmpty)
-                              ? 'الاسم الأول مطلوب'
-                              : null,
-                        ),
-                        const SizedBox(height: 20),
-                        Text('الاسم الأخير', style: AppTextStyles.font14MediumText),
-                        const SizedBox(height: 8),
-                        AppTextFormField(
-                          controller: _lastNameController,
-                          hintText: 'أدخل الاسم الأخير',
-                          textInputAction: TextInputAction.next,
-                          prefixIcon: const Icon(
-                            Icons.person_outline,
-                            color: AppColorsManger.textSecondary,
-                          ),
-                          validator: (value) => (value == null || value.trim().isEmpty)
-                              ? 'الاسم الأخير مطلوب'
-                              : null,
-                        ),
-                        const SizedBox(height: 20),
-                        Text('الرقم الوطني', style: AppTextStyles.font14MediumText),
-                        const SizedBox(height: 8),
-                        AppTextFormField(
-                          controller: _nationalNumberController,
-                          hintText: 'أدخل الرقم الوطني (اختياري)',
-                          textInputAction: TextInputAction.next,
-                          prefixIcon: const Icon(
-                            Icons.badge_outlined,
-                            color: AppColorsManger.textSecondary,
-                          ),
-                          validator: (_) => null,
-                        ),
-                        const SizedBox(height: 20),
-                        Text('رمز الموظف', style: AppTextStyles.font14MediumText),
-                        const SizedBox(height: 8),
-                        AppTextFormField(
-                          controller: _codeController,
-                          hintText: 'أدخل رمز الموظف (اختياري)',
-                          textInputAction: TextInputAction.next,
-                          prefixIcon: const Icon(
-                            Icons.numbers_outlined,
-                            color: AppColorsManger.textSecondary,
-                          ),
-                          validator: (_) => null,
-                        ),
-                        const SizedBox(height: 20),
-                        Text('رقم الهاتف', style: AppTextStyles.font14MediumText),
-                        const SizedBox(height: 8),
-                        AppTextFormField(
-                          controller: _phoneController,
-                          hintText: 'أدخل رقم الهاتف (اختياري)',
-                          textInputAction: TextInputAction.next,
-                          prefixIcon: const Icon(
-                            Icons.phone_outlined,
-                            color: AppColorsManger.textSecondary,
-                          ),
-                          validator: (_) => null,
-                        ),
-                        const SizedBox(height: 20),
-                        Text('العنوان', style: AppTextStyles.font14MediumText),
-                        const SizedBox(height: 8),
-                        AppTextFormField(
-                          controller: _addressController,
-                          hintText: 'أدخل العنوان (اختياري)',
-                          textInputAction: TextInputAction.next,
-                          prefixIcon: const Icon(
-                            Icons.location_on_outlined,
-                            color: AppColorsManger.textSecondary,
-                          ),
-                          validator: (_) => null,
-                        ),
-                        const SizedBox(height: 20),
-                        Text('اسم البنك', style: AppTextStyles.font14MediumText),
-                        const SizedBox(height: 8),
-                        AppTextFormField(
-                          controller: _bankNameController,
-                          hintText: 'أدخل اسم البنك (اختياري)',
-                          textInputAction: TextInputAction.next,
-                          prefixIcon: const Icon(
-                            Icons.account_balance_outlined,
-                            color: AppColorsManger.textSecondary,
-                          ),
-                          validator: (_) => null,
-                        ),
-                        const SizedBox(height: 20),
-                        Text('رقم الحساب البنكي', style: AppTextStyles.font14MediumText),
-                        const SizedBox(height: 8),
-                        AppTextFormField(
-                          controller: _bankAccountNumberController,
-                          hintText: 'أدخل رقم الحساب البنكي (اختياري)',
-                          textInputAction: TextInputAction.done,
-                          prefixIcon: const Icon(
-                            Icons.credit_card_outlined,
-                            color: AppColorsManger.textSecondary,
-                          ),
-                          validator: (_) => null,
-                        ),
-                        const SizedBox(height: 20),
-                        Text('الجنس', style: AppTextStyles.font14MediumText),
-                        const SizedBox(height: 8),
-                        SegmentedButton<_Gender>(
-                          segments: const [
-                            ButtonSegment(value: _Gender.male, label: Text('ذكر')),
-                            ButtonSegment(value: _Gender.female, label: Text('أنثى')),
-                          ],
-                          selected: {_gender},
-                          onSelectionChanged: (selection) =>
-                              setState(() => _gender = selection.first),
-                        ),
-                        const SizedBox(height: 20),
-                        Text('تاريخ الميلاد', style: AppTextStyles.font14MediumText),
-                        const SizedBox(height: 8),
-                        _PickerField(
-                          hintText: 'اختر تاريخ الميلاد',
-                          icon: Icons.cake_outlined,
-                          value: _dateOfBirth == null
-                              ? null
-                              : '${_dateOfBirth!.year}-${_dateOfBirth!.month.toString().padLeft(2, '0')}-${_dateOfBirth!.day.toString().padLeft(2, '0')}',
-                          onTap: _pickDateOfBirth,
-                        ),
-                        const SizedBox(height: 20),
-                        Text('المدينة', style: AppTextStyles.font14MediumText),
-                        const SizedBox(height: 8),
-                        _DropdownField(
-                          hintText: 'اختر المدينة (اختياري)',
-                          icon: Icons.location_city_outlined,
-                          value: _cityName,
-                          options: _mockCities,
-                          onChanged: (value) => setState(() => _cityName = value),
-                        ),
-                        const SizedBox(height: 24),
-                        CustomButtonWidget(
-                          onPressed: _onSavePressed,
-                          buttonText: _isEditing ? 'حفظ التعديلات' : 'إضافة الموظف',
-                          textColor: Colors.white,
-                          backgroundColor: AppColorsManger.primary,
-                        ),
-                      ],
+                return Center(
+                  child: SingleChildScrollView(
+                    padding: EdgeInsets.symmetric(
+                      horizontal: isWide ? 32 : 20,
+                      vertical: 20,
+                    ),
+                    child: ConstrainedBox(
+                      constraints: BoxConstraints(maxWidth: contentWidth),
+                      child: EmployeeFormFields(
+                        formKey: _formKey,
+                        firstNameController: _firstNameController,
+                        lastNameController: _lastNameController,
+                        nationalNumberController: _nationalNumberController,
+                        codeController: _codeController,
+                        phoneController: _phoneController,
+                        addressController: _addressController,
+                        bankNameController: _bankNameController,
+                        bankAccountController: _bankAccountController,
+                        gender: _gender,
+                        onGenderChanged: (value) =>
+                            setState(() => _gender = value),
+                        dateOfBirth: _formatDate(_dateOfBirth),
+                        onPickDate: _pickDateOfBirth,
+                        cityId: _cityId,
+                        onCityChanged: (value) =>
+                            setState(() => _cityId = value),
+                        isSubmitting: state is EmployeeFormSubmitting,
+                        isEditing: _isEditing,
+                        onSave: _onSavePressed,
+                      ),
                     ),
                   ),
-                ),
-              ),
+                );
+              },
             );
           },
-        ),
-      ),
-    );
-  }
-}
-
-class _PickerField extends StatelessWidget {
-  const _PickerField({
-    required this.hintText,
-    required this.icon,
-    required this.value,
-    required this.onTap,
-  });
-
-  final String hintText;
-  final IconData icon;
-  final String? value;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(16),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
-        decoration: BoxDecoration(
-          color: AppColorsManger.moreLightGray,
-          borderRadius: BorderRadius.circular(16),
-        ),
-        child: Row(
-          children: [
-            Icon(icon, color: AppColorsManger.textSecondary),
-            const SizedBox(width: 12),
-            Text(
-              value ?? hintText,
-              style: value == null
-                  ? AppTextStyles.font14RegularSecondary
-                  : AppTextStyles.font14MediumText,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _DropdownField extends StatelessWidget {
-  const _DropdownField({
-    required this.hintText,
-    required this.icon,
-    required this.value,
-    required this.options,
-    required this.onChanged,
-  });
-
-  final String hintText;
-  final IconData icon;
-  final String? value;
-  final List<String> options;
-  final ValueChanged<String?> onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 20),
-      decoration: BoxDecoration(
-        color: AppColorsManger.moreLightGray,
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: DropdownButtonHideUnderline(
-        child: DropdownButtonFormField<String>(
-          initialValue: value,
-          isExpanded: true,
-          decoration: const InputDecoration(border: InputBorder.none),
-          hint: Row(
-            children: [
-              Icon(icon, color: AppColorsManger.textSecondary),
-              const SizedBox(width: 12),
-              Text(hintText, style: AppTextStyles.font14RegularSecondary),
-            ],
-          ),
-          items: options
-              .map((option) => DropdownMenuItem(value: option, child: Text(option)))
-              .toList(),
-          onChanged: onChanged,
         ),
       ),
     );

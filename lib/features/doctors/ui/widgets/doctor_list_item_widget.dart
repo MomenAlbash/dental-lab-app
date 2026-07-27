@@ -8,100 +8,87 @@ class DoctorListItemWidget extends StatelessWidget {
     required this.fullName,
     required this.phoneNumber,
     required this.clinicName,
-    required this.isActive,
     required this.onEdit,
     required this.onDelete,
+    this.onTap,
   });
 
   final String fullName;
   final String phoneNumber;
   final String clinicName;
-  final bool isActive;
   final VoidCallback onEdit;
   final VoidCallback onDelete;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: AppColorsManger.surface,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: AppColorsManger.border),
       ),
-      child: Row(
-        children: [
-          Container(
-            width: 44,
-            height: 44,
-            decoration: const BoxDecoration(
-              color: AppColorsManger.primarySurface,
-              shape: BoxShape.circle,
-            ),
-            child: const Icon(Icons.person_outline, color: AppColorsManger.primary),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+      clipBehavior: Clip.antiAlias,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Row(
               children: [
-                Row(
-                  children: [
-                    Flexible(
-                      child: Text(
-                        fullName,
+                Container(
+                  width: 44,
+                  height: 44,
+                  decoration: const BoxDecoration(
+                    color: AppColorsManger.primarySurface,
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    Icons.person_outline,
+                    color: AppColorsManger.primary,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        fullName.isEmpty ? '—' : fullName,
                         style: AppTextStyles.font16MediumText,
                         overflow: TextOverflow.ellipsis,
                       ),
-                    ),
-                    const SizedBox(width: 8),
-                    _StatusBadge(isActive: isActive),
-                  ],
+                      const SizedBox(height: 4),
+                      Text(
+                        clinicName.isEmpty ? 'بدون عيادة' : clinicName,
+                        style: AppTextStyles.font12RegularHint,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      if (phoneNumber.isNotEmpty) ...[
+                        const SizedBox(height: 4),
+                        Text(
+                          phoneNumber,
+                          style: AppTextStyles.font13MediumPrimary,
+                        ),
+                      ],
+                    ],
+                  ),
                 ),
-                const SizedBox(height: 4),
-                Text(
-                  clinicName.isEmpty ? 'بدون عيادة' : clinicName,
-                  style: AppTextStyles.font12RegularHint,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
+                IconButton(
+                  onPressed: onEdit,
+                  icon: const Icon(Icons.edit_outlined, color: AppColorsManger.textSecondary),
                 ),
-                const SizedBox(height: 4),
-                Text(phoneNumber, style: AppTextStyles.font13MediumPrimary),
+                IconButton(
+                  onPressed: onDelete,
+                  icon: const Icon(Icons.delete_outline, color: AppColorsManger.error),
+                ),
               ],
             ),
           ),
-          IconButton(
-            onPressed: onEdit,
-            icon: const Icon(Icons.edit_outlined, color: AppColorsManger.textSecondary),
-          ),
-          IconButton(
-            onPressed: onDelete,
-            icon: const Icon(Icons.delete_outline, color: AppColorsManger.error),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _StatusBadge extends StatelessWidget {
-  const _StatusBadge({required this.isActive});
-
-  final bool isActive;
-
-  @override
-  Widget build(BuildContext context) {
-    final color = isActive ? AppColorsManger.success : AppColorsManger.textHint;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Text(
-        isActive ? 'نشط' : 'موقوف',
-        style: AppTextStyles.font12RegularHint.copyWith(color: color),
+        ),
       ),
     );
   }

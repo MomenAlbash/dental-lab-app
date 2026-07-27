@@ -1,42 +1,58 @@
+import 'package:dental_lab_app/core/di/dependency_injection.dart';
 import 'package:dental_lab_app/core/theming/colors.dart';
 import 'package:dental_lab_app/core/theming/styles.dart';
-import 'package:dental_lab_app/core/widgets/custom_button_widget.dart';
-import 'package:dental_lab_app/core/widgets/custom_text_field_widget.dart';
+import 'package:dental_lab_app/core/widgets/show_toast_widget.dart';
+import 'package:dental_lab_app/features/doctors/logic/doctors/doctors_cubit.dart';
+import 'package:dental_lab_app/features/employees/logic/employees/employees_cubit.dart';
+import 'package:dental_lab_app/features/roles/logic/roles/roles_cubit.dart';
+import 'package:dental_lab_app/features/users/data/models/create_user_request_model.dart';
+import 'package:dental_lab_app/features/users/data/models/user_model.dart';
+import 'package:dental_lab_app/features/users/logic/user_form/user_form_cubit.dart';
+import 'package:dental_lab_app/features/users/logic/user_form/user_form_state.dart';
+import 'package:dental_lab_app/features/users/ui/widgets/user_form_fields.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 
-// Mock options until Roles/Employees/Doctors lookups are wired in from the API.
-const List<String> _mockRoles = ['مدير', 'موظف استقبال', 'طبيب'];
-const List<String> _mockEmployees = ['ليلى حمدان', 'عمر سلامة', 'رنا دياب'];
-const List<String> _mockDoctors = ['أحمد الخطيب', 'سارة يوسف', 'محمد حسن'];
-
-/// `UserType` (0/1 in the API) isn't documented with string labels, but the
-/// user-facing distinction is unambiguous: every account is bound to either
-/// an employee or a doctor record.
-enum _UserType { employee, doctor }
-
-/// Add-user screen — design only for now (no Cubit / API wiring yet).
-/// Per `CreateUserRequest`, `type`/`username`/`password`/`employeeId`/
-/// `doctorId` are only set at creation — editing a user only allows
-/// email/role/isAdmin/isActive (see [UserDetailPage]).
-class UserFormPage extends StatefulWidget {
+/// Add-user screen. Every account is bound to either an employee or a doctor
+/// record (`type`), given credentials and an optional role. Submission is
+/// driven by [UserFormCubit]; the role/employee/doctor pickers are fed by the
+/// standalone [RolesCubit], [EmployeesCubit] and [DoctorsCubit].
+class UserFormPage extends StatelessWidget {
   const UserFormPage({super.key});
 
   @override
-  State<UserFormPage> createState() => _UserFormPageState();
+  Widget build(BuildContext context) {
+    return MultiBlocProvider(
+      providers: [
+        BlocProvider(create: (_) => getIt<UserFormCubit>()),
+        BlocProvider(create: (_) => getIt<RolesCubit>()..getRoles()),
+        BlocProvider(create: (_) => getIt<EmployeesCubit>()..getEmployees()),
+        BlocProvider(create: (_) => getIt<DoctorsCubit>()..getDoctors()),
+      ],
+      child: const _UserFormView(),
+    );
+  }
 }
 
-class _UserFormPageState extends State<UserFormPage> {
+class _UserFormView extends StatefulWidget {
+  const _UserFormView();
+
+  @override
+  State<_UserFormView> createState() => _UserFormViewState();
+}
+
+class _UserFormViewState extends State<_UserFormView> {
   final _formKey = GlobalKey<FormState>();
   final _usernameController = TextEditingController();
   final _passwordController = TextEditingController();
   final _emailController = TextEditingController();
 
-  _UserType _userType = _UserType.employee;
+  UserType _type = UserType.employee;
   bool _isAdmin = false;
   bool _obscurePassword = true;
-  String? _roleName;
-  String? _employeeName;
-  String? _doctorName;
+  String? _roleId;
+  String? _employeeId;
+  String? _doctorId;
 
   @override
   void dispose() {
@@ -46,24 +62,35 @@ class _UserFormPageState extends State<UserFormPage> {
     super.dispose();
   }
 
-  void _onSavePressed() {
-    final isFormValid = _formKey.currentState?.validate() ?? false;
-    if (!isFormValid) return;
+  String? _optional(TextEditingController controller) {
+    final value = controller.text.trim();
+    return value.isEmpty ? null : value;
+  }
 
-    final isLinked = _userType == _UserType.employee ? _employeeName != null : _doctorName != null;
-    if (!isLinked) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            _userType == _UserType.employee ? 'الرجاء اختيار الموظف' : 'الرجاء اختيار الطبيب',
-          ),
-        ),
+  void _onSavePressed() {
+    if (!(_formKey.currentState?.validate() ?? false)) return;
+
+    final isEmployee = _type == UserType.employee;
+    final linkedId = isEmployee ? _employeeId : _doctorId;
+    if (linkedId == null) {
+      ShowToast(
+        message: isEmployee ? 'الرجاء اختيار الموظف' : 'الرجاء اختيار الطبيب',
+        state: toastState.error,
       );
       return;
     }
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('سيتم ربط إنشاء المستخدم بالـ API لاحقاً')),
+    context.read<UserFormCubit>().createUser(
+      CreateUserRequestModel(
+        type: _type.apiValue,
+        username: _usernameController.text.trim(),
+        password: _passwordController.text,
+        email: _optional(_emailController),
+        isAdmin: _isAdmin,
+        roleId: _roleId,
+        employeeId: isEmployee ? _employeeId : null,
+        doctorId: isEmployee ? null : _doctorId,
+      ),
     );
   }
 
@@ -75,209 +102,71 @@ class _UserFormPageState extends State<UserFormPage> {
         title: Text('إضافة مستخدم', style: AppTextStyles.font18MediumText),
       ),
       body: SafeArea(
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            final isWide = constraints.maxWidth >= 600;
-            final contentWidth = isWide ? 560.0 : constraints.maxWidth;
+        child: BlocConsumer<UserFormCubit, UserFormState>(
+          listener: (context, state) {
+            switch (state) {
+              case UserFormSuccess():
+                ShowToast(
+                  message: 'تمت إضافة المستخدم',
+                  state: toastState.success,
+                );
+                Navigator.of(context).pop(true);
+              case UserFormError(:final message):
+                ShowToast(message: message, state: toastState.error);
+              default:
+                break;
+            }
+          },
+          builder: (context, state) {
+            return LayoutBuilder(
+              builder: (context, constraints) {
+                final isWide = constraints.maxWidth >= 600;
+                final contentWidth = isWide ? 560.0 : constraints.maxWidth;
 
-            return Center(
-              child: SingleChildScrollView(
-                padding: EdgeInsets.symmetric(
-                  horizontal: isWide ? 32 : 20,
-                  vertical: 20,
-                ),
-                child: ConstrainedBox(
-                  constraints: BoxConstraints(maxWidth: contentWidth),
-                  child: Form(
-                    key: _formKey,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text('نوع المستخدم', style: AppTextStyles.font14MediumText),
-                        const SizedBox(height: 8),
-                        SegmentedButton<_UserType>(
-                          segments: const [
-                            ButtonSegment(value: _UserType.employee, label: Text('موظف')),
-                            ButtonSegment(value: _UserType.doctor, label: Text('طبيب')),
-                          ],
-                          selected: {_userType},
-                          onSelectionChanged: (selection) => setState(() {
-                            _userType = selection.first;
-                            _employeeName = null;
-                            _doctorName = null;
-                          }),
+                return Center(
+                  child: SingleChildScrollView(
+                    padding: EdgeInsets.symmetric(
+                      horizontal: isWide ? 32 : 20,
+                      vertical: 20,
+                    ),
+                    child: ConstrainedBox(
+                      constraints: BoxConstraints(maxWidth: contentWidth),
+                      child: UserFormFields(
+                        formKey: _formKey,
+                        type: _type,
+                        onTypeChanged: (value) => setState(() {
+                          _type = value;
+                          _employeeId = null;
+                          _doctorId = null;
+                        }),
+                        employeeId: _employeeId,
+                        onEmployeeChanged: (value) =>
+                            setState(() => _employeeId = value),
+                        doctorId: _doctorId,
+                        onDoctorChanged: (value) =>
+                            setState(() => _doctorId = value),
+                        usernameController: _usernameController,
+                        passwordController: _passwordController,
+                        emailController: _emailController,
+                        obscurePassword: _obscurePassword,
+                        onToggleObscure: () => setState(
+                          () => _obscurePassword = !_obscurePassword,
                         ),
-                        const SizedBox(height: 20),
-                        if (_userType == _UserType.employee) ...[
-                          Text('الموظف', style: AppTextStyles.font14MediumText),
-                          const SizedBox(height: 8),
-                          _DropdownField(
-                            hintText: 'اختر الموظف',
-                            icon: Icons.badge_outlined,
-                            value: _employeeName,
-                            options: _mockEmployees,
-                            onChanged: (value) => setState(() => _employeeName = value),
-                          ),
-                        ] else ...[
-                          Text('الطبيب', style: AppTextStyles.font14MediumText),
-                          const SizedBox(height: 8),
-                          _DropdownField(
-                            hintText: 'اختر الطبيب',
-                            icon: Icons.medical_services_outlined,
-                            value: _doctorName,
-                            options: _mockDoctors,
-                            onChanged: (value) => setState(() => _doctorName = value),
-                          ),
-                        ],
-                        const SizedBox(height: 20),
-                        Text('اسم المستخدم', style: AppTextStyles.font14MediumText),
-                        const SizedBox(height: 8),
-                        AppTextFormField(
-                          controller: _usernameController,
-                          hintText: 'أدخل اسم المستخدم',
-                          textInputAction: TextInputAction.next,
-                          prefixIcon: const Icon(
-                            Icons.person_outline,
-                            color: AppColorsManger.textSecondary,
-                          ),
-                          validator: (value) => (value == null || value.trim().isEmpty)
-                              ? 'اسم المستخدم مطلوب'
-                              : null,
-                        ),
-                        const SizedBox(height: 20),
-                        Text('كلمة المرور', style: AppTextStyles.font14MediumText),
-                        const SizedBox(height: 8),
-                        AppTextFormField(
-                          controller: _passwordController,
-                          hintText: 'أدخل كلمة المرور',
-                          textInputAction: TextInputAction.next,
-                          isObscureText: _obscurePassword,
-                          prefixIcon: const Icon(
-                            Icons.lock_outline,
-                            color: AppColorsManger.textSecondary,
-                          ),
-                          suffixIcon: IconButton(
-                            onPressed: () =>
-                                setState(() => _obscurePassword = !_obscurePassword),
-                            icon: Icon(
-                              _obscurePassword
-                                  ? Icons.visibility_off_outlined
-                                  : Icons.visibility_outlined,
-                              color: AppColorsManger.textSecondary,
-                            ),
-                          ),
-                          validator: (value) {
-                            if (value == null || value.isEmpty) return 'كلمة المرور مطلوبة';
-                            return value.length < 4 ? 'كلمة المرور 4 أحرف على الأقل' : null;
-                          },
-                        ),
-                        const SizedBox(height: 20),
-                        Text('البريد الإلكتروني', style: AppTextStyles.font14MediumText),
-                        const SizedBox(height: 8),
-                        AppTextFormField(
-                          controller: _emailController,
-                          hintText: 'أدخل البريد الإلكتروني (اختياري)',
-                          textInputAction: TextInputAction.next,
-                          prefixIcon: const Icon(
-                            Icons.email_outlined,
-                            color: AppColorsManger.textSecondary,
-                          ),
-                          validator: (value) {
-                            if (value == null || value.isEmpty) return null;
-                            return value.contains('@') ? null : 'بريد إلكتروني غير صالح';
-                          },
-                        ),
-                        const SizedBox(height: 20),
-                        Text('الدور', style: AppTextStyles.font14MediumText),
-                        const SizedBox(height: 8),
-                        _DropdownField(
-                          hintText: 'اختر الدور (اختياري)',
-                          icon: Icons.security_outlined,
-                          value: _roleName,
-                          options: _mockRoles,
-                          onChanged: (value) => setState(() => _roleName = value),
-                        ),
-                        const SizedBox(height: 20),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-                          decoration: BoxDecoration(
-                            color: AppColorsManger.surface,
-                            borderRadius: BorderRadius.circular(14),
-                            border: Border.all(color: AppColorsManger.border),
-                          ),
-                          child: Row(
-                            children: [
-                              Expanded(
-                                child: Text('مدير', style: AppTextStyles.font14MediumText),
-                              ),
-                              Switch(
-                                value: _isAdmin,
-                                activeThumbColor: AppColorsManger.primary,
-                                onChanged: (value) => setState(() => _isAdmin = value),
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(height: 24),
-                        CustomButtonWidget(
-                          onPressed: _onSavePressed,
-                          buttonText: 'إضافة المستخدم',
-                          textColor: Colors.white,
-                          backgroundColor: AppColorsManger.primary,
-                        ),
-                      ],
+                        roleId: _roleId,
+                        onRoleChanged: (value) =>
+                            setState(() => _roleId = value),
+                        isAdmin: _isAdmin,
+                        onAdminChanged: (value) =>
+                            setState(() => _isAdmin = value),
+                        isSubmitting: state is UserFormSubmitting,
+                        onSave: _onSavePressed,
+                      ),
                     ),
                   ),
-                ),
-              ),
+                );
+              },
             );
           },
-        ),
-      ),
-    );
-  }
-}
-
-class _DropdownField extends StatelessWidget {
-  const _DropdownField({
-    required this.hintText,
-    required this.icon,
-    required this.value,
-    required this.options,
-    required this.onChanged,
-  });
-
-  final String hintText;
-  final IconData icon;
-  final String? value;
-  final List<String> options;
-  final ValueChanged<String?> onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 20),
-      decoration: BoxDecoration(
-        color: AppColorsManger.moreLightGray,
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: DropdownButtonHideUnderline(
-        child: DropdownButtonFormField<String>(
-          initialValue: value,
-          isExpanded: true,
-          decoration: const InputDecoration(border: InputBorder.none),
-          hint: Row(
-            children: [
-              Icon(icon, color: AppColorsManger.textSecondary),
-              const SizedBox(width: 12),
-              Text(hintText, style: AppTextStyles.font14RegularSecondary),
-            ],
-          ),
-          items: options
-              .map((option) => DropdownMenuItem(value: option, child: Text(option)))
-              .toList(),
-          onChanged: onChanged,
         ),
       ),
     );

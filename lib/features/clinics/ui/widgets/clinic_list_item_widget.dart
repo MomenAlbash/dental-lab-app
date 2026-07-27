@@ -7,17 +7,17 @@ class ClinicListItemWidget extends StatelessWidget {
     super.key,
     required this.name,
     required this.address,
-    required this.doctorCount,
-    required this.isActive,
     required this.onEdit,
     required this.onDelete,
+    this.cityName,
+    this.code,
     this.onTap,
   });
 
   final String name;
   final String address;
-  final int doctorCount;
-  final bool isActive;
+  final String? cityName;
+  final String? code;
   final VoidCallback onEdit;
   final VoidCallback onDelete;
   final VoidCallback? onTap;
@@ -65,21 +65,29 @@ class ClinicListItemWidget extends StatelessWidget {
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
-                      const SizedBox(height: 6),
-                      Row(
-                        children: [
-                          _Badge(
-                            label: '$doctorCount طبيب',
-                            color: AppColorsManger.info,
-                          ),
-                          const SizedBox(width: 6),
-                          _Badge(
-                            label: isActive ? 'مفعّلة' : 'موقوفة',
-                            color:
-                                isActive ? AppColorsManger.success : AppColorsManger.textHint,
-                          ),
-                        ],
-                      ),
+                      if ((cityName != null && cityName!.isNotEmpty) ||
+                          (code != null && code!.isNotEmpty)) ...[
+                        const SizedBox(height: 6),
+                        Row(
+                          children: [
+                            if (cityName != null && cityName!.isNotEmpty)
+                              _Badge(
+                                label: cityName!,
+                                color: AppColorsManger.info,
+                              ),
+                            if (cityName != null &&
+                                cityName!.isNotEmpty &&
+                                code != null &&
+                                code!.isNotEmpty)
+                              const SizedBox(width: 6),
+                            if (code != null && code!.isNotEmpty)
+                              _Badge(
+                                label: code!,
+                                color: AppColorsManger.textHint,
+                              ),
+                          ],
+                        ),
+                      ],
                     ],
                   ),
                 ),

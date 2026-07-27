@@ -10,6 +10,16 @@ abstract class Failure{
 class ServerFailure extends Failure{
   ServerFailure(super.errorMessage);
 
+  /// [Api] wraps transport errors in a plain `Exception` whose message is the
+  /// server's own text, so unwrap it instead of showing `Exception: ...` to
+  /// the user.
+  factory ServerFailure.fromException(Object error) {
+    final message = error.toString().replaceFirst(RegExp(r'^Exception:\s*'), '');
+    return ServerFailure(
+      message.isEmpty ? 'Oops , there was an error , Please try again' : message,
+    );
+  }
+
   factory ServerFailure.FromDioExecption(DioException dioException){
     switch(dioException.type){
       case DioExceptionType.connectionTimeout:

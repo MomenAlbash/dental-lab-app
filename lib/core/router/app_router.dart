@@ -1,6 +1,11 @@
 import 'package:dental_lab_app/core/router/routes.dart';
 import 'package:dental_lab_app/features/auth/ui/login_page.dart';
+import 'package:dental_lab_app/features/case_workflow_stages/data/models/case_workflow_stage_model.dart';
 import 'package:dental_lab_app/features/case_workflow_stages/ui/case_workflow_stage_form_page.dart';
+import 'package:dental_lab_app/features/cases/ui/case_detail_page.dart';
+import 'package:dental_lab_app/features/cases/ui/case_form_page.dart';
+import 'package:dental_lab_app/features/cases/ui/cases_shell_page.dart';
+import 'package:dental_lab_app/features/clinics/data/models/clinic_model.dart';
 import 'package:dental_lab_app/features/clinics/ui/clinic_detail_page.dart';
 import 'package:dental_lab_app/features/clinics/ui/clinic_form_page.dart';
 import 'package:dental_lab_app/features/clinics/ui/clinics_list_page.dart';
@@ -8,15 +13,22 @@ import 'package:dental_lab_app/features/case_workflow_stages/ui/case_workflow_st
 import 'package:dental_lab_app/features/currencies/ui/currencies_list_page.dart';
 import 'package:dental_lab_app/features/currencies/ui/currency_detail_page.dart';
 import 'package:dental_lab_app/features/currencies/ui/currency_form_page.dart';
+import 'package:dental_lab_app/features/doctors/data/models/doctor_model.dart';
+import 'package:dental_lab_app/features/doctors/ui/doctor_detail_page.dart';
 import 'package:dental_lab_app/features/doctors/ui/doctor_form_page.dart';
 import 'package:dental_lab_app/features/doctors/ui/doctors_list_page.dart';
+import 'package:dental_lab_app/features/employees/data/models/employee_model.dart';
 import 'package:dental_lab_app/features/employees/ui/employee_detail_page.dart';
 import 'package:dental_lab_app/features/employees/ui/employee_form_page.dart';
 import 'package:dental_lab_app/features/employees/ui/employees_list_page.dart';
+import 'package:dental_lab_app/features/home/ui/main_shell_page.dart';
+import 'package:dental_lab_app/features/laboratories/data/models/laboratory_model.dart';
 import 'package:dental_lab_app/features/laboratories/ui/laboratories_list_page.dart';
+import 'package:dental_lab_app/features/laboratories/ui/laboratory_selection_page.dart';
 import 'package:dental_lab_app/features/laboratories/ui/laboratory_detail_page.dart';
 import 'package:dental_lab_app/features/laboratories/ui/laboratory_form_page.dart';
 import 'package:dental_lab_app/features/laboratories/ui/my_laboratory_page.dart';
+import 'package:dental_lab_app/features/restoration_types/data/models/restoration_type_model.dart';
 import 'package:dental_lab_app/features/restoration_types/ui/restoration_type_form_page.dart';
 import 'package:dental_lab_app/features/restoration_types/ui/restoration_types_list_page.dart';
 import 'package:dental_lab_app/features/roles/ui/role_form_page.dart';
@@ -29,11 +41,19 @@ import 'package:go_router/go_router.dart';
 /// Application router. New routes are registered here feature-by-feature.
 abstract class AppRouter {
   static final GoRouter router = GoRouter(
-    initialLocation: Routes.rolesListScreen,
+    initialLocation: Routes.loginScreen,
     routes: [
       GoRoute(
         path: Routes.loginScreen,
         builder: (context, state) => const LoginPage(),
+      ),
+      GoRoute(
+        path: Routes.homeScreen,
+        builder: (context, state) => const MainShellPage(),
+      ),
+      GoRoute(
+        path: Routes.laboratorySelectionScreen,
+        builder: (context, state) => const LaboratorySelectionPage(),
       ),
       GoRoute(
         path: Routes.rolesListScreen,
@@ -51,7 +71,25 @@ abstract class AppRouter {
       GoRoute(
         path: Routes.doctorFormScreen,
         builder: (context, state) =>
-            DoctorFormPage(initialDoctor: state.extra as Map<String, dynamic>?),
+            DoctorFormPage(initialDoctor: state.extra as DoctorModel?),
+      ),
+      GoRoute(
+        path: Routes.doctorDetailScreen,
+        builder: (context, state) =>
+            DoctorDetailPage(doctorId: state.extra as String),
+      ),
+      GoRoute(
+        path: Routes.casesShellScreen,
+        builder: (context, state) => const CasesShellPage(),
+      ),
+      GoRoute(
+        path: Routes.caseFormScreen,
+        builder: (context, state) => const CaseFormPage(),
+      ),
+      GoRoute(
+        path: Routes.caseDetailScreen,
+        builder: (context, state) =>
+            CaseDetailPage(caseId: state.extra as String),
       ),
       GoRoute(
         path: Routes.caseWorkflowStagesListScreen,
@@ -59,8 +97,9 @@ abstract class AppRouter {
       ),
       GoRoute(
         path: Routes.caseWorkflowStageFormScreen,
-        builder: (context, state) =>
-            CaseWorkflowStageFormPage(initialStage: state.extra as Map<String, dynamic>?),
+        builder: (context, state) => CaseWorkflowStageFormPage(
+          initialStage: state.extra as CaseWorkflowStageModel?,
+        ),
       ),
       GoRoute(
         path: Routes.restorationTypesListScreen,
@@ -69,7 +108,7 @@ abstract class AppRouter {
       GoRoute(
         path: Routes.restorationTypeFormScreen,
         builder: (context, state) => RestorationTypeFormPage(
-          initialRestorationType: state.extra as Map<String, dynamic>?,
+          initialRestorationType: state.extra as RestorationTypeModel?,
         ),
       ),
       GoRoute(
@@ -79,12 +118,12 @@ abstract class AppRouter {
       GoRoute(
         path: Routes.employeeFormScreen,
         builder: (context, state) =>
-            EmployeeFormPage(initialEmployee: state.extra as Map<String, dynamic>?),
+            EmployeeFormPage(initialEmployee: state.extra as EmployeeModel?),
       ),
       GoRoute(
         path: Routes.employeeDetailScreen,
         builder: (context, state) =>
-            EmployeeDetailPage(employee: state.extra as Map<String, dynamic>),
+            EmployeeDetailPage(employeeId: state.extra as String),
       ),
       GoRoute(
         path: Routes.usersListScreen,
@@ -97,7 +136,7 @@ abstract class AppRouter {
       GoRoute(
         path: Routes.userDetailScreen,
         builder: (context, state) =>
-            UserDetailPage(user: state.extra as Map<String, dynamic>),
+            UserDetailPage(userId: state.extra as String),
       ),
       GoRoute(
         path: Routes.clinicsListScreen,
@@ -106,12 +145,12 @@ abstract class AppRouter {
       GoRoute(
         path: Routes.clinicFormScreen,
         builder: (context, state) =>
-            ClinicFormPage(initialClinic: state.extra as Map<String, dynamic>?),
+            ClinicFormPage(initialClinic: state.extra as ClinicModel?),
       ),
       GoRoute(
         path: Routes.clinicDetailScreen,
         builder: (context, state) =>
-            ClinicDetailPage(clinic: state.extra as Map<String, dynamic>),
+            ClinicDetailPage(clinicId: state.extra as String),
       ),
       GoRoute(
         path: Routes.laboratoriesListScreen,
@@ -120,12 +159,12 @@ abstract class AppRouter {
       GoRoute(
         path: Routes.laboratoryFormScreen,
         builder: (context, state) =>
-            LaboratoryFormPage(initialLaboratory: state.extra as Map<String, dynamic>?),
+            LaboratoryFormPage(initialLaboratory: state.extra as LaboratoryModel?),
       ),
       GoRoute(
         path: Routes.laboratoryDetailScreen,
         builder: (context, state) =>
-            LaboratoryDetailPage(laboratory: state.extra as Map<String, dynamic>),
+            LaboratoryDetailPage(laboratoryId: state.extra as String),
       ),
       GoRoute(
         path: Routes.myLaboratoryScreen,

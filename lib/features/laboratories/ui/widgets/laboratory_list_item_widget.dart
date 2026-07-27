@@ -11,11 +11,15 @@ class LaboratoryListItemWidget extends StatelessWidget {
     required this.onTap,
     required this.onEdit,
     required this.onDelete,
+    this.isCurrent = false,
   });
 
   final String name;
   final String address;
   final bool isActive;
+
+  /// Whether this is the laboratory the session is currently scoped to.
+  final bool isCurrent;
   final VoidCallback onTap;
   final VoidCallback onEdit;
   final VoidCallback onDelete;
@@ -61,9 +65,22 @@ class LaboratoryListItemWidget extends StatelessWidget {
                         overflow: TextOverflow.ellipsis,
                       ),
                       const SizedBox(height: 6),
-                      _Badge(
-                        label: isActive ? 'مفعّل' : 'موقوف',
-                        color: isActive ? AppColorsManger.success : AppColorsManger.textHint,
+                      Row(
+                        children: [
+                          _Badge(
+                            label: isActive ? 'مفعّل' : 'موقوف',
+                            color: isActive
+                                ? AppColorsManger.success
+                                : AppColorsManger.textHint,
+                          ),
+                          if (isCurrent) ...[
+                            const SizedBox(width: 6),
+                            const _Badge(
+                              label: 'المخبر الحالي',
+                              color: AppColorsManger.primary,
+                            ),
+                          ],
+                        ],
                       ),
                     ],
                   ),

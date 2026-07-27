@@ -1,198 +1,82 @@
+import 'package:dental_lab_app/core/di/dependency_injection.dart';
 import 'package:dental_lab_app/core/router/routes.dart';
 import 'package:dental_lab_app/core/theming/colors.dart';
 import 'package:dental_lab_app/core/theming/styles.dart';
-import 'package:dental_lab_app/core/widgets/detail_info_row_widget.dart';
+import 'package:dental_lab_app/core/widgets/custom_circle_progress_indiacator_widget.dart';
+import 'package:dental_lab_app/features/clinics/logic/clinic_details/clinic_details_cubit.dart';
+import 'package:dental_lab_app/features/clinics/logic/clinic_details/clinic_details_state.dart';
+import 'package:dental_lab_app/features/clinics/ui/widgets/clinic_details_body.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
-/// Clinic detail screen — design only for now (no Cubit / API wiring yet).
-/// Mirrors `ClinicDto`: contact info, city, price tier (with its own
-/// active flag), and the doctor/patient counts.
+/// Clinic detail screen — mirrors `ClinicDto`: contact info, code, city and
+/// website.
 class ClinicDetailPage extends StatelessWidget {
-  const ClinicDetailPage({super.key, required this.clinic});
+  const ClinicDetailPage({super.key, required this.clinicId});
 
-  final Map<String, dynamic> clinic;
+  final String clinicId;
 
   @override
   Widget build(BuildContext context) {
-    final isActive = clinic['isActive'] as bool;
-    final priceTierName = clinic['priceTierName'] as String? ?? '';
+    return BlocProvider(
+      create: (_) => getIt<ClinicDetailsCubit>()..getClinicById(clinicId),
+      child: const _ClinicDetailView(),
+    );
+  }
+}
 
-    return Scaffold(
-      backgroundColor: AppColorsManger.background,
-      appBar: AppBar(
-        title: Text('تفاصيل العيادة', style: AppTextStyles.font18MediumText),
-        actions: [
-          IconButton(
-            onPressed: () => context.push(Routes.clinicFormScreen, extra: clinic),
-            icon: const Icon(Icons.edit_outlined),
-          ),
-        ],
-      ),
-      body: SafeArea(
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            final isWide = constraints.maxWidth >= 600;
-            final contentWidth = isWide ? 560.0 : constraints.maxWidth;
+class _ClinicDetailView extends StatelessWidget {
+  const _ClinicDetailView();
 
-            return Center(
-              child: SingleChildScrollView(
-                padding: EdgeInsets.symmetric(
-                  horizontal: isWide ? 32 : 20,
-                  vertical: 20,
+  @override
+  Widget build(BuildContext context) {
+    return BlocBuilder<ClinicDetailsCubit, ClinicDetailsState>(
+      builder: (context, state) {
+        final clinic = state is ClinicDetailsLoaded ? state.clinic : null;
+
+        return Scaffold(
+          backgroundColor: AppColorsManger.background,
+          appBar: AppBar(
+            title: Text('تفاصيل العيادة', style: AppTextStyles.font18MediumText),
+            actions: [
+              if (clinic != null)
+                IconButton(
+                  onPressed: () async {
+                    await context.push(
+                      Routes.clinicFormScreen,
+                      extra: clinic,
+                    );
+                    if (context.mounted) {
+                      context.read<ClinicDetailsCubit>().getClinicById(
+                        clinic.id,
+                      );
+                    }
+                  },
+                  icon: const Icon(Icons.edit_outlined),
                 ),
-                child: ConstrainedBox(
-                  constraints: BoxConstraints(maxWidth: contentWidth),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      Center(
-                        child: Column(
-                          children: [
-                            Container(
-                              width: 72,
-                              height: 72,
-                              decoration: const BoxDecoration(
-                                color: AppColorsManger.primarySurface,
-                                shape: BoxShape.circle,
-                              ),
-                              child: const Icon(
-                                Icons.local_hospital_outlined,
-                                size: 36,
-                                color: AppColorsManger.primary,
-                              ),
-                            ),
-                            const SizedBox(height: 12),
-                            Text(
-                              clinic['name'] as String,
-                              style: AppTextStyles.font20BoldText,
-                            ),
-                            const SizedBox(height: 4),
-                            _StatusBadge(isActive: isActive),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 24),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: _StatTile(
-                              icon: Icons.medical_services_outlined,
-                              label: 'الأطباء',
-                              value: '${clinic['doctorCount']}',
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: _StatTile(
-                              icon: Icons.people_outline,
-                              label: 'المرضى',
-                              value: '${clinic['patientCount'] ?? 0}',
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 24),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 16),
-                        decoration: BoxDecoration(
-                          color: AppColorsManger.surface,
-                          borderRadius: BorderRadius.circular(16),
-                          border: Border.all(color: AppColorsManger.border),
-                        ),
-                        child: Column(
-                          children: [
-                            DetailInfoRowWidget(
-                              icon: Icons.location_on_outlined,
-                              label: 'العنوان',
-                              value: clinic['address'] as String? ?? '',
-                            ),
-                            const Divider(height: 1, color: AppColorsManger.divider),
-                            DetailInfoRowWidget(
-                              icon: Icons.phone_outlined,
-                              label: 'رقم الهاتف',
-                              value: clinic['phoneNumber'] as String? ?? '',
-                            ),
-                            const Divider(height: 1, color: AppColorsManger.divider),
-                            DetailInfoRowWidget(
-                              icon: Icons.email_outlined,
-                              label: 'البريد الإلكتروني',
-                              value: clinic['email'] as String? ?? '',
-                            ),
-                            const Divider(height: 1, color: AppColorsManger.divider),
-                            DetailInfoRowWidget(
-                              icon: Icons.location_city_outlined,
-                              label: 'المدينة',
-                              value: clinic['cityName'] as String? ?? '',
-                            ),
-                            const Divider(height: 1, color: AppColorsManger.divider),
-                            DetailInfoRowWidget(
-                              icon: Icons.sell_outlined,
-                              label: 'فئة التسعير',
-                              value: priceTierName,
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
+            ],
+          ),
+          body: SafeArea(
+            child: switch (state) {
+              ClinicDetailsLoaded(:final clinic) => ClinicDetailsBody(
+                clinic: clinic,
+              ),
+              ClinicDetailsError(:final message) => Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: Text(
+                    message,
+                    textAlign: TextAlign.center,
+                    style: AppTextStyles.font14RegularSecondary,
                   ),
                 ),
               ),
-            );
-          },
-        ),
-      ),
-    );
-  }
-}
-
-class _StatusBadge extends StatelessWidget {
-  const _StatusBadge({required this.isActive});
-
-  final bool isActive;
-
-  @override
-  Widget build(BuildContext context) {
-    final color = isActive ? AppColorsManger.success : AppColorsManger.textHint;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Text(
-        isActive ? 'مفعّلة' : 'موقوفة',
-        style: AppTextStyles.font12RegularHint.copyWith(color: color),
-      ),
-    );
-  }
-}
-
-class _StatTile extends StatelessWidget {
-  const _StatTile({required this.icon, required this.label, required this.value});
-
-  final IconData icon;
-  final String label;
-  final String value;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: AppColorsManger.surface,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColorsManger.border),
-      ),
-      child: Column(
-        children: [
-          Icon(icon, color: AppColorsManger.primary),
-          const SizedBox(height: 8),
-          Text(value, style: AppTextStyles.font20BoldText),
-          const SizedBox(height: 2),
-          Text(label, style: AppTextStyles.font12RegularHint),
-        ],
-      ),
+              _ => const Center(child: CustomCircleProgressIndiacatorWidget()),
+            },
+          ),
+        );
+      },
     );
   }
 }

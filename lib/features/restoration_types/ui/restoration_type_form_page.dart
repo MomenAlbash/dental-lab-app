@@ -1,51 +1,68 @@
+import 'package:dental_lab_app/core/di/dependency_injection.dart';
 import 'package:dental_lab_app/core/theming/colors.dart';
 import 'package:dental_lab_app/core/theming/styles.dart';
-import 'package:dental_lab_app/core/widgets/custom_button_widget.dart';
-import 'package:dental_lab_app/core/widgets/custom_text_field_widget.dart';
+import 'package:dental_lab_app/core/widgets/show_toast_widget.dart';
+import 'package:dental_lab_app/features/restoration_types/data/models/create_restoration_type_request_model.dart';
+import 'package:dental_lab_app/features/restoration_types/data/models/restoration_type_model.dart';
+import 'package:dental_lab_app/features/restoration_types/data/models/update_restoration_type_request_model.dart';
+import 'package:dental_lab_app/features/restoration_types/logic/restoration_type_form/restoration_type_form_cubit.dart';
+import 'package:dental_lab_app/features/restoration_types/logic/restoration_type_form/restoration_type_form_state.dart';
+import 'package:dental_lab_app/features/restoration_types/ui/widgets/restoration_type_form_fields.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 
-/// The API's `PricingType` enum (1..3) isn't documented with string labels
-/// yet, so it's shown by number until the backend publishes names.
-const List<int> _pricingTypes = [1, 2, 3];
-
-/// Add/edit restoration-type screen — design only for now (no Cubit / API
-/// wiring yet). Pass [initialRestorationType] to open in edit mode.
-class RestorationTypeFormPage extends StatefulWidget {
+/// Add/edit restoration-type screen. Pass [initialRestorationType] to edit.
+class RestorationTypeFormPage extends StatelessWidget {
   const RestorationTypeFormPage({super.key, this.initialRestorationType});
 
-  final Map<String, dynamic>? initialRestorationType;
+  final RestorationTypeModel? initialRestorationType;
 
   @override
-  State<RestorationTypeFormPage> createState() =>
-      _RestorationTypeFormPageState();
+  Widget build(BuildContext context) {
+    return BlocProvider(
+      create: (_) => getIt<RestorationTypeFormCubit>(),
+      child: _RestorationTypeFormView(
+        initialRestorationType: initialRestorationType,
+      ),
+    );
+  }
 }
 
-class _RestorationTypeFormPageState extends State<RestorationTypeFormPage> {
+class _RestorationTypeFormView extends StatefulWidget {
+  const _RestorationTypeFormView({this.initialRestorationType});
+
+  final RestorationTypeModel? initialRestorationType;
+
+  @override
+  State<_RestorationTypeFormView> createState() =>
+      _RestorationTypeFormViewState();
+}
+
+class _RestorationTypeFormViewState extends State<_RestorationTypeFormView> {
   final _formKey = GlobalKey<FormState>();
   late final _nameController = TextEditingController(
-    text: widget.initialRestorationType?['name'] as String? ?? '',
+    text: widget.initialRestorationType?.name ?? '',
   );
   late final _nameArController = TextEditingController(
-    text: widget.initialRestorationType?['nameAr'] as String? ?? '',
+    text: widget.initialRestorationType?.nameAr ?? '',
   );
   late final _descriptionController = TextEditingController(
-    text: widget.initialRestorationType?['description'] as String? ?? '',
-  );
-  late final _transparencyController = TextEditingController(
-    text: widget.initialRestorationType?['transparency']?.toString() ?? '',
+    text: widget.initialRestorationType?.description ?? '',
   );
   late final _defaultPriceController = TextEditingController(
-    text: widget.initialRestorationType?['defaultPrice']?.toString() ?? '',
+    text: widget.initialRestorationType?.defaultPrice.toString() ?? '',
+  );
+  late final _transparencyController = TextEditingController(
+    text: widget.initialRestorationType?.transparency?.toString() ?? '',
   );
   late final _displayOrderController = TextEditingController(
-    text: widget.initialRestorationType?['displayOrder']?.toString() ?? '',
+    text: widget.initialRestorationType?.displayOrder?.toString() ?? '',
   );
 
-  int? _pricingType = _pricingTypes.first;
+  late int _pricingType = widget.initialRestorationType?.pricingType ?? 1;
   late bool _showInClinicApp =
-      widget.initialRestorationType?['showInClinicApp'] as bool? ?? true;
-  late bool _isActive =
-      widget.initialRestorationType?['isActive'] as bool? ?? true;
+      widget.initialRestorationType?.showInClinicApp ?? true;
+  late bool _isActive = widget.initialRestorationType?.isActive ?? true;
 
   bool get _isEditing => widget.initialRestorationType != null;
 
@@ -54,16 +71,61 @@ class _RestorationTypeFormPageState extends State<RestorationTypeFormPage> {
     _nameController.dispose();
     _nameArController.dispose();
     _descriptionController.dispose();
-    _transparencyController.dispose();
     _defaultPriceController.dispose();
+    _transparencyController.dispose();
     _displayOrderController.dispose();
     super.dispose();
   }
 
+  String? _optional(TextEditingController controller) {
+    final value = controller.text.trim();
+    return value.isEmpty ? null : value;
+  }
+
+  double? _optionalDouble(TextEditingController controller) {
+    final value = controller.text.trim();
+    return value.isEmpty ? null : double.tryParse(value);
+  }
+
+  int? _optionalInt(TextEditingController controller) {
+    final value = controller.text.trim();
+    return value.isEmpty ? null : int.tryParse(value);
+  }
+
   void _onSavePressed() {
-    if (_formKey.currentState?.validate() ?? false) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('سيتم ربط حفظ التعويض بالـ API لاحقاً')),
+    if (!(_formKey.currentState?.validate() ?? false)) return;
+
+    final cubit = context.read<RestorationTypeFormCubit>();
+    final defaultPrice =
+        double.tryParse(_defaultPriceController.text.trim()) ?? 0;
+
+    if (_isEditing) {
+      cubit.updateRestorationType(
+        id: widget.initialRestorationType!.id,
+        updateRequestBody: UpdateRestorationTypeRequestModel(
+          name: _nameController.text.trim(),
+          nameAr: _optional(_nameArController),
+          description: _optional(_descriptionController),
+          transparency: _optionalDouble(_transparencyController),
+          defaultPrice: defaultPrice,
+          pricingType: _pricingType,
+          showInClinicApp: _showInClinicApp,
+          isActive: _isActive,
+          displayOrder: _optionalInt(_displayOrderController),
+        ),
+      );
+    } else {
+      cubit.createRestorationType(
+        CreateRestorationTypeRequestModel(
+          name: _nameController.text.trim(),
+          nameAr: _optional(_nameArController),
+          description: _optional(_descriptionController),
+          transparency: _optionalDouble(_transparencyController),
+          defaultPrice: defaultPrice,
+          pricingType: _pricingType,
+          showInClinicApp: _showInClinicApp,
+          displayOrder: _optionalInt(_displayOrderController),
+        ),
       );
     }
   }
@@ -79,220 +141,63 @@ class _RestorationTypeFormPageState extends State<RestorationTypeFormPage> {
         ),
       ),
       body: SafeArea(
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            final isWide = constraints.maxWidth >= 600;
-            final contentWidth = isWide ? 560.0 : constraints.maxWidth;
+        child: BlocConsumer<RestorationTypeFormCubit, RestorationTypeFormState>(
+          listener: (context, state) {
+            switch (state) {
+              case RestorationTypeFormSuccess():
+                ShowToast(
+                  message: _isEditing ? 'تم حفظ التعديلات' : 'تمت إضافة التعويض',
+                  state: toastState.success,
+                );
+                Navigator.of(context).pop(true);
+              case RestorationTypeFormError(:final message):
+                ShowToast(message: message, state: toastState.error);
+              default:
+                break;
+            }
+          },
+          builder: (context, state) {
+            return LayoutBuilder(
+              builder: (context, constraints) {
+                final isWide = constraints.maxWidth >= 600;
+                final contentWidth = isWide ? 560.0 : constraints.maxWidth;
 
-            return Center(
-              child: SingleChildScrollView(
-                padding: EdgeInsets.symmetric(
-                  horizontal: isWide ? 32 : 20,
-                  vertical: 20,
-                ),
-                child: ConstrainedBox(
-                  constraints: BoxConstraints(maxWidth: contentWidth),
-                  child: Form(
-                    key: _formKey,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text('الاسم', style: AppTextStyles.font14MediumText),
-                        const SizedBox(height: 8),
-                        AppTextFormField(
-                          controller: _nameController,
-                          hintText: 'أدخل اسم التعويض',
-                          textInputAction: TextInputAction.next,
-                          prefixIcon: const Icon(
-                            Icons.category_outlined,
-                            color: AppColorsManger.textSecondary,
-                          ),
-                          validator: (value) =>
-                              (value == null || value.trim().isEmpty)
-                              ? 'الاسم مطلوب'
-                              : null,
-                        ),
-                        const SizedBox(height: 20),
-                        Text(
-                          'الاسم بالعربية',
-                          style: AppTextStyles.font14MediumText,
-                        ),
-                        const SizedBox(height: 8),
-                        AppTextFormField(
-                          controller: _nameArController,
-                          hintText: 'أدخل الاسم بالعربية (اختياري)',
-                          textInputAction: TextInputAction.next,
-                          prefixIcon: const Icon(
-                            Icons.translate_outlined,
-                            color: AppColorsManger.textSecondary,
-                          ),
-                          validator: (_) => null,
-                        ),
-                        const SizedBox(height: 20),
-                        Text('الوصف', style: AppTextStyles.font14MediumText),
-                        const SizedBox(height: 8),
-                        AppTextFormField(
-                          controller: _descriptionController,
-                          hintText: 'أدخل وصف التعويض (اختياري)',
-                          textInputAction: TextInputAction.next,
-                          prefixIcon: const Icon(
-                            Icons.notes_outlined,
-                            color: AppColorsManger.textSecondary,
-                          ),
-                          validator: (_) => null,
-                        ),
-                        const SizedBox(height: 20),
-                        Text(
-                          'السعر الافتراضي',
-                          style: AppTextStyles.font14MediumText,
-                        ),
-                        const SizedBox(height: 8),
-                        AppTextFormField(
-                          controller: _defaultPriceController,
-                          hintText: 'أدخل السعر الافتراضي',
-                          textInputAction: TextInputAction.next,
-                          prefixIcon: const Icon(
-                            Icons.attach_money_outlined,
-                            color: AppColorsManger.textSecondary,
-                          ),
-                          validator: (value) {
-                            if (value == null || value.trim().isEmpty) {
-                              return 'السعر الافتراضي مطلوب';
-                            }
-                            return double.tryParse(value) == null
-                                ? 'الرجاء إدخال رقم صحيح'
-                                : null;
-                          },
-                        ),
-                        const SizedBox(height: 20),
-                        Text(
-                          'نسبة الشفافية',
-                          style: AppTextStyles.font14MediumText,
-                        ),
-                        const SizedBox(height: 8),
-                        AppTextFormField(
-                          controller: _transparencyController,
-                          hintText: 'أدخل نسبة الشفافية (اختياري)',
-                          textInputAction: TextInputAction.next,
-                          prefixIcon: const Icon(
-                            Icons.opacity_outlined,
-                            color: AppColorsManger.textSecondary,
-                          ),
-                          validator: (value) {
-                            if (value == null || value.isEmpty) return null;
-                            return double.tryParse(value) == null
-                                ? 'الرجاء إدخال رقم صحيح'
-                                : null;
-                          },
-                        ),
-                        const SizedBox(height: 20),
-                        Text(
-                          'ترتيب العرض',
-                          style: AppTextStyles.font14MediumText,
-                        ),
-                        const SizedBox(height: 8),
-                        AppTextFormField(
-                          controller: _displayOrderController,
-                          hintText: 'أدخل ترتيب العرض (اختياري)',
-                          textInputAction: TextInputAction.done,
-                          prefixIcon: const Icon(
-                            Icons.format_list_numbered,
-                            color: AppColorsManger.textSecondary,
-                          ),
-                          validator: (value) {
-                            if (value == null || value.isEmpty) return null;
-                            return int.tryParse(value) == null
-                                ? 'الرجاء إدخال رقم صحيح'
-                                : null;
-                          },
-                        ),
-                        const SizedBox(height: 20),
-                        Text(
-                          'نوع التسعير',
-                          style: AppTextStyles.font14MediumText,
-                        ),
-                        const SizedBox(height: 8),
-                        SegmentedButton<int>(
-                          segments: _pricingTypes
-                              .map(
-                                (type) => ButtonSegment(
-                                  value: type,
-                                  label: Text('نوع $type'),
-                                ),
-                              )
-                              .toList(),
-                          selected: {_pricingType!},
-                          onSelectionChanged: (selection) =>
-                              setState(() => _pricingType = selection.first),
-                        ),
-                        const SizedBox(height: 20),
-                        _SwitchTile(
-                          label: 'إظهار في تطبيق العيادات',
-                          value: _showInClinicApp,
-                          onChanged: (value) =>
-                              setState(() => _showInClinicApp = value),
-                        ),
-                        if (_isEditing) ...[
-                          const SizedBox(height: 12),
-                          _SwitchTile(
-                            label: 'مفعّل',
-                            value: _isActive,
-                            onChanged: (value) =>
-                                setState(() => _isActive = value),
-                          ),
-                        ],
-                        const SizedBox(height: 24),
-                        CustomButtonWidget(
-                          onPressed: _onSavePressed,
-                          buttonText: _isEditing
-                              ? 'حفظ التعديلات'
-                              : 'إضافة التعويض',
-                          textColor: Colors.white,
-                          backgroundColor: AppColorsManger.primary,
-                        ),
-                      ],
+                return Center(
+                  child: SingleChildScrollView(
+                    padding: EdgeInsets.symmetric(
+                      horizontal: isWide ? 32 : 20,
+                      vertical: 20,
+                    ),
+                    child: ConstrainedBox(
+                      constraints: BoxConstraints(maxWidth: contentWidth),
+                      child: RestorationTypeFormFields(
+                        formKey: _formKey,
+                        nameController: _nameController,
+                        nameArController: _nameArController,
+                        descriptionController: _descriptionController,
+                        defaultPriceController: _defaultPriceController,
+                        transparencyController: _transparencyController,
+                        displayOrderController: _displayOrderController,
+                        pricingType: _pricingType,
+                        onPricingTypeChanged: (value) =>
+                            setState(() => _pricingType = value),
+                        showInClinicApp: _showInClinicApp,
+                        onShowInClinicAppChanged: (value) =>
+                            setState(() => _showInClinicApp = value),
+                        isEditing: _isEditing,
+                        isActive: _isActive,
+                        onActiveChanged: (value) =>
+                            setState(() => _isActive = value),
+                        isSubmitting: state is RestorationTypeFormSubmitting,
+                        onSave: _onSavePressed,
+                      ),
                     ),
                   ),
-                ),
-              ),
+                );
+              },
             );
           },
         ),
-      ),
-    );
-  }
-}
-
-class _SwitchTile extends StatelessWidget {
-  const _SwitchTile({
-    required this.label,
-    required this.value,
-    required this.onChanged,
-  });
-
-  final String label;
-  final bool value;
-  final ValueChanged<bool> onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-      decoration: BoxDecoration(
-        color: AppColorsManger.surface,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: AppColorsManger.border),
-      ),
-      child: Row(
-        children: [
-          Expanded(child: Text(label, style: AppTextStyles.font14MediumText)),
-          Switch(
-            value: value,
-            activeThumbColor: AppColorsManger.primary,
-            onChanged: onChanged,
-          ),
-        ],
       ),
     );
   }

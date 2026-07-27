@@ -1,59 +1,52 @@
+import 'package:dental_lab_app/core/di/dependency_injection.dart';
 import 'package:dental_lab_app/core/router/routes.dart';
 import 'package:dental_lab_app/core/theming/colors.dart';
 import 'package:dental_lab_app/core/theming/styles.dart';
 import 'package:dental_lab_app/core/widgets/app_drawer_widget.dart';
 import 'package:dental_lab_app/core/widgets/confirm_dialog_widget.dart';
+import 'package:dental_lab_app/core/widgets/custom_circle_progress_indiacator_widget.dart';
+import 'package:dental_lab_app/core/widgets/show_toast_widget.dart';
+import 'package:dental_lab_app/features/laboratories/data/models/laboratory_model.dart';
+import 'package:dental_lab_app/features/laboratories/logic/laboratories/laboratories_cubit.dart';
+import 'package:dental_lab_app/features/laboratories/logic/laboratories/laboratories_state.dart';
 import 'package:dental_lab_app/features/laboratories/ui/widgets/laboratory_list_item_widget.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
-/// Laboratories list screen — design only for now (no Cubit / API wiring
-/// yet). An admin owns one lab by default (see "مختبري") but can create and
-/// switch into operating as a different lab, per `/api/clinic/Laboratories`.
-class LaboratoriesListPage extends StatefulWidget {
+/// An admin owns one lab by default (see "مختبري") but can create and switch
+/// into operating as a different one, per `/api/clinic/Laboratories`.
+class LaboratoriesListPage extends StatelessWidget {
   const LaboratoriesListPage({super.key});
 
   @override
-  State<LaboratoriesListPage> createState() => _LaboratoriesListPageState();
+  Widget build(BuildContext context) {
+    return BlocProvider(
+      create: (_) => getIt<LaboratoriesCubit>()..getLaboratories(),
+      child: const _LaboratoriesListView(),
+    );
+  }
 }
 
-class _LaboratoriesListPageState extends State<LaboratoriesListPage> {
-  // Placeholder data until the laboratories Cubit/repository are wired in.
-  final List<Map<String, dynamic>> _laboratories = [
-    {
-      'name': 'مخبر الابتسامة الذهبية',
-      'address': 'المزة، دمشق',
-      'phoneNumber': '0112223344',
-      'isActive': true,
-      'userCount': 5,
-      'doctorCount': 8,
-      'caseCount': 142,
-    },
-    {
-      'name': 'مخبر الشام للأسنان',
-      'address': 'الميدان، دمشق',
-      'phoneNumber': '0119998877',
-      'isActive': true,
-      'userCount': 2,
-      'doctorCount': 3,
-      'caseCount': 37,
-    },
-  ];
+class _LaboratoriesListView extends StatelessWidget {
+  const _LaboratoriesListView();
 
-  Future<void> _confirmDelete(Map<String, dynamic> laboratory) async {
+  Future<void> _confirmDelete(
+    BuildContext context,
+    LaboratoryModel laboratory,
+  ) async {
+    final cubit = context.read<LaboratoriesCubit>();
+
     final confirmed = await ConfirmDialogWidget.show(
       context,
       title: 'حذف المخبر',
-      message: 'هل أنت متأكد من حذف مخبر "${laboratory['name']}"؟',
+      message: 'هل أنت متأكد من حذف مخبر "${laboratory.name ?? ''}"؟',
       confirmText: 'حذف',
       isDestructive: true,
     );
 
-    if (confirmed == true && mounted) {
-      setState(() => _laboratories.remove(laboratory));
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('سيتم ربط الحذف بالـ API لاحقاً')),
-      );
+    if (confirmed == true) {
+      await cubit.deleteLaboratory(laboratory.id);
     }
   }
 
@@ -62,52 +55,131 @@ class _LaboratoriesListPageState extends State<LaboratoriesListPage> {
     return Scaffold(
       backgroundColor: AppColorsManger.background,
       drawer: const AppDrawerWidget(currentRoute: Routes.laboratoriesListScreen),
-      appBar: AppBar(title: Text('المخابر', style: AppTextStyles.font18MediumText)),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () => context.push(Routes.laboratoryFormScreen),
-        backgroundColor: AppColorsManger.primary,
-        child: const Icon(Icons.add, color: Colors.white),
+      appBar: AppBar(
+        title: Text('المخابر', style: AppTextStyles.font18MediumText),
+      ),
+      floatingActionButton: Builder(
+        builder: (context) => FloatingActionButton(
+          onPressed: () async {
+            await context.push(Routes.laboratoryFormScreen);
+            if (context.mounted) {
+              context.read<LaboratoriesCubit>().getLaboratories();
+            }
+          },
+          backgroundColor: AppColorsManger.primary,
+          child: const Icon(Icons.add, color: Colors.white),
+        ),
       ),
       body: SafeArea(
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            final isWide = constraints.maxWidth >= 600;
-            final contentWidth = isWide ? 700.0 : constraints.maxWidth;
-
-            if (_laboratories.isEmpty) {
-              return Center(
-                child: Text('لا يوجد مخابر بعد', style: AppTextStyles.font14RegularSecondary),
-              );
+        child: BlocConsumer<LaboratoriesCubit, LaboratoriesState>(
+          listener: (context, state) {
+            switch (state) {
+              case LaboratoryDeleted():
+                ShowToast(message: 'تم حذف المخبر', state: toastState.success);
+              case LaboratoryDeleteError(:final message):
+                ShowToast(message: message, state: toastState.error);
+              default:
+                break;
             }
-
-            return Center(
-              child: ConstrainedBox(
-                constraints: BoxConstraints(maxWidth: contentWidth),
-                child: ListView.builder(
-                  padding: EdgeInsets.symmetric(
-                    horizontal: isWide ? 32 : 16,
-                    vertical: 16,
+          },
+          buildWhen: (previous, current) =>
+              current is! LaboratoryDeleted &&
+              current is! LaboratoryDeleteError,
+          builder: (context, state) {
+            return switch (state) {
+              LaboratoriesLoaded(:final laboratories) =>
+                laboratories.isEmpty
+                    ? Center(
+                        child: Text(
+                          'لا يوجد مخابر بعد',
+                          style: AppTextStyles.font14RegularSecondary,
+                        ),
+                      )
+                    : _LaboratoriesList(
+                        laboratories: laboratories,
+                        activeLaboratoryId: context
+                            .read<LaboratoriesCubit>()
+                            .activeLaboratoryId,
+                        onDelete: (laboratory) =>
+                            _confirmDelete(context, laboratory),
+                      ),
+              LaboratoriesError(:final message) => Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: Text(
+                    message,
+                    textAlign: TextAlign.center,
+                    style: AppTextStyles.font14RegularSecondary,
                   ),
-                  itemCount: _laboratories.length,
-                  itemBuilder: (context, index) {
-                    final laboratory = _laboratories[index];
-                    return LaboratoryListItemWidget(
-                      name: laboratory['name'] as String,
-                      address: laboratory['address'] as String,
-                      isActive: laboratory['isActive'] as bool,
-                      onTap: () =>
-                          context.push(Routes.laboratoryDetailScreen, extra: laboratory),
-                      onEdit: () =>
-                          context.push(Routes.laboratoryFormScreen, extra: laboratory),
-                      onDelete: () => _confirmDelete(laboratory),
-                    );
-                  },
                 ),
               ),
-            );
+              _ => const Center(child: CustomCircleProgressIndiacatorWidget()),
+            };
           },
         ),
       ),
+    );
+  }
+}
+
+class _LaboratoriesList extends StatelessWidget {
+  const _LaboratoriesList({
+    required this.laboratories,
+    required this.activeLaboratoryId,
+    required this.onDelete,
+  });
+
+  final List<LaboratoryModel> laboratories;
+  final String? activeLaboratoryId;
+  final ValueChanged<LaboratoryModel> onDelete;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isWide = constraints.maxWidth >= 600;
+        final contentWidth = isWide ? 700.0 : constraints.maxWidth;
+
+        return Center(
+          child: ConstrainedBox(
+            constraints: BoxConstraints(maxWidth: contentWidth),
+            child: RefreshIndicator(
+              onRefresh: () =>
+                  context.read<LaboratoriesCubit>().getLaboratories(),
+              child: ListView.builder(
+                padding: EdgeInsets.symmetric(
+                  horizontal: isWide ? 32 : 16,
+                  vertical: 16,
+                ),
+                itemCount: laboratories.length,
+                itemBuilder: (context, index) {
+                  final laboratory = laboratories[index];
+                  return LaboratoryListItemWidget(
+                    name: laboratory.name ?? '—',
+                    address: laboratory.address ?? '',
+                    isActive: laboratory.isActive,
+                    isCurrent: laboratory.id == activeLaboratoryId,
+                    onTap: () => context.push(
+                      Routes.laboratoryDetailScreen,
+                      extra: laboratory.id,
+                    ),
+                    onEdit: () async {
+                      await context.push(
+                        Routes.laboratoryFormScreen,
+                        extra: laboratory,
+                      );
+                      if (context.mounted) {
+                        context.read<LaboratoriesCubit>().getLaboratories();
+                      }
+                    },
+                    onDelete: () => onDelete(laboratory),
+                  );
+                },
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 }

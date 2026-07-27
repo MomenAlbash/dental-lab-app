@@ -1,75 +1,39 @@
+import 'package:dental_lab_app/core/di/dependency_injection.dart';
 import 'package:dental_lab_app/core/router/routes.dart';
 import 'package:dental_lab_app/core/theming/colors.dart';
 import 'package:dental_lab_app/core/theming/styles.dart';
 import 'package:dental_lab_app/core/widgets/app_drawer_widget.dart';
 import 'package:dental_lab_app/core/widgets/confirm_dialog_widget.dart';
-import 'package:dental_lab_app/core/widgets/custom_text_field_widget.dart';
-import 'package:dental_lab_app/features/employees/ui/widgets/employee_list_item_widget.dart';
+import 'package:dental_lab_app/core/widgets/custom_circle_progress_indiacator_widget.dart';
+import 'package:dental_lab_app/core/widgets/show_toast_widget.dart';
+import 'package:dental_lab_app/features/employees/data/models/employee_model.dart';
+import 'package:dental_lab_app/features/employees/logic/employees/employees_cubit.dart';
+import 'package:dental_lab_app/features/employees/logic/employees/employees_state.dart';
+import 'package:dental_lab_app/features/employees/ui/widgets/employees_list_view.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
-/// Employees list screen — design only for now (no Cubit / API wiring yet).
-/// Supports filtering the list by name (mirrors the API's `search` query
-/// param, applied locally for now).
-class EmployeesListPage extends StatefulWidget {
+class EmployeesListPage extends StatelessWidget {
   const EmployeesListPage({super.key});
 
   @override
-  State<EmployeesListPage> createState() => _EmployeesListPageState();
+  Widget build(BuildContext context) {
+    return BlocProvider(
+      create: (_) => getIt<EmployeesCubit>()..getEmployees(),
+      child: const _EmployeesListView(),
+    );
+  }
 }
 
-class _EmployeesListPageState extends State<EmployeesListPage> {
-  // Placeholder data until the employees Cubit/repository are wired in.
-  final List<Map<String, dynamic>> _employees = [
-    {
-      'firstName': 'ليلى',
-      'lastName': 'حمدان',
-      'code': 'EMP-001',
-      'nationalNumber': '01234567890',
-      'gender': 'أنثى',
-      'dateOfBirth': '1995-03-12',
-      'cityName': 'دمشق',
-      'phoneNumber': '0991112233',
-      'address': 'المزة، دمشق',
-      'bankName': 'بنك سورية والمهجر',
-      'bankAccountNumber': '123456789',
-      'imagePath': null,
-      'files': <Map<String, String>>[
-        {'fileName': 'الهوية الشخصية.pdf'},
-      ],
-    },
-    {
-      'firstName': 'عمر',
-      'lastName': 'سلامة',
-      'code': 'EMP-002',
-      'nationalNumber': '09876543210',
-      'gender': 'ذكر',
-      'dateOfBirth': '1990-07-25',
-      'cityName': 'حلب',
-      'phoneNumber': '0994445566',
-      'address': 'الفرقان، حلب',
-      'bankName': '',
-      'bankAccountNumber': '',
-      'imagePath': null,
-      'files': <Map<String, String>>[],
-    },
-    {
-      'firstName': 'رنا',
-      'lastName': 'دياب',
-      'code': '',
-      'nationalNumber': '',
-      'gender': 'أنثى',
-      'dateOfBirth': '1998-11-02',
-      'cityName': '',
-      'phoneNumber': '0997778899',
-      'address': '',
-      'bankName': '',
-      'bankAccountNumber': '',
-      'imagePath': null,
-      'files': <Map<String, String>>[],
-    },
-  ];
+class _EmployeesListView extends StatefulWidget {
+  const _EmployeesListView();
 
+  @override
+  State<_EmployeesListView> createState() => _EmployeesListViewState();
+}
+
+class _EmployeesListViewState extends State<_EmployeesListView> {
   final _searchController = TextEditingController();
   String _searchQuery = '';
 
@@ -87,29 +51,27 @@ class _EmployeesListPageState extends State<EmployeesListPage> {
     super.dispose();
   }
 
-  List<Map<String, dynamic>> get _filteredEmployees {
-    if (_searchQuery.isEmpty) return _employees;
+  List<EmployeeModel> _filter(List<EmployeeModel> employees) {
+    if (_searchQuery.isEmpty) return employees;
     final query = _searchQuery.toLowerCase();
-    return _employees.where((employee) {
-      final fullName = '${employee['firstName']} ${employee['lastName']}'.toLowerCase();
-      return fullName.contains(query);
-    }).toList();
+    return employees
+        .where((employee) => employee.fullName.toLowerCase().contains(query))
+        .toList();
   }
 
-  Future<void> _confirmDelete(Map<String, dynamic> employee) async {
+  Future<void> _confirmDelete(EmployeeModel employee) async {
+    final cubit = context.read<EmployeesCubit>();
+
     final confirmed = await ConfirmDialogWidget.show(
       context,
       title: 'حذف الموظف',
-      message: 'هل أنت متأكد من حذف الموظف "${employee['firstName']} ${employee['lastName']}"؟',
+      message: 'هل أنت متأكد من حذف الموظف "${employee.fullName}"؟',
       confirmText: 'حذف',
       isDestructive: true,
     );
 
-    if (confirmed == true && mounted) {
-      setState(() => _employees.remove(employee));
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('سيتم ربط الحذف بالـ API لاحقاً')),
-      );
+    if (confirmed == true) {
+      await cubit.deleteEmployee(employee.id);
     }
   }
 
@@ -119,84 +81,52 @@ class _EmployeesListPageState extends State<EmployeesListPage> {
       backgroundColor: AppColorsManger.background,
       drawer: const AppDrawerWidget(currentRoute: Routes.employeesListScreen),
       appBar: AppBar(title: Text('الموظفين', style: AppTextStyles.font18MediumText)),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () => context.push(Routes.employeeFormScreen),
-        backgroundColor: AppColorsManger.primary,
-        child: const Icon(Icons.add, color: Colors.white),
+      floatingActionButton: Builder(
+        builder: (context) => FloatingActionButton(
+          onPressed: () async {
+            await context.push(Routes.employeeFormScreen);
+            if (context.mounted) {
+              context.read<EmployeesCubit>().getEmployees();
+            }
+          },
+          backgroundColor: AppColorsManger.primary,
+          child: const Icon(Icons.add, color: Colors.white),
+        ),
       ),
       body: SafeArea(
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            final isWide = constraints.maxWidth >= 600;
-            final contentWidth = isWide ? 700.0 : constraints.maxWidth;
-            final employees = _filteredEmployees;
-
-            return Center(
-              child: ConstrainedBox(
-                constraints: BoxConstraints(maxWidth: contentWidth),
-                child: Column(
-                  children: [
-                    Padding(
-                      padding: EdgeInsets.symmetric(
-                        horizontal: isWide ? 32 : 16,
-                        vertical: 16,
-                      ),
-                      child: AppTextFormField(
-                        controller: _searchController,
-                        hintText: 'ابحث بالاسم...',
-                        prefixIcon: const Icon(
-                          Icons.search,
-                          color: AppColorsManger.textSecondary,
-                        ),
-                        suffixIcon: _searchQuery.isEmpty
-                            ? null
-                            : IconButton(
-                                onPressed: () => _searchController.clear(),
-                                icon: const Icon(
-                                  Icons.close,
-                                  color: AppColorsManger.textSecondary,
-                                ),
-                              ),
-                        validator: (_) => null,
-                      ),
-                    ),
-                    Expanded(
-                      child: employees.isEmpty
-                          ? Center(
-                              child: Text(
-                                _searchQuery.isEmpty ? 'لا يوجد موظفين بعد' : 'لا توجد نتائج',
-                                style: AppTextStyles.font14RegularSecondary,
-                              ),
-                            )
-                          : ListView.builder(
-                              padding: EdgeInsets.symmetric(
-                                horizontal: isWide ? 32 : 16,
-                              ),
-                              itemCount: employees.length,
-                              itemBuilder: (context, index) {
-                                final employee = employees[index];
-                                return EmployeeListItemWidget(
-                                  fullName:
-                                      '${employee['firstName']} ${employee['lastName']}',
-                                  code: employee['code'] as String,
-                                  phoneNumber: employee['phoneNumber'] as String,
-                                  onTap: () => context.push(
-                                    Routes.employeeDetailScreen,
-                                    extra: employee,
-                                  ),
-                                  onEdit: () => context.push(
-                                    Routes.employeeFormScreen,
-                                    extra: employee,
-                                  ),
-                                  onDelete: () => _confirmDelete(employee),
-                                );
-                              },
-                            ),
-                    ),
-                  ],
+        child: BlocConsumer<EmployeesCubit, EmployeesState>(
+          listener: (context, state) {
+            switch (state) {
+              case EmployeeDeleted():
+                ShowToast(message: 'تم حذف الموظف', state: toastState.success);
+              case EmployeeDeleteError(:final message):
+                ShowToast(message: message, state: toastState.error);
+              default:
+                break;
+            }
+          },
+          buildWhen: (previous, current) =>
+              current is! EmployeeDeleted && current is! EmployeeDeleteError,
+          builder: (context, state) {
+            return switch (state) {
+              EmployeesLoaded(:final employees) => EmployeesListView(
+                employees: _filter(employees),
+                searchController: _searchController,
+                searchQuery: _searchQuery,
+                onDelete: _confirmDelete,
+              ),
+              EmployeesError(:final message) => Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: Text(
+                    message,
+                    textAlign: TextAlign.center,
+                    style: AppTextStyles.font14RegularSecondary,
+                  ),
                 ),
               ),
-            );
+              _ => const Center(child: CustomCircleProgressIndiacatorWidget()),
+            };
           },
         ),
       ),

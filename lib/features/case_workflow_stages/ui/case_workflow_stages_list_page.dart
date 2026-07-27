@@ -1,46 +1,50 @@
+import 'package:dental_lab_app/core/di/dependency_injection.dart';
 import 'package:dental_lab_app/core/router/routes.dart';
 import 'package:dental_lab_app/core/theming/colors.dart';
 import 'package:dental_lab_app/core/theming/styles.dart';
 import 'package:dental_lab_app/core/widgets/app_drawer_widget.dart';
 import 'package:dental_lab_app/core/widgets/confirm_dialog_widget.dart';
-import 'package:dental_lab_app/features/case_workflow_stages/ui/widgets/case_workflow_stage_list_item_widget.dart';
+import 'package:dental_lab_app/core/widgets/custom_circle_progress_indiacator_widget.dart';
+import 'package:dental_lab_app/core/widgets/show_toast_widget.dart';
+import 'package:dental_lab_app/features/case_workflow_stages/data/models/case_workflow_stage_model.dart';
+import 'package:dental_lab_app/features/case_workflow_stages/logic/stages/stages_cubit.dart';
+import 'package:dental_lab_app/features/case_workflow_stages/logic/stages/stages_state.dart';
+import 'package:dental_lab_app/features/case_workflow_stages/ui/widgets/stages_list_view.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
-/// Case workflow stages list screen — design only for now (no Cubit / API
-/// wiring yet). Shows the ordered stages a case moves through inside the lab
-/// (e.g. تصميم، طحن...).
-class CaseWorkflowStagesListPage extends StatefulWidget {
+class CaseWorkflowStagesListPage extends StatelessWidget {
   const CaseWorkflowStagesListPage({super.key});
 
   @override
-  State<CaseWorkflowStagesListPage> createState() => _CaseWorkflowStagesListPageState();
+  Widget build(BuildContext context) {
+    return BlocProvider(
+      create: (_) => getIt<StagesCubit>()..getStages(),
+      child: const _StagesListView(),
+    );
+  }
 }
 
-class _CaseWorkflowStagesListPageState extends State<CaseWorkflowStagesListPage> {
-  // Placeholder data until the workflow-stages Cubit/repository are wired in.
-  final List<Map<String, dynamic>> _stages = [
-    {'name': 'التصميم', 'order': 1, 'isActive': true, 'isFinal': false},
-    {'name': 'الطحن', 'order': 2, 'isActive': true, 'isFinal': false},
-    {'name': 'التلميع', 'order': 3, 'isActive': true, 'isFinal': false},
-    {'name': 'التسليم', 'order': 4, 'isActive': true, 'isFinal': true},
-  ];
+class _StagesListView extends StatelessWidget {
+  const _StagesListView();
 
-  Future<void> _confirmDelete(int index) async {
-    final stage = _stages[index];
+  Future<void> _confirmDelete(
+    BuildContext context,
+    CaseWorkflowStageModel stage,
+  ) async {
+    final cubit = context.read<StagesCubit>();
+
     final confirmed = await ConfirmDialogWidget.show(
       context,
       title: 'حذف المرحلة',
-      message: 'هل أنت متأكد من حذف مرحلة "${stage['name']}"؟',
+      message: 'هل أنت متأكد من حذف مرحلة "${stage.name ?? ''}"؟',
       confirmText: 'حذف',
       isDestructive: true,
     );
 
-    if (confirmed == true && mounted) {
-      setState(() => _stages.removeAt(index));
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('سيتم ربط الحذف بالـ API لاحقاً')),
-      );
+    if (confirmed == true) {
+      await cubit.deleteStage(stage.id);
     }
   }
 
@@ -48,53 +52,64 @@ class _CaseWorkflowStagesListPageState extends State<CaseWorkflowStagesListPage>
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColorsManger.background,
-      drawer: const AppDrawerWidget(currentRoute: Routes.caseWorkflowStagesListScreen),
-      appBar: AppBar(title: Text('مراحل الحالات', style: AppTextStyles.font18MediumText)),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () => context.push(Routes.caseWorkflowStageFormScreen),
-        backgroundColor: AppColorsManger.primary,
-        child: const Icon(Icons.add, color: Colors.white),
+      drawer: const AppDrawerWidget(
+        currentRoute: Routes.caseWorkflowStagesListScreen,
+      ),
+      appBar: AppBar(
+        title: Text('مراحل الحالات', style: AppTextStyles.font18MediumText),
+      ),
+      floatingActionButton: Builder(
+        builder: (context) => FloatingActionButton(
+          onPressed: () async {
+            await context.push(Routes.caseWorkflowStageFormScreen);
+            if (context.mounted) {
+              context.read<StagesCubit>().getStages();
+            }
+          },
+          backgroundColor: AppColorsManger.primary,
+          child: const Icon(Icons.add, color: Colors.white),
+        ),
       ),
       body: SafeArea(
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            final isWide = constraints.maxWidth >= 600;
-            final contentWidth = isWide ? 700.0 : constraints.maxWidth;
-
-            if (_stages.isEmpty) {
-              return Center(
-                child: Text('لا يوجد مراحل بعد', style: AppTextStyles.font14RegularSecondary),
-              );
+        child: BlocConsumer<StagesCubit, StagesState>(
+          listener: (context, state) {
+            switch (state) {
+              case StageDeleted():
+                ShowToast(message: 'تم حذف المرحلة', state: toastState.success);
+              case StageDeleteError(:final message):
+                ShowToast(message: message, state: toastState.error);
+              default:
+                break;
             }
-
-            final sortedStages = [..._stages]
-              ..sort((a, b) => (a['order'] as int).compareTo(b['order'] as int));
-
-            return Center(
-              child: ConstrainedBox(
-                constraints: BoxConstraints(maxWidth: contentWidth),
-                child: ListView.builder(
-                  padding: EdgeInsets.symmetric(
-                    horizontal: isWide ? 32 : 16,
-                    vertical: 16,
+          },
+          buildWhen: (previous, current) =>
+              current is! StageDeleted && current is! StageDeleteError,
+          builder: (context, state) {
+            return switch (state) {
+              StagesLoaded(:final stages) =>
+                stages.isEmpty
+                    ? Center(
+                        child: Text(
+                          'لا يوجد مراحل بعد',
+                          style: AppTextStyles.font14RegularSecondary,
+                        ),
+                      )
+                    : StagesListView(
+                        stages: stages,
+                        onDelete: (stage) => _confirmDelete(context, stage),
+                      ),
+              StagesError(:final message) => Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: Text(
+                    message,
+                    textAlign: TextAlign.center,
+                    style: AppTextStyles.font14RegularSecondary,
                   ),
-                  itemCount: sortedStages.length,
-                  itemBuilder: (context, index) {
-                    final stage = sortedStages[index];
-                    final originalIndex = _stages.indexOf(stage);
-                    return CaseWorkflowStageListItemWidget(
-                      name: stage['name'] as String,
-                      order: stage['order'] as int,
-                      isActive: stage['isActive'] as bool,
-                      isFinal: stage['isFinal'] as bool,
-                      onEdit: () =>
-                          context.push(Routes.caseWorkflowStageFormScreen, extra: stage),
-                      onDelete: () => _confirmDelete(originalIndex),
-                    );
-                  },
                 ),
               ),
-            );
+              _ => const Center(child: CustomCircleProgressIndiacatorWidget()),
+            };
           },
         ),
       ),

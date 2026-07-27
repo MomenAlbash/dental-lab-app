@@ -1,5 +1,4 @@
 import 'package:dental_lab_app/core/router/routes.dart';
-import 'package:dental_lab_app/core/theming/colors.dart';
 import 'package:dental_lab_app/core/theming/styles.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
@@ -14,12 +13,40 @@ class AppDrawerWidget extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Drawer(
-      child: SafeArea(
+      backgroundColor: Colors.transparent,
+      child: Container(
+        // The sidebar keeps its dark-green identity — the design system's
+        // signature element. Diagonal navy → brand-green gradient.
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topRight,
+            end: Alignment.bottomLeft,
+            colors: [Color(0xFF112437), Color(0xFF117865)],
+            stops: [0.0, 0.55],
+          ),
+        ),
+        child: SafeArea(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             const _DrawerHeader(),
-            const Divider(height: 1, color: AppColorsManger.divider),
+            const Divider(height: 1, color: Color(0x1FFFFFFF)),
+            Expanded(
+              child: ListView(
+                padding: EdgeInsets.zero,
+                children: [
+            _DrawerItem(
+              icon: Icons.home_outlined,
+              label: 'الرئيسية',
+              route: Routes.homeScreen,
+              isSelected: currentRoute == Routes.homeScreen,
+            ),
+            _DrawerItem(
+              icon: Icons.folder_outlined,
+              label: 'الحالات',
+              route: Routes.casesShellScreen,
+              isSelected: currentRoute == Routes.casesListScreen,
+            ),
             _DrawerItem(
               icon: Icons.science_outlined,
               label: 'مختبري',
@@ -80,7 +107,11 @@ class AppDrawerWidget extends StatelessWidget {
               route: Routes.currenciesListScreen,
               isSelected: currentRoute == Routes.currenciesListScreen,
             ),
+                ],
+              ),
+            ),
           ],
+        ),
         ),
       ),
     );
@@ -100,16 +131,19 @@ class _DrawerHeader extends StatelessWidget {
             width: 48,
             height: 48,
             decoration: const BoxDecoration(
-              color: AppColorsManger.primarySurface,
+              color: Color(0x33FFFFFF),
               shape: BoxShape.circle,
             ),
             child: const Icon(
               Icons.medical_services_outlined,
-              color: AppColorsManger.primary,
+              color: Colors.white,
             ),
           ),
           const SizedBox(width: 12),
-          Text('مخبر الأسنان', style: AppTextStyles.font18MediumText),
+          Text(
+            'مخبر الأسنان',
+            style: AppTextStyles.font18MediumText.copyWith(color: Colors.white),
+          ),
         ],
       ),
     );
@@ -131,19 +165,21 @@ class _DrawerItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Sidebar nav items use hardcoded white overlays (per the design system),
+    // not the page tokens — guarantees contrast on the dark-green background.
+    final Color contentColor = isSelected
+        ? Colors.white
+        : const Color(0xE6FFFFFF); // white 90%
+
     return ListTile(
-      leading: Icon(
-        icon,
-        color: isSelected ? AppColorsManger.primary : AppColorsManger.textSecondary,
-      ),
+      leading: Icon(icon, color: contentColor),
       title: Text(
         label,
-        style: isSelected
-            ? AppTextStyles.font16MediumText.copyWith(color: AppColorsManger.primary)
-            : AppTextStyles.font16MediumText,
+        style: AppTextStyles.font16MediumText.copyWith(color: contentColor),
       ),
       selected: isSelected,
-      selectedTileColor: AppColorsManger.primarySurface,
+      selectedTileColor: const Color(0x33FFFFFF), // white 20%
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
       onTap: () {
         Navigator.of(context).pop();
         if (!isSelected) context.go(route);

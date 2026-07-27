@@ -1,174 +1,848 @@
 import 'dart:developer';
 
+import 'package:dental_lab_app/core/helper/network_helper/api.dart';
+import 'package:dental_lab_app/features/auth/data/models/login_request_model.dart';
+import 'package:dental_lab_app/features/case_workflow_stages/data/models/case_workflow_stage_model.dart';
+import 'package:dental_lab_app/features/case_workflow_stages/data/models/create_case_workflow_stage_request_model.dart';
+import 'package:dental_lab_app/features/case_workflow_stages/data/models/update_case_workflow_stage_request_model.dart';
+import 'package:dental_lab_app/features/cases/data/models/case_detail_model.dart';
+import 'package:dental_lab_app/features/cases/data/models/case_file_model.dart';
+import 'package:dental_lab_app/features/cases/data/models/case_list_item_model.dart';
+import 'package:dental_lab_app/features/cases/data/models/create_case_request_model.dart';
+import 'package:dental_lab_app/features/auth/data/models/login_response_model.dart';
+import 'package:dental_lab_app/features/cities/data/models/city_model.dart';
+import 'package:dental_lab_app/features/clinics/data/models/clinic_model.dart';
+import 'package:dental_lab_app/features/clinics/data/models/create_clinic_request_model.dart';
+import 'package:dental_lab_app/features/clinics/data/models/update_clinic_request_model.dart';
+import 'package:dental_lab_app/features/doctors/data/models/create_doctor_request_model.dart';
+import 'package:dental_lab_app/features/doctors/data/models/doctor_attachment_file_model.dart';
+import 'package:dental_lab_app/features/doctors/data/models/doctor_model.dart';
+import 'package:dental_lab_app/features/doctors/data/models/update_doctor_request_model.dart';
+import 'package:dental_lab_app/features/employees/data/models/create_employee_request_model.dart';
+import 'package:dental_lab_app/features/employees/data/models/employee_attachment_file_model.dart';
+import 'package:dental_lab_app/features/employees/data/models/employee_model.dart';
+import 'package:dental_lab_app/features/employees/data/models/update_employee_request_model.dart';
+import 'package:dental_lab_app/features/restoration_types/data/models/create_restoration_type_request_model.dart';
+import 'package:dental_lab_app/features/restoration_types/data/models/restoration_type_model.dart';
+import 'package:dental_lab_app/features/restoration_types/data/models/update_restoration_type_request_model.dart';
+import 'package:dental_lab_app/features/roles/data/models/role_model.dart';
+import 'package:dental_lab_app/features/users/data/models/create_user_request_model.dart';
+import 'package:dental_lab_app/features/users/data/models/update_user_request_model.dart';
+import 'package:dental_lab_app/features/users/data/models/user_model.dart';
+import 'package:dio/dio.dart';
+import 'package:dental_lab_app/features/laboratories/data/models/create_laboratory_request_model.dart';
+import 'package:dental_lab_app/features/laboratories/data/models/laboratory_model.dart';
+import 'package:dental_lab_app/features/laboratories/data/models/update_laboratory_request_model.dart';
+
 class ApiService {
-  // create userSignUp method
-  /*Future<SignUpResponseModel> userSignUp({
-    required SignUpRequestBody signUpRequestBody,
-  }) async {
-    final body = signUpRequestBody.toJson();
-
-    log('Sending SignUp request with: $body');
-
-    final response = await Api().post(url: 'auth/signup', body: body);
-
-    log('SignUp response data: ${response.data}');
-
-    // تحويل الـ Map القادم من السيرفر إلى الـ Model الخاص بالـ Response
-    return SignUpResponseModel.fromJson(response.data);
-  }
+  // ---------------------------------------------------------------- auth ---
 
   Future<LoginResponseModel> userLogin({
     required LoginRequestModel loginRequestBody,
   }) async {
-    log('in service');
     final body = loginRequestBody.toJson();
 
     log('Sending Login request with: $body');
 
-    final response = await Api().post(url: 'auth/login', body: body);
+    final response = await Api().post(url: 'ClinicAuth/login', body: body);
 
     log('Login response data: ${response.data}');
 
-    // تحويل الـ Map القادم من السيرفر إلى الـ Model الخاص بالـ Response
-    return LoginResponseModel.fromJson(response.data);
+    return LoginResponseModel.fromJson(response.data as Map<String, dynamic>);
   }
 
-  Future<ProfileResponseModel> userProfile({String? token}) async {
-    log('Fetching profile with token: $token');
+  // --------------------------------------------------------- laboratories ---
 
-    final responseData = await Api().get(Url: 'profile', token: token);
+  Future<List<LaboratoryModel>> getLaboratories({String? token}) async {
+    log('Fetching laboratories');
 
-    log('Profile response data: $responseData');
+    final responseData = await Api().get(Url: 'Laboratories', token: token);
 
-    return ProfileResponseModel.fromJson(responseData as Map<String, dynamic>);
+    log('Laboratories response data: $responseData');
+
+    return (responseData as List<dynamic>)
+        .map((e) => LaboratoryModel.fromJson(e as Map<String, dynamic>))
+        .toList();
   }
 
-  Future<CampaignListResponseModel> getCampaigns() async {
-    const page = 1;
-    const pageSize = 10;
+  Future<LaboratoryModel> getOwnLaboratory({String? token}) async {
+    log('Fetching own laboratory');
 
-    log('Fetching campaigns page=$page pageSize=$pageSize');
+    final responseData = await Api().get(Url: 'Laboratories/own', token: token);
 
-    final responseData = await Api().get(
-      Url: 'campaigns?page=$page&pageSize=$pageSize',
-      token: null,
-    );
-    final CampaignListResponseModel campaignListResponseModel =
-        CampaignListResponseModel.fromJson(responseData);
-    log('Campaigns response data: $responseData');
+    log('Own laboratory response data: $responseData');
 
-    return campaignListResponseModel;
+    return LaboratoryModel.fromJson(responseData as Map<String, dynamic>);
   }
 
-  Future<CampaignListResponseModel> getCampaignsByCharity({
-    required String charityId,
-    int page = 1,
-    int pageSize = 10,
+  Future<LaboratoryModel> getLaboratoryById({
+    required String id,
+    String? token,
   }) async {
-    log(
-      'Fetching campaigns for charity=$charityId page=$page pageSize=$pageSize',
-    );
+    log('Fetching laboratory by id: $id');
 
     final responseData = await Api().get(
-      Url: 'charities/$charityId/campaigns?page=$page&pageSize=$pageSize',
-      token: null,
+      Url: 'Laboratories/$id',
+      token: token,
     );
 
-    final CampaignListResponseModel campaignListResponseModel =
-        CampaignListResponseModel.fromJson(responseData);
+    log('Laboratory by id response data: $responseData');
 
-    log('Campaigns by charity response data: $responseData');
-
-    return campaignListResponseModel;
+    return LaboratoryModel.fromJson(responseData as Map<String, dynamic>);
   }
 
-  Future<CharitiesListResponseModel> getCharities() async {
-    const page = 1;
-    const pageSize = 10;
-
-    log('Fetching charities page=$page pageSize=$pageSize');
-
-    final responseData = await Api().get(
-      Url: 'charities?page=$page&pageSize=$pageSize',
-      token: null,
-    );
-
-    log('Charities response data: $responseData');
-
-    return CharitiesListResponseModel.fromJson(responseData);
-  }
-
-  Future<CasesListResponseModel> getCases() async {
-    const page = 1;
-    const pageSize = 10;
-
-    log('Fetching charities page=$page pageSize=$pageSize');
-
-    final responseData = await Api().get(
-      Url: 'cases?page=$page&pageSize=$pageSize',
-      token: null,
-    );
-
-    log('Charities response data: $responseData');
-
-    return CasesListResponseModel.fromJson(responseData);
-  }
-
-  Future<CasesListResponseModel> getCasesByCharity({
-    required String charityId,
-    int page = 1,
-    int pageSize = 10,
+  Future<LaboratoryModel> createLaboratory({
+    required CreateLaboratoryRequestModel createLaboratoryRequestBody,
+    String? token,
   }) async {
-    log('Fetching cases for charity=$charityId page=$page pageSize=$pageSize');
+    final body = createLaboratoryRequestBody.toJson();
 
-    final responseData = await Api().get(
-      Url: 'charities/$charityId/cases?page=$page&pageSize=$pageSize',
-      token: null,
+    log('Sending Create Laboratory request with: $body');
+
+    final response = await Api().post(
+      url: 'Laboratories',
+      body: body,
+      token: token,
     );
 
-    log('Cases by charity response data: $responseData');
+    log('Create Laboratory response data: ${response.data}');
 
-    return CasesListResponseModel.fromJson(responseData);
+    return LaboratoryModel.fromJson(response.data as Map<String, dynamic>);
   }
 
-  Future<HomeResponseModel> getHome() async {
-    log('Fetching home data');
+  Future<LaboratoryModel> updateLaboratory({
+    required String id,
+    required UpdateLaboratoryRequestModel updateLaboratoryRequestBody,
+    String? token,
+  }) async {
+    final body = updateLaboratoryRequestBody.toJson();
 
-    final responseData = await Api().get(Url: 'home', token: null);
+    log('Sending Update Laboratory request with: $body');
 
-    log('Home response data: $responseData');
+    final response = await Api().put(
+      url: 'Laboratories/$id',
+      body: body,
+      token: token,
+    );
 
-    return HomeResponseModel.fromJson(responseData);
+    log('Update Laboratory response data: ${response.data}');
+
+    return LaboratoryModel.fromJson(response.data as Map<String, dynamic>);
   }
 
-  Future<CaseResponseModel> getCaseById({required String id}) async {
+  Future<void> deleteLaboratory({required String id, String? token}) async {
+    log('Deleting laboratory: $id');
+
+    final response = await Api().delete(url: 'Laboratories/$id', token: token);
+
+    log('Delete Laboratory response data: ${response.data}');
+  }
+
+  // --------------------------------------------------------------- clinics ---
+
+  Future<List<ClinicModel>> getClinics({String? token}) async {
+    log('Fetching clinics');
+
+    final responseData = await Api().get(Url: 'Clinics', token: token);
+
+    log('Clinics response data: $responseData');
+
+    return (responseData as List<dynamic>)
+        .map((e) => ClinicModel.fromJson(e as Map<String, dynamic>))
+        .toList();
+  }
+
+  Future<ClinicModel> getClinicById({
+    required String id,
+    String? token,
+  }) async {
+    log('Fetching clinic by id: $id');
+
+    final responseData = await Api().get(Url: 'Clinics/$id', token: token);
+
+    log('Clinic by id response data: $responseData');
+
+    return ClinicModel.fromJson(responseData as Map<String, dynamic>);
+  }
+
+  Future<ClinicModel> createClinic({
+    required CreateClinicRequestModel createClinicRequestBody,
+    String? token,
+  }) async {
+    final body = createClinicRequestBody.toJson();
+
+    log('Sending Create Clinic request with: $body');
+
+    final response = await Api().post(
+      url: 'Clinics',
+      body: body,
+      token: token,
+    );
+
+    log('Create Clinic response data: ${response.data}');
+
+    return ClinicModel.fromJson(response.data as Map<String, dynamic>);
+  }
+
+  Future<ClinicModel> updateClinic({
+    required String id,
+    required UpdateClinicRequestModel updateClinicRequestBody,
+    String? token,
+  }) async {
+    final body = updateClinicRequestBody.toJson();
+
+    log('Sending Update Clinic request with: $body');
+
+    final response = await Api().put(
+      url: 'Clinics/$id',
+      body: body,
+      token: token,
+    );
+
+    log('Update Clinic response data: ${response.data}');
+
+    return ClinicModel.fromJson(response.data as Map<String, dynamic>);
+  }
+
+  Future<void> deleteClinic({required String id, String? token}) async {
+    log('Deleting clinic: $id');
+
+    final response = await Api().delete(url: 'Clinics/$id', token: token);
+
+    log('Delete Clinic response data: ${response.data}');
+  }
+
+  // ---------------------------------------------------------------- cities ---
+
+  Future<List<CityModel>> getCities({String? token}) async {
+    log('Fetching cities');
+
+    final responseData = await Api().get(Url: 'Cities', token: token);
+
+    log('Cities response data: $responseData');
+
+    return (responseData as List<dynamic>)
+        .map((e) => CityModel.fromJson(e as Map<String, dynamic>))
+        .toList();
+  }
+
+  // --------------------------------------------------------------- doctors ---
+
+  Future<List<DoctorModel>> getDoctors({String? token}) async {
+    log('Fetching doctors');
+
+    final responseData = await Api().get(Url: 'Doctors', token: token);
+
+    log('Doctors response data: $responseData');
+
+    return (responseData as List<dynamic>)
+        .map((e) => DoctorModel.fromJson(e as Map<String, dynamic>))
+        .toList();
+  }
+
+  Future<DoctorModel> getDoctorById({
+    required String id,
+    String? token,
+  }) async {
+    log('Fetching doctor by id: $id');
+
+    final responseData = await Api().get(Url: 'Doctors/$id', token: token);
+
+    log('Doctor by id response data: $responseData');
+
+    return DoctorModel.fromJson(responseData as Map<String, dynamic>);
+  }
+
+  Future<DoctorModel> createDoctor({
+    required CreateDoctorRequestModel createDoctorRequestBody,
+    String? token,
+  }) async {
+    final body = createDoctorRequestBody.toJson();
+
+    log('Sending Create Doctor request with: $body');
+
+    final response = await Api().post(
+      url: 'Doctors',
+      body: body,
+      token: token,
+    );
+
+    log('Create Doctor response data: ${response.data}');
+
+    return DoctorModel.fromJson(response.data as Map<String, dynamic>);
+  }
+
+  Future<DoctorModel> updateDoctor({
+    required String id,
+    required UpdateDoctorRequestModel updateDoctorRequestBody,
+    String? token,
+  }) async {
+    final body = updateDoctorRequestBody.toJson();
+
+    log('Sending Update Doctor request with: $body');
+
+    final response = await Api().put(
+      url: 'Doctors/$id',
+      body: body,
+      token: token,
+    );
+
+    log('Update Doctor response data: ${response.data}');
+
+    return DoctorModel.fromJson(response.data as Map<String, dynamic>);
+  }
+
+  Future<void> deleteDoctor({required String id, String? token}) async {
+    log('Deleting doctor: $id');
+
+    final response = await Api().delete(url: 'Doctors/$id', token: token);
+
+    log('Delete Doctor response data: ${response.data}');
+  }
+
+  Future<DoctorAttachmentFileModel> uploadDoctorFile({
+    required String id,
+    required String filePath,
+    String? token,
+  }) async {
+    log('Uploading file for doctor: $id');
+
+    final formData = FormData.fromMap({
+      'Id': id,
+      'file': await MultipartFile.fromFile(filePath),
+    });
+
+    final response = await Api().post(
+      url: 'Doctors/$id/files',
+      body: formData,
+      isFormData: true,
+      token: token,
+    );
+
+    log('Upload Doctor file response data: ${response.data}');
+
+    return DoctorAttachmentFileModel.fromJson(
+      response.data as Map<String, dynamic>,
+    );
+  }
+
+  Future<void> deleteDoctorFile({
+    required String id,
+    required String fileId,
+    String? token,
+  }) async {
+    log('Deleting file $fileId for doctor: $id');
+
+    final response = await Api().delete(
+      url: 'Doctors/$id/files/$fileId',
+      token: token,
+    );
+
+    log('Delete Doctor file response data: ${response.data}');
+  }
+
+  // ------------------------------------------------------------- employees ---
+
+  Future<List<EmployeeModel>> getEmployees({String? token}) async {
+    log('Fetching employees');
+
+    final responseData = await Api().get(Url: 'Employees', token: token);
+
+    log('Employees response data: $responseData');
+
+    return (responseData as List<dynamic>)
+        .map((e) => EmployeeModel.fromJson(e as Map<String, dynamic>))
+        .toList();
+  }
+
+  Future<EmployeeModel> getEmployeeById({
+    required String id,
+    String? token,
+  }) async {
+    log('Fetching employee by id: $id');
+
+    final responseData = await Api().get(Url: 'Employees/$id', token: token);
+
+    log('Employee by id response data: $responseData');
+
+    return EmployeeModel.fromJson(responseData as Map<String, dynamic>);
+  }
+
+  Future<EmployeeModel> createEmployee({
+    required CreateEmployeeRequestModel createEmployeeRequestBody,
+    String? token,
+  }) async {
+    final fields = createEmployeeRequestBody.toFormMap();
+
+    log('Sending Create Employee request with: $fields');
+
+    final formData = FormData.fromMap(fields);
+
+    final response = await Api().post(
+      url: 'Employees',
+      body: formData,
+      isFormData: true,
+      token: token,
+    );
+
+    log('Create Employee response data: ${response.data}');
+
+    return EmployeeModel.fromJson(response.data as Map<String, dynamic>);
+  }
+
+  Future<EmployeeModel> updateEmployee({
+    required String id,
+    required UpdateEmployeeRequestModel updateEmployeeRequestBody,
+    String? token,
+  }) async {
+    final body = updateEmployeeRequestBody.toJson();
+
+    log('Sending Update Employee request with: $body');
+
+    final response = await Api().put(
+      url: 'Employees/$id',
+      body: body,
+      token: token,
+    );
+
+    log('Update Employee response data: ${response.data}');
+
+    return EmployeeModel.fromJson(response.data as Map<String, dynamic>);
+  }
+
+  Future<void> deleteEmployee({required String id, String? token}) async {
+    log('Deleting employee: $id');
+
+    final response = await Api().delete(url: 'Employees/$id', token: token);
+
+    log('Delete Employee response data: ${response.data}');
+  }
+
+  Future<EmployeeAttachmentFileModel> uploadEmployeeFile({
+    required String id,
+    required String filePath,
+    String? token,
+  }) async {
+    log('Uploading file for employee: $id');
+
+    final formData = FormData.fromMap({
+      'Id': id,
+      'file': await MultipartFile.fromFile(filePath),
+    });
+
+    final response = await Api().post(
+      url: 'Employees/$id/files',
+      body: formData,
+      isFormData: true,
+      token: token,
+    );
+
+    log('Upload Employee file response data: ${response.data}');
+
+    return EmployeeAttachmentFileModel.fromJson(
+      response.data as Map<String, dynamic>,
+    );
+  }
+
+  Future<void> deleteEmployeeFile({
+    required String id,
+    required String fileId,
+    String? token,
+  }) async {
+    log('Deleting file $fileId for employee: $id');
+
+    final response = await Api().delete(
+      url: 'Employees/$id/files/$fileId',
+      token: token,
+    );
+
+    log('Delete Employee file response data: ${response.data}');
+  }
+
+  // ----------------------------------------------------------------- roles ---
+
+  Future<List<RoleModel>> getRoles({String? token}) async {
+    log('Fetching roles');
+
+    final responseData = await Api().get(Url: 'Roles', token: token);
+
+    log('Roles response data: $responseData');
+
+    return (responseData as List<dynamic>)
+        .map((e) => RoleModel.fromJson(e as Map<String, dynamic>))
+        .toList();
+  }
+
+  // ----------------------------------------------------------------- users ---
+
+  Future<List<UserModel>> getUsers({String? token}) async {
+    log('Fetching users');
+
+    final responseData = await Api().get(Url: 'Users', token: token);
+
+    log('Users response data: $responseData');
+
+    return (responseData as List<dynamic>)
+        .map((e) => UserModel.fromJson(e as Map<String, dynamic>))
+        .toList();
+  }
+
+  Future<UserModel> getUserById({required String id, String? token}) async {
+    log('Fetching user by id: $id');
+
+    final responseData = await Api().get(Url: 'Users/$id', token: token);
+
+    log('User by id response data: $responseData');
+
+    return UserModel.fromJson(responseData as Map<String, dynamic>);
+  }
+
+  Future<UserModel> createUser({
+    required CreateUserRequestModel createUserRequestBody,
+    String? token,
+  }) async {
+    final body = createUserRequestBody.toJson();
+
+    log('Sending Create User request with: $body');
+
+    final response = await Api().post(url: 'Users', body: body, token: token);
+
+    log('Create User response data: ${response.data}');
+
+    return UserModel.fromJson(response.data as Map<String, dynamic>);
+  }
+
+  Future<UserModel> updateUser({
+    required String id,
+    required UpdateUserRequestModel updateUserRequestBody,
+    String? token,
+  }) async {
+    final body = updateUserRequestBody.toJson();
+
+    log('Sending Update User request with: $body');
+
+    final response = await Api().put(
+      url: 'Users/$id',
+      body: body,
+      token: token,
+    );
+
+    log('Update User response data: ${response.data}');
+
+    return UserModel.fromJson(response.data as Map<String, dynamic>);
+  }
+
+  Future<void> deleteUser({required String id, String? token}) async {
+    log('Deleting user: $id');
+
+    final response = await Api().delete(url: 'Users/$id', token: token);
+
+    log('Delete User response data: ${response.data}');
+  }
+
+  Future<void> activateUser({required String id, String? token}) async {
+    log('Activating user: $id');
+
+    final response = await Api().post(
+      url: 'Users/$id/activate',
+      body: const <String, dynamic>{},
+      token: token,
+    );
+
+    log('Activate User response data: ${response.data}');
+  }
+
+  Future<void> deactivateUser({required String id, String? token}) async {
+    log('Deactivating user: $id');
+
+    final response = await Api().post(
+      url: 'Users/$id/deactivate',
+      body: const <String, dynamic>{},
+      token: token,
+    );
+
+    log('Deactivate User response data: ${response.data}');
+  }
+
+  Future<void> resetUserPassword({
+    required String id,
+    required String newPassword,
+    String? token,
+  }) async {
+    log('Resetting password for user: $id');
+
+    final response = await Api().post(
+      url: 'Users/$id/reset-password',
+      body: {'newPassword': newPassword},
+      token: token,
+    );
+
+    log('Reset User password response data: ${response.data}');
+  }
+
+  // ------------------------------------------------- case workflow stages ---
+
+  Future<List<CaseWorkflowStageModel>> getCaseWorkflowStages({
+    String? token,
+  }) async {
+    log('Fetching case workflow stages');
+
+    final responseData = await Api().get(
+      Url: 'CaseWorkflowStages',
+      token: token,
+    );
+
+    log('Case workflow stages response data: $responseData');
+
+    return (responseData as List<dynamic>)
+        .map((e) => CaseWorkflowStageModel.fromJson(e as Map<String, dynamic>))
+        .toList();
+  }
+
+  Future<CaseWorkflowStageModel> createCaseWorkflowStage({
+    required CreateCaseWorkflowStageRequestModel createStageRequestBody,
+    String? token,
+  }) async {
+    final body = createStageRequestBody.toJson();
+
+    log('Sending Create Stage request with: $body');
+
+    final response = await Api().post(
+      url: 'CaseWorkflowStages',
+      body: body,
+      token: token,
+    );
+
+    log('Create Stage response data: ${response.data}');
+
+    return CaseWorkflowStageModel.fromJson(
+      response.data as Map<String, dynamic>,
+    );
+  }
+
+  Future<CaseWorkflowStageModel> updateCaseWorkflowStage({
+    required String id,
+    required UpdateCaseWorkflowStageRequestModel updateStageRequestBody,
+    String? token,
+  }) async {
+    final body = updateStageRequestBody.toJson();
+
+    log('Sending Update Stage request with: $body');
+
+    final response = await Api().put(
+      url: 'CaseWorkflowStages/$id',
+      body: body,
+      token: token,
+    );
+
+    log('Update Stage response data: ${response.data}');
+
+    return CaseWorkflowStageModel.fromJson(
+      response.data as Map<String, dynamic>,
+    );
+  }
+
+  Future<void> deleteCaseWorkflowStage({
+    required String id,
+    String? token,
+  }) async {
+    log('Deleting stage: $id');
+
+    final response = await Api().delete(
+      url: 'CaseWorkflowStages/$id',
+      token: token,
+    );
+
+    log('Delete Stage response data: ${response.data}');
+  }
+
+  // ----------------------------------------------------- restoration types ---
+
+  Future<List<RestorationTypeModel>> getRestorationTypes({
+    String? token,
+  }) async {
+    log('Fetching restoration types');
+
+    final responseData = await Api().get(
+      Url: 'RestorationTypes',
+      token: token,
+    );
+
+    log('Restoration types response data: $responseData');
+
+    return (responseData as List<dynamic>)
+        .map((e) => RestorationTypeModel.fromJson(e as Map<String, dynamic>))
+        .toList();
+  }
+
+  Future<RestorationTypeModel> createRestorationType({
+    required CreateRestorationTypeRequestModel createRequestBody,
+    String? token,
+  }) async {
+    final body = createRequestBody.toJson();
+
+    log('Sending Create RestorationType request with: $body');
+
+    final response = await Api().post(
+      url: 'RestorationTypes',
+      body: body,
+      token: token,
+    );
+
+    log('Create RestorationType response data: ${response.data}');
+
+    return RestorationTypeModel.fromJson(response.data as Map<String, dynamic>);
+  }
+
+  Future<RestorationTypeModel> updateRestorationType({
+    required String id,
+    required UpdateRestorationTypeRequestModel updateRequestBody,
+    String? token,
+  }) async {
+    final body = updateRequestBody.toJson();
+
+    log('Sending Update RestorationType request with: $body');
+
+    final response = await Api().put(
+      url: 'RestorationTypes/$id',
+      body: body,
+      token: token,
+    );
+
+    log('Update RestorationType response data: ${response.data}');
+
+    return RestorationTypeModel.fromJson(response.data as Map<String, dynamic>);
+  }
+
+  Future<void> deleteRestorationType({
+    required String id,
+    String? token,
+  }) async {
+    log('Deleting restoration type: $id');
+
+    final response = await Api().delete(
+      url: 'RestorationTypes/$id',
+      token: token,
+    );
+
+    log('Delete RestorationType response data: ${response.data}');
+  }
+
+  // ----------------------------------------------------------------- cases ---
+
+  Future<List<CaseListItemModel>> getCases({
+    String? search,
+    String? token,
+  }) async {
+    log('Fetching cases');
+
+    final query = (search != null && search.isNotEmpty)
+        ? '?Search=${Uri.encodeQueryComponent(search)}&PageSize=200'
+        : '?PageSize=200';
+
+    final responseData = await Api().get(Url: 'Cases$query', token: token);
+
+    log('Cases response data: $responseData');
+
+    // The endpoint returns a paged result: { items: [...], ... }.
+    final items = responseData is Map<String, dynamic>
+        ? (responseData['items'] as List<dynamic>? ?? const [])
+        : (responseData as List<dynamic>);
+
+    return items
+        .map((e) => CaseListItemModel.fromJson(e as Map<String, dynamic>))
+        .toList();
+  }
+
+  Future<CaseDetailModel> getCaseById({
+    required String id,
+    String? token,
+  }) async {
     log('Fetching case by id: $id');
 
-    final responseData = await Api().get(Url: 'cases/$id', token: null);
+    final responseData = await Api().get(Url: 'Cases/$id', token: token);
 
     log('Case by id response data: $responseData');
 
-    return CaseResponseModel.fromJson(responseData as Map<String, dynamic>);
+    return CaseDetailModel.fromJson(responseData as Map<String, dynamic>);
   }
 
-  Future<CampaignResponseModel> getCampaignById({required String id}) async {
-    log('Fetching campaign by id: $id');
+  Future<CaseDetailModel> createCase({
+    required CreateCaseRequestModel createCaseRequestBody,
+    String? token,
+  }) async {
+    final body = createCaseRequestBody.toJson();
 
-    final responseData = await Api().get(Url: 'campaigns/$id', token: null);
+    log('Sending Create Case request with: $body');
 
-    log('Campaign by id response data: $responseData');
+    final response = await Api().post(url: 'Cases', body: body, token: token);
 
-    return CampaignResponseModel.fromJson(responseData as Map<String, dynamic>);
+    log('Create Case response data: ${response.data}');
+
+    return CaseDetailModel.fromJson(response.data as Map<String, dynamic>);
   }
 
-  Future<CharityResponseModel> getCharityById({required String id}) async {
-    log('Fetching charity by id: $id');
+  Future<void> deleteCase({required String id, String? token}) async {
+    log('Deleting case: $id');
 
-    final responseData = await Api().get(Url: 'charities/$id', token: null);
+    final response = await Api().delete(url: 'Cases/$id', token: token);
 
-    log('Charity by id response data: $responseData');
-
-    return CharityResponseModel.fromJson(responseData as Map<String, dynamic>);
+    log('Delete Case response data: ${response.data}');
   }
-  */
+
+  Future<void> setCaseStage({
+    required String id,
+    required String stageId,
+    String? note,
+    String? token,
+  }) async {
+    log('Setting stage $stageId for case: $id');
+
+    final response = await Api().put(
+      url: 'Cases/$id/stage',
+      body: {'stageId': stageId, 'note': note},
+      token: token,
+    );
+
+    log('Set Case stage response data: ${response.data}');
+  }
+
+  Future<CaseFileModel> uploadCaseFile({
+    required String id,
+    required String filePath,
+    String? token,
+  }) async {
+    log('Uploading file for case: $id');
+
+    final formData = FormData.fromMap({
+      'Id': id,
+      'file': await MultipartFile.fromFile(filePath),
+    });
+
+    final response = await Api().post(
+      url: 'Cases/$id/files',
+      body: formData,
+      isFormData: true,
+      token: token,
+    );
+
+    log('Upload Case file response data: ${response.data}');
+
+    return CaseFileModel.fromJson(response.data as Map<String, dynamic>);
+  }
+
+  Future<void> deleteCaseFile({
+    required String id,
+    required String fileId,
+    String? token,
+  }) async {
+    log('Deleting file $fileId for case: $id');
+
+    final response = await Api().delete(
+      url: 'Cases/$id/files/$fileId',
+      token: token,
+    );
+
+    log('Delete Case file response data: ${response.data}');
+  }
 }

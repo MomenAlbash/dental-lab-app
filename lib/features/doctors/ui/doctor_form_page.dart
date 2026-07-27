@@ -1,50 +1,74 @@
+import 'package:dental_lab_app/core/di/dependency_injection.dart';
 import 'package:dental_lab_app/core/theming/colors.dart';
 import 'package:dental_lab_app/core/theming/styles.dart';
-import 'package:dental_lab_app/core/widgets/custom_button_widget.dart';
-import 'package:dental_lab_app/core/widgets/custom_text_field_widget.dart';
+import 'package:dental_lab_app/core/widgets/show_toast_widget.dart';
+import 'package:dental_lab_app/features/cities/logic/cities/cities_cubit.dart';
+import 'package:dental_lab_app/features/clinics/logic/clinics/clinics_cubit.dart';
+import 'package:dental_lab_app/features/doctors/data/models/create_doctor_request_model.dart';
+import 'package:dental_lab_app/features/doctors/data/models/doctor_model.dart';
+import 'package:dental_lab_app/features/doctors/data/models/update_doctor_request_model.dart';
+import 'package:dental_lab_app/features/doctors/logic/doctor_form/doctor_form_cubit.dart';
+import 'package:dental_lab_app/features/doctors/logic/doctor_form/doctor_form_state.dart';
+import 'package:dental_lab_app/features/doctors/ui/widgets/doctor_form_fields.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 
-// Mock options until the Clinics/Cities lookups and Gender labels are wired
-// in from the API.
-const List<String> _mockClinics = ['عيادة النور', 'عيادة الأمل', 'عيادة الشفاء'];
-const List<String> _mockCities = ['دمشق', 'حلب', 'حمص', 'اللاذقية'];
-
-enum _Gender { male, female }
-
-/// Add/edit doctor screen — design only for now (no Cubit / API wiring yet).
-/// Pass [initialDoctor] to open in edit mode.
-class DoctorFormPage extends StatefulWidget {
+/// Add/edit doctor screen. Pass [initialDoctor] to open in edit mode.
+///
+/// Submission is driven by [DoctorFormCubit]; the city and clinic pickers are
+/// fed by the standalone [CitiesCubit] and [ClinicsCubit] — each concern stays
+/// in its own cubit.
+class DoctorFormPage extends StatelessWidget {
   const DoctorFormPage({super.key, this.initialDoctor});
 
-  final Map<String, dynamic>? initialDoctor;
+  final DoctorModel? initialDoctor;
 
   @override
-  State<DoctorFormPage> createState() => _DoctorFormPageState();
+  Widget build(BuildContext context) {
+    return MultiBlocProvider(
+      providers: [
+        BlocProvider(create: (_) => getIt<DoctorFormCubit>()),
+        BlocProvider(create: (_) => getIt<CitiesCubit>()..getCities()),
+        BlocProvider(create: (_) => getIt<ClinicsCubit>()..getClinics()),
+      ],
+      child: _DoctorFormView(initialDoctor: initialDoctor),
+    );
+  }
 }
 
-class _DoctorFormPageState extends State<DoctorFormPage> {
+class _DoctorFormView extends StatefulWidget {
+  const _DoctorFormView({this.initialDoctor});
+
+  final DoctorModel? initialDoctor;
+
+  @override
+  State<_DoctorFormView> createState() => _DoctorFormViewState();
+}
+
+class _DoctorFormViewState extends State<_DoctorFormView> {
   final _formKey = GlobalKey<FormState>();
   late final _firstNameController = TextEditingController(
-    text: widget.initialDoctor?['firstName'] as String? ?? '',
+    text: widget.initialDoctor?.firstName ?? '',
   );
   late final _lastNameController = TextEditingController(
-    text: widget.initialDoctor?['lastName'] as String? ?? '',
+    text: widget.initialDoctor?.lastName ?? '',
   );
   late final _emailController = TextEditingController(
-    text: widget.initialDoctor?['email'] as String? ?? '',
+    text: widget.initialDoctor?.email ?? '',
   );
   late final _phoneController = TextEditingController(
-    text: widget.initialDoctor?['phoneNumber'] as String? ?? '',
+    text: widget.initialDoctor?.phoneNumber ?? '',
   );
   late final _addressController = TextEditingController(
-    text: widget.initialDoctor?['address'] as String? ?? '',
+    text: widget.initialDoctor?.address ?? '',
   );
 
-  _Gender _gender = _Gender.male;
-  DateTime? _dateOfBirth;
-  String? _clinicName;
-  String? _cityName;
-  late bool _isActive = widget.initialDoctor?['isActive'] as bool? ?? true;
+  late DoctorGender _gender =
+      widget.initialDoctor?.gender ?? DoctorGender.male;
+  late DateTime? _dateOfBirth = _parseDate(widget.initialDoctor?.dateOfBirth);
+  late String? _cityId = widget.initialDoctor?.cityId;
+  late String? _clinicId = widget.initialDoctor?.clinicId;
+  late bool _isActive = widget.initialDoctor?.isActive ?? true;
 
   bool get _isEditing => widget.initialDoctor != null;
 
@@ -58,6 +82,19 @@ class _DoctorFormPageState extends State<DoctorFormPage> {
     super.dispose();
   }
 
+  static DateTime? _parseDate(String? value) {
+    if (value == null || value.isEmpty) return null;
+    return DateTime.tryParse(value);
+  }
+
+  /// `yyyy-MM-dd` — the format the API's `dateOfBirth` field expects.
+  String? _formatDate(DateTime? date) {
+    if (date == null) return null;
+    final month = date.month.toString().padLeft(2, '0');
+    final day = date.day.toString().padLeft(2, '0');
+    return '${date.year}-$month-$day';
+  }
+
   Future<void> _pickDateOfBirth() async {
     final now = DateTime.now();
     final picked = await showDatePicker(
@@ -69,10 +106,45 @@ class _DoctorFormPageState extends State<DoctorFormPage> {
     if (picked != null) setState(() => _dateOfBirth = picked);
   }
 
+  String? _optional(TextEditingController controller) {
+    final value = controller.text.trim();
+    return value.isEmpty ? null : value;
+  }
+
   void _onSavePressed() {
-    if (_formKey.currentState?.validate() ?? false) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('سيتم ربط حفظ الدكتور بالـ API لاحقاً')),
+    if (!(_formKey.currentState?.validate() ?? false)) return;
+
+    final cubit = context.read<DoctorFormCubit>();
+
+    if (_isEditing) {
+      cubit.updateDoctor(
+        id: widget.initialDoctor!.id,
+        updateDoctorRequestBody: UpdateDoctorRequestModel(
+          firstName: _firstNameController.text.trim(),
+          lastName: _lastNameController.text.trim(),
+          email: _optional(_emailController),
+          phoneNumber: _optional(_phoneController),
+          address: _optional(_addressController),
+          gender: _gender.apiValue,
+          dateOfBirth: _formatDate(_dateOfBirth),
+          cityId: _cityId,
+          clinicId: _clinicId,
+          isActive: _isActive,
+        ),
+      );
+    } else {
+      cubit.createDoctor(
+        CreateDoctorRequestModel(
+          firstName: _firstNameController.text.trim(),
+          lastName: _lastNameController.text.trim(),
+          email: _optional(_emailController),
+          phoneNumber: _optional(_phoneController),
+          address: _optional(_addressController),
+          gender: _gender.apiValue,
+          dateOfBirth: _formatDate(_dateOfBirth),
+          cityId: _cityId,
+          clinicId: _clinicId,
+        ),
       );
     }
   }
@@ -88,262 +160,66 @@ class _DoctorFormPageState extends State<DoctorFormPage> {
         ),
       ),
       body: SafeArea(
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            final isWide = constraints.maxWidth >= 600;
-            final contentWidth = isWide ? 560.0 : constraints.maxWidth;
+        child: BlocConsumer<DoctorFormCubit, DoctorFormState>(
+          listener: (context, state) {
+            switch (state) {
+              case DoctorFormSuccess():
+                ShowToast(
+                  message: _isEditing ? 'تم حفظ التعديلات' : 'تمت إضافة الدكتور',
+                  state: toastState.success,
+                );
+                Navigator.of(context).pop(true);
+              case DoctorFormError(:final message):
+                ShowToast(message: message, state: toastState.error);
+              default:
+                break;
+            }
+          },
+          builder: (context, state) {
+            return LayoutBuilder(
+              builder: (context, constraints) {
+                final isWide = constraints.maxWidth >= 600;
+                final contentWidth = isWide ? 560.0 : constraints.maxWidth;
 
-            return Center(
-              child: SingleChildScrollView(
-                padding: EdgeInsets.symmetric(
-                  horizontal: isWide ? 32 : 20,
-                  vertical: 20,
-                ),
-                child: ConstrainedBox(
-                  constraints: BoxConstraints(maxWidth: contentWidth),
-                  child: Form(
-                    key: _formKey,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text('الاسم الأول', style: AppTextStyles.font14MediumText),
-                        const SizedBox(height: 8),
-                        AppTextFormField(
-                          controller: _firstNameController,
-                          hintText: 'أدخل الاسم الأول',
-                          textInputAction: TextInputAction.next,
-                          prefixIcon: const Icon(
-                            Icons.person_outline,
-                            color: AppColorsManger.textSecondary,
-                          ),
-                          validator: (value) => (value == null || value.trim().isEmpty)
-                              ? 'الاسم الأول مطلوب'
-                              : null,
-                        ),
-                        const SizedBox(height: 20),
-                        Text('الاسم الأخير', style: AppTextStyles.font14MediumText),
-                        const SizedBox(height: 8),
-                        AppTextFormField(
-                          controller: _lastNameController,
-                          hintText: 'أدخل الاسم الأخير',
-                          textInputAction: TextInputAction.next,
-                          prefixIcon: const Icon(
-                            Icons.person_outline,
-                            color: AppColorsManger.textSecondary,
-                          ),
-                          validator: (value) => (value == null || value.trim().isEmpty)
-                              ? 'الاسم الأخير مطلوب'
-                              : null,
-                        ),
-                        const SizedBox(height: 20),
-                        Text('البريد الإلكتروني', style: AppTextStyles.font14MediumText),
-                        const SizedBox(height: 8),
-                        AppTextFormField(
-                          controller: _emailController,
-                          hintText: 'أدخل البريد الإلكتروني (اختياري)',
-                          textInputAction: TextInputAction.next,
-                          prefixIcon: const Icon(
-                            Icons.email_outlined,
-                            color: AppColorsManger.textSecondary,
-                          ),
-                          validator: (value) {
-                            if (value == null || value.isEmpty) return null;
-                            return value.contains('@') ? null : 'بريد إلكتروني غير صالح';
-                          },
-                        ),
-                        const SizedBox(height: 20),
-                        Text('رقم الهاتف', style: AppTextStyles.font14MediumText),
-                        const SizedBox(height: 8),
-                        AppTextFormField(
-                          controller: _phoneController,
-                          hintText: 'أدخل رقم الهاتف (اختياري)',
-                          textInputAction: TextInputAction.next,
-                          prefixIcon: const Icon(
-                            Icons.phone_outlined,
-                            color: AppColorsManger.textSecondary,
-                          ),
-                          validator: (_) => null,
-                        ),
-                        const SizedBox(height: 20),
-                        Text('العنوان', style: AppTextStyles.font14MediumText),
-                        const SizedBox(height: 8),
-                        AppTextFormField(
-                          controller: _addressController,
-                          hintText: 'أدخل العنوان (اختياري)',
-                          textInputAction: TextInputAction.done,
-                          prefixIcon: const Icon(
-                            Icons.location_on_outlined,
-                            color: AppColorsManger.textSecondary,
-                          ),
-                          validator: (_) => null,
-                        ),
-                        const SizedBox(height: 20),
-                        Text('الجنس', style: AppTextStyles.font14MediumText),
-                        const SizedBox(height: 8),
-                        SegmentedButton<_Gender>(
-                          segments: const [
-                            ButtonSegment(value: _Gender.male, label: Text('ذكر')),
-                            ButtonSegment(value: _Gender.female, label: Text('أنثى')),
-                          ],
-                          selected: {_gender},
-                          onSelectionChanged: (selection) =>
-                              setState(() => _gender = selection.first),
-                        ),
-                        const SizedBox(height: 20),
-                        Text('تاريخ الميلاد', style: AppTextStyles.font14MediumText),
-                        const SizedBox(height: 8),
-                        _PickerField(
-                          hintText: 'اختر تاريخ الميلاد',
-                          icon: Icons.cake_outlined,
-                          value: _dateOfBirth == null
-                              ? null
-                              : '${_dateOfBirth!.year}-${_dateOfBirth!.month.toString().padLeft(2, '0')}-${_dateOfBirth!.day.toString().padLeft(2, '0')}',
-                          onTap: _pickDateOfBirth,
-                        ),
-                        const SizedBox(height: 20),
-                        Text('العيادة', style: AppTextStyles.font14MediumText),
-                        const SizedBox(height: 8),
-                        _DropdownField(
-                          hintText: 'اختر العيادة (اختياري)',
-                          icon: Icons.local_hospital_outlined,
-                          value: _clinicName,
-                          options: _mockClinics,
-                          onChanged: (value) => setState(() => _clinicName = value),
-                        ),
-                        const SizedBox(height: 20),
-                        Text('المدينة', style: AppTextStyles.font14MediumText),
-                        const SizedBox(height: 8),
-                        _DropdownField(
-                          hintText: 'اختر المدينة (اختياري)',
-                          icon: Icons.location_city_outlined,
-                          value: _cityName,
-                          options: _mockCities,
-                          onChanged: (value) => setState(() => _cityName = value),
-                        ),
-                        if (_isEditing) ...[
-                          const SizedBox(height: 20),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-                            decoration: BoxDecoration(
-                              color: AppColorsManger.surface,
-                              borderRadius: BorderRadius.circular(14),
-                              border: Border.all(color: AppColorsManger.border),
-                            ),
-                            child: Row(
-                              children: [
-                                Expanded(
-                                  child: Text('نشط', style: AppTextStyles.font14MediumText),
-                                ),
-                                Switch(
-                                  value: _isActive,
-                                  activeThumbColor: AppColorsManger.primary,
-                                  onChanged: (value) => setState(() => _isActive = value),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                        const SizedBox(height: 24),
-                        CustomButtonWidget(
-                          onPressed: _onSavePressed,
-                          buttonText: _isEditing ? 'حفظ التعديلات' : 'إضافة الدكتور',
-                          textColor: Colors.white,
-                          backgroundColor: AppColorsManger.primary,
-                        ),
-                      ],
+                return Center(
+                  child: SingleChildScrollView(
+                    padding: EdgeInsets.symmetric(
+                      horizontal: isWide ? 32 : 20,
+                      vertical: 20,
+                    ),
+                    child: ConstrainedBox(
+                      constraints: BoxConstraints(maxWidth: contentWidth),
+                      child: DoctorFormFields(
+                        formKey: _formKey,
+                        firstNameController: _firstNameController,
+                        lastNameController: _lastNameController,
+                        emailController: _emailController,
+                        phoneController: _phoneController,
+                        addressController: _addressController,
+                        gender: _gender,
+                        onGenderChanged: (value) =>
+                            setState(() => _gender = value),
+                        dateOfBirth: _formatDate(_dateOfBirth),
+                        onPickDate: _pickDateOfBirth,
+                        cityId: _cityId,
+                        onCityChanged: (value) =>
+                            setState(() => _cityId = value),
+                        clinicId: _clinicId,
+                        onClinicChanged: (value) =>
+                            setState(() => _clinicId = value),
+                        isSubmitting: state is DoctorFormSubmitting,
+                        isEditing: _isEditing,
+                        isActive: _isActive,
+                        onActiveChanged: (value) =>
+                            setState(() => _isActive = value),
+                        onSave: _onSavePressed,
+                      ),
                     ),
                   ),
-                ),
-              ),
+                );
+              },
             );
           },
-        ),
-      ),
-    );
-  }
-}
-
-class _PickerField extends StatelessWidget {
-  const _PickerField({
-    required this.hintText,
-    required this.icon,
-    required this.value,
-    required this.onTap,
-  });
-
-  final String hintText;
-  final IconData icon;
-  final String? value;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(16),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
-        decoration: BoxDecoration(
-          color: AppColorsManger.moreLightGray,
-          borderRadius: BorderRadius.circular(16),
-        ),
-        child: Row(
-          children: [
-            Icon(icon, color: AppColorsManger.textSecondary),
-            const SizedBox(width: 12),
-            Text(
-              value ?? hintText,
-              style: value == null
-                  ? AppTextStyles.font14RegularSecondary
-                  : AppTextStyles.font14MediumText,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _DropdownField extends StatelessWidget {
-  const _DropdownField({
-    required this.hintText,
-    required this.icon,
-    required this.value,
-    required this.options,
-    required this.onChanged,
-  });
-
-  final String hintText;
-  final IconData icon;
-  final String? value;
-  final List<String> options;
-  final ValueChanged<String?> onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 20),
-      decoration: BoxDecoration(
-        color: AppColorsManger.moreLightGray,
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: DropdownButtonHideUnderline(
-        child: DropdownButtonFormField<String>(
-          initialValue: value,
-          isExpanded: true,
-          decoration: const InputDecoration(border: InputBorder.none),
-          hint: Row(
-            children: [
-              Icon(icon, color: AppColorsManger.textSecondary),
-              const SizedBox(width: 12),
-              Text(hintText, style: AppTextStyles.font14RegularSecondary),
-            ],
-          ),
-          items: options
-              .map((option) => DropdownMenuItem(value: option, child: Text(option)))
-              .toList(),
-          onChanged: onChanged,
         ),
       ),
     );

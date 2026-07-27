@@ -1,58 +1,119 @@
+import 'package:dental_lab_app/core/di/dependency_injection.dart';
 import 'package:dental_lab_app/core/theming/colors.dart';
 import 'package:dental_lab_app/core/theming/styles.dart';
-import 'package:dental_lab_app/core/widgets/custom_button_widget.dart';
-import 'package:dental_lab_app/core/widgets/custom_text_field_widget.dart';
+import 'package:dental_lab_app/core/widgets/show_toast_widget.dart';
+import 'package:dental_lab_app/features/cities/logic/cities/cities_cubit.dart';
+import 'package:dental_lab_app/features/clinics/data/models/clinic_model.dart';
+import 'package:dental_lab_app/features/clinics/data/models/create_clinic_request_model.dart';
+import 'package:dental_lab_app/features/clinics/data/models/update_clinic_request_model.dart';
+import 'package:dental_lab_app/features/clinics/logic/clinic_form/clinic_form_cubit.dart';
+import 'package:dental_lab_app/features/clinics/logic/clinic_form/clinic_form_state.dart';
+import 'package:dental_lab_app/features/clinics/ui/widgets/clinic_form_fields.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 
-// Mock options until the Cities/PriceTiers lookups are wired in from the API.
-const List<String> _mockCities = ['دمشق', 'حلب', 'حمص', 'اللاذقية'];
-const List<String> _mockPriceTiers = ['قياسي', 'مميز', 'VIP'];
-
-/// Add/edit clinic screen — design only for now (no Cubit / API wiring yet).
-/// Pass [initialClinic] to open in edit mode.
-class ClinicFormPage extends StatefulWidget {
+/// Add/edit clinic screen. Pass [initialClinic] to open in edit mode.
+///
+/// The form submission is driven by [ClinicFormCubit]; the city dropdown is
+/// fed by the standalone [CitiesCubit] — the two concerns stay separate.
+class ClinicFormPage extends StatelessWidget {
   const ClinicFormPage({super.key, this.initialClinic});
 
-  final Map<String, dynamic>? initialClinic;
+  final ClinicModel? initialClinic;
 
   @override
-  State<ClinicFormPage> createState() => _ClinicFormPageState();
+  Widget build(BuildContext context) {
+    return MultiBlocProvider(
+      providers: [
+        BlocProvider(create: (_) => getIt<ClinicFormCubit>()),
+        BlocProvider(create: (_) => getIt<CitiesCubit>()..getCities()),
+      ],
+      child: _ClinicFormView(initialClinic: initialClinic),
+    );
+  }
 }
 
-class _ClinicFormPageState extends State<ClinicFormPage> {
+class _ClinicFormView extends StatefulWidget {
+  const _ClinicFormView({this.initialClinic});
+
+  final ClinicModel? initialClinic;
+
+  @override
+  State<_ClinicFormView> createState() => _ClinicFormViewState();
+}
+
+class _ClinicFormViewState extends State<_ClinicFormView> {
   final _formKey = GlobalKey<FormState>();
   late final _nameController = TextEditingController(
-    text: widget.initialClinic?['name'] as String? ?? '',
+    text: widget.initialClinic?.name ?? '',
   );
-  late final _addressController = TextEditingController(
-    text: widget.initialClinic?['address'] as String? ?? '',
+  late final _codeController = TextEditingController(
+    text: widget.initialClinic?.code ?? '',
   );
   late final _phoneController = TextEditingController(
-    text: widget.initialClinic?['phoneNumber'] as String? ?? '',
+    text: widget.initialClinic?.phoneNumber ?? '',
   );
   late final _emailController = TextEditingController(
-    text: widget.initialClinic?['email'] as String? ?? '',
+    text: widget.initialClinic?.email ?? '',
+  );
+  late final _addressController = TextEditingController(
+    text: widget.initialClinic?.address ?? '',
+  );
+  late final _websiteController = TextEditingController(
+    text: widget.initialClinic?.websiteUrl ?? '',
   );
 
-  late String? _cityName = widget.initialClinic?['cityName'] as String?;
-  late String? _priceTierName = widget.initialClinic?['priceTierName'] as String?;
-  late bool _isActive = widget.initialClinic?['isActive'] as bool? ?? true;
+  late String? _cityId = widget.initialClinic?.cityId;
 
   bool get _isEditing => widget.initialClinic != null;
 
   @override
   void dispose() {
     _nameController.dispose();
-    _addressController.dispose();
+    _codeController.dispose();
     _phoneController.dispose();
     _emailController.dispose();
+    _addressController.dispose();
+    _websiteController.dispose();
     super.dispose();
   }
 
+  /// Optional fields are sent as `null` rather than an empty string so the
+  /// API stores "not set" instead of a blank value.
+  String? _optional(TextEditingController controller) {
+    final value = controller.text.trim();
+    return value.isEmpty ? null : value;
+  }
+
   void _onSavePressed() {
-    if (_formKey.currentState?.validate() ?? false) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('سيتم ربط حفظ العيادة بالـ API لاحقاً')),
+    if (!(_formKey.currentState?.validate() ?? false)) return;
+
+    final cubit = context.read<ClinicFormCubit>();
+
+    if (_isEditing) {
+      cubit.updateClinic(
+        id: widget.initialClinic!.id,
+        updateClinicRequestBody: UpdateClinicRequestModel(
+          name: _nameController.text.trim(),
+          code: _optional(_codeController),
+          phoneNumber: _optional(_phoneController),
+          email: _optional(_emailController),
+          address: _optional(_addressController),
+          cityId: _cityId,
+          websiteUrl: _optional(_websiteController),
+        ),
+      );
+    } else {
+      cubit.createClinic(
+        CreateClinicRequestModel(
+          name: _nameController.text.trim(),
+          code: _optional(_codeController),
+          phoneNumber: _optional(_phoneController),
+          email: _optional(_emailController),
+          address: _optional(_addressController),
+          cityId: _cityId,
+          websiteUrl: _optional(_websiteController),
+        ),
       );
     }
   }
@@ -68,183 +129,56 @@ class _ClinicFormPageState extends State<ClinicFormPage> {
         ),
       ),
       body: SafeArea(
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            final isWide = constraints.maxWidth >= 600;
-            final contentWidth = isWide ? 560.0 : constraints.maxWidth;
+        child: BlocConsumer<ClinicFormCubit, ClinicFormState>(
+          listener: (context, state) {
+            switch (state) {
+              case ClinicFormSuccess():
+                ShowToast(
+                  message: _isEditing ? 'تم حفظ التعديلات' : 'تمت إضافة العيادة',
+                  state: toastState.success,
+                );
+                Navigator.of(context).pop(true);
+              case ClinicFormError(:final message):
+                ShowToast(message: message, state: toastState.error);
+              default:
+                break;
+            }
+          },
+          builder: (context, state) {
+            return LayoutBuilder(
+              builder: (context, constraints) {
+                final isWide = constraints.maxWidth >= 600;
+                final contentWidth = isWide ? 560.0 : constraints.maxWidth;
 
-            return Center(
-              child: SingleChildScrollView(
-                padding: EdgeInsets.symmetric(
-                  horizontal: isWide ? 32 : 20,
-                  vertical: 20,
-                ),
-                child: ConstrainedBox(
-                  constraints: BoxConstraints(maxWidth: contentWidth),
-                  child: Form(
-                    key: _formKey,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text('اسم العيادة', style: AppTextStyles.font14MediumText),
-                        const SizedBox(height: 8),
-                        AppTextFormField(
-                          controller: _nameController,
-                          hintText: 'أدخل اسم العيادة',
-                          textInputAction: TextInputAction.next,
-                          prefixIcon: const Icon(
-                            Icons.local_hospital_outlined,
-                            color: AppColorsManger.textSecondary,
-                          ),
-                          validator: (value) => (value == null || value.trim().isEmpty)
-                              ? 'اسم العيادة مطلوب'
-                              : null,
-                        ),
-                        const SizedBox(height: 20),
-                        Text('العنوان', style: AppTextStyles.font14MediumText),
-                        const SizedBox(height: 8),
-                        AppTextFormField(
-                          controller: _addressController,
-                          hintText: 'أدخل العنوان (اختياري)',
-                          textInputAction: TextInputAction.next,
-                          prefixIcon: const Icon(
-                            Icons.location_on_outlined,
-                            color: AppColorsManger.textSecondary,
-                          ),
-                          validator: (_) => null,
-                        ),
-                        const SizedBox(height: 20),
-                        Text('رقم الهاتف', style: AppTextStyles.font14MediumText),
-                        const SizedBox(height: 8),
-                        AppTextFormField(
-                          controller: _phoneController,
-                          hintText: 'أدخل رقم الهاتف (اختياري)',
-                          textInputAction: TextInputAction.next,
-                          prefixIcon: const Icon(
-                            Icons.phone_outlined,
-                            color: AppColorsManger.textSecondary,
-                          ),
-                          validator: (_) => null,
-                        ),
-                        const SizedBox(height: 20),
-                        Text('البريد الإلكتروني', style: AppTextStyles.font14MediumText),
-                        const SizedBox(height: 8),
-                        AppTextFormField(
-                          controller: _emailController,
-                          hintText: 'أدخل البريد الإلكتروني (اختياري)',
-                          textInputAction: TextInputAction.done,
-                          prefixIcon: const Icon(
-                            Icons.email_outlined,
-                            color: AppColorsManger.textSecondary,
-                          ),
-                          validator: (value) {
-                            if (value == null || value.isEmpty) return null;
-                            return value.contains('@') ? null : 'بريد إلكتروني غير صالح';
-                          },
-                        ),
-                        const SizedBox(height: 20),
-                        Text('المدينة', style: AppTextStyles.font14MediumText),
-                        const SizedBox(height: 8),
-                        _DropdownField(
-                          hintText: 'اختر المدينة (اختياري)',
-                          icon: Icons.location_city_outlined,
-                          value: _cityName,
-                          options: _mockCities,
-                          onChanged: (value) => setState(() => _cityName = value),
-                        ),
-                        const SizedBox(height: 20),
-                        Text('فئة التسعير', style: AppTextStyles.font14MediumText),
-                        const SizedBox(height: 8),
-                        _DropdownField(
-                          hintText: 'اختر فئة التسعير (اختياري)',
-                          icon: Icons.sell_outlined,
-                          value: _priceTierName,
-                          options: _mockPriceTiers,
-                          onChanged: (value) => setState(() => _priceTierName = value),
-                        ),
-                        if (_isEditing) ...[
-                          const SizedBox(height: 20),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-                            decoration: BoxDecoration(
-                              color: AppColorsManger.surface,
-                              borderRadius: BorderRadius.circular(14),
-                              border: Border.all(color: AppColorsManger.border),
-                            ),
-                            child: Row(
-                              children: [
-                                Expanded(
-                                  child: Text('مفعّلة', style: AppTextStyles.font14MediumText),
-                                ),
-                                Switch(
-                                  value: _isActive,
-                                  activeThumbColor: AppColorsManger.primary,
-                                  onChanged: (value) => setState(() => _isActive = value),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                        const SizedBox(height: 24),
-                        CustomButtonWidget(
-                          onPressed: _onSavePressed,
-                          buttonText: _isEditing ? 'حفظ التعديلات' : 'إضافة العيادة',
-                          textColor: Colors.white,
-                          backgroundColor: AppColorsManger.primary,
-                        ),
-                      ],
+                return Center(
+                  child: SingleChildScrollView(
+                    padding: EdgeInsets.symmetric(
+                      horizontal: isWide ? 32 : 20,
+                      vertical: 20,
+                    ),
+                    child: ConstrainedBox(
+                      constraints: BoxConstraints(maxWidth: contentWidth),
+                      child: ClinicFormFields(
+                        formKey: _formKey,
+                        nameController: _nameController,
+                        codeController: _codeController,
+                        addressController: _addressController,
+                        phoneController: _phoneController,
+                        emailController: _emailController,
+                        websiteController: _websiteController,
+                        cityId: _cityId,
+                        onCityChanged: (value) =>
+                            setState(() => _cityId = value),
+                        isSubmitting: state is ClinicFormSubmitting,
+                        isEditing: _isEditing,
+                        onSave: _onSavePressed,
+                      ),
                     ),
                   ),
-                ),
-              ),
+                );
+              },
             );
           },
-        ),
-      ),
-    );
-  }
-}
-
-class _DropdownField extends StatelessWidget {
-  const _DropdownField({
-    required this.hintText,
-    required this.icon,
-    required this.value,
-    required this.options,
-    required this.onChanged,
-  });
-
-  final String hintText;
-  final IconData icon;
-  final String? value;
-  final List<String> options;
-  final ValueChanged<String?> onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 20),
-      decoration: BoxDecoration(
-        color: AppColorsManger.moreLightGray,
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: DropdownButtonHideUnderline(
-        child: DropdownButtonFormField<String>(
-          initialValue: value,
-          isExpanded: true,
-          decoration: const InputDecoration(border: InputBorder.none),
-          hint: Row(
-            children: [
-              Icon(icon, color: AppColorsManger.textSecondary),
-              const SizedBox(width: 12),
-              Text(hintText, style: AppTextStyles.font14RegularSecondary),
-            ],
-          ),
-          items: options
-              .map((option) => DropdownMenuItem(value: option, child: Text(option)))
-              .toList(),
-          onChanged: onChanged,
         ),
       ),
     );
