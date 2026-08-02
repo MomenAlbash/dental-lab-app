@@ -1,5 +1,5 @@
-import 'package:dental_lab_app/features/case_workflow_stages/data/models/case_workflow_stage_model.dart';
 import 'package:dental_lab_app/features/cases/data/models/case_priority.dart';
+import 'package:dental_lab_app/features/cases/data/models/case_status.dart';
 import 'package:dental_lab_app/features/clinics/data/models/clinic_model.dart';
 import 'package:dental_lab_app/features/doctors/data/models/doctor_model.dart';
 
@@ -12,7 +12,9 @@ class CaseListItemModel {
   final String? patientName;
   final DoctorModel? doctor;
   final ClinicModel? clinic;
-  final CaseWorkflowStageModel? currentStage;
+  final CaseStatus caseStatus;
+  final int restorationsCount;
+  final int doctorNumber;
   final String? dueDate;
   final String? createdAt;
 
@@ -24,14 +26,16 @@ class CaseListItemModel {
     this.patientName,
     this.doctor,
     this.clinic,
-    this.currentStage,
+    this.caseStatus = CaseStatus.created,
+    this.restorationsCount = 0,
+    this.doctorNumber = 0,
     this.dueDate,
     this.createdAt,
   });
 
   String? get doctorName => doctor?.fullName;
   String? get clinicName => clinic?.name;
-  String? get currentStageName => currentStage?.name;
+  String get caseStatusLabel => caseStatus.arabicLabel;
 
   factory CaseListItemModel.fromJson(Map<String, dynamic> json) {
     return CaseListItemModel(
@@ -46,11 +50,9 @@ class CaseListItemModel {
       clinic: json['clinic'] == null
           ? null
           : ClinicModel.fromJson(json['clinic'] as Map<String, dynamic>),
-      currentStage: json['currentStage'] == null
-          ? null
-          : CaseWorkflowStageModel.fromJson(
-              json['currentStage'] as Map<String, dynamic>,
-            ),
+      caseStatus: CaseStatus.fromApi(json['caseStatus'] as int?),
+      restorationsCount: json['restorationsCount'] as int? ?? 0,
+      doctorNumber: json['doctorNumber'] as int? ?? 0,
       dueDate: json['dueDate'] as String?,
       createdAt: json['createdAt'] as String?,
     );

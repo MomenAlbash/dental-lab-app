@@ -1,31 +1,32 @@
 import 'package:dental_lab_app/features/cases/data/models/case_restoration_request_model.dart';
-import 'package:dental_lab_app/features/cases/data/models/tooth_mark_model.dart';
 
-/// Create payload for a case (`ClinicCreateCaseRequest`). All fields are
-/// technically optional on the API, but a case needs at least a doctor, a
-/// patient name and one restoration to be meaningful.
+/// Create payload for a case (`ClinicCreateCaseRequest`). [patientId] is the
+/// only field required by the API (a real `Patient` record) — a case also
+/// needs a doctor and one restoration to be meaningful.
+///
+/// Teeth are no longer accepted at the case level — each entry in
+/// [restorations] carries its own `teeth` list (see
+/// [CaseRestorationRequestModel]).
 class CreateCaseRequestModel {
   final String? doctorId;
   final String? clinicId;
   final String? patientId;
-  final String? patientName;
   final String? referenceNumber;
   final int? priority;
   final String? notes;
   final String? dueDate;
-  final List<ToothMarkModel> teeth;
+  final String? receivedAt;
   final List<CaseRestorationRequestModel> restorations;
 
   CreateCaseRequestModel({
     this.doctorId,
     this.clinicId,
     this.patientId,
-    this.patientName,
     this.referenceNumber,
     this.priority,
     this.notes,
     this.dueDate,
-    this.teeth = const [],
+    this.receivedAt,
     this.restorations = const [],
   });
 
@@ -34,12 +35,11 @@ class CreateCaseRequestModel {
       'doctorId': doctorId,
       'clinicId': clinicId,
       'patientId': patientId,
-      'patientName': patientName,
       'referenceNumber': referenceNumber,
       'priority': priority,
       'notes': notes,
       'dueDate': dueDate,
-      'teeth': teeth.map((t) => t.toJson()).toList(),
+      'receivedAt': receivedAt,
       'restorations': restorations.map((r) => r.toJson()).toList(),
     };
   }

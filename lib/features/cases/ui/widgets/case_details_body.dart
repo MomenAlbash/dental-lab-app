@@ -3,6 +3,7 @@ import 'package:dental_lab_app/core/theming/styles.dart';
 import 'package:dental_lab_app/core/widgets/detail_info_row_widget.dart';
 import 'package:dental_lab_app/features/cases/data/models/case_detail_model.dart';
 import 'package:dental_lab_app/features/cases/data/models/case_file_model.dart';
+import 'package:dental_lab_app/features/cases/data/models/case_restoration_model.dart';
 import 'package:flutter/material.dart';
 
 /// The case details section: header, info card, stage action, notes, teeth,
@@ -20,7 +21,7 @@ class CaseDetailsBody extends StatelessWidget {
 
   final CaseDetailModel caseDetail;
   final bool isBusy;
-  final VoidCallback onChangeStage;
+  final ValueChanged<CaseRestorationModel> onChangeStage;
   final VoidCallback onAddFile;
   final ValueChanged<CaseFileModel> onOpenFile;
   final ValueChanged<String> onDeleteFile;
@@ -47,12 +48,6 @@ class CaseDetailsBody extends StatelessWidget {
                     children: [
                       _Header(caseDetail: caseDetail),
                       const SizedBox(height: 16),
-                      OutlinedButton.icon(
-                        onPressed: isBusy ? null : onChangeStage,
-                        icon: const Icon(Icons.swap_horiz),
-                        label: const Text('تغيير المرحلة'),
-                      ),
-                      const SizedBox(height: 16),
                       _InfoCard(caseDetail: caseDetail),
                       if (caseDetail.notes != null &&
                           caseDetail.notes!.isNotEmpty) ...[
@@ -62,23 +57,6 @@ class CaseDetailsBody extends StatelessWidget {
                         Text(
                           caseDetail.notes!,
                           style: AppTextStyles.font14RegularSecondary,
-                        ),
-                      ],
-                      if (caseDetail.teeth.isNotEmpty) ...[
-                        const SizedBox(height: 24),
-                        _SectionTitle('الأسنان'),
-                        const SizedBox(height: 8),
-                        Wrap(
-                          spacing: 6,
-                          runSpacing: 6,
-                          children: caseDetail.teeth
-                              .map(
-                                (t) => _Badge(
-                                  label: '${t.toothNumber}',
-                                  color: AppColorsManger.info,
-                                ),
-                              )
-                              .toList(),
                         ),
                       ],
                       const SizedBox(height: 24),
@@ -91,41 +69,10 @@ class CaseDetailsBody extends StatelessWidget {
                         )
                       else
                         ...caseDetail.restorations.map(
-                          (r) => Container(
-                            margin: const EdgeInsets.only(bottom: 8),
-                            padding: const EdgeInsets.all(12),
-                            decoration: BoxDecoration(
-                              color: AppColorsManger.surface,
-                              borderRadius: BorderRadius.circular(12),
-                              border: Border.all(color: AppColorsManger.border),
-                            ),
-                            child: Row(
-                              children: [
-                                const Icon(
-                                  Icons.category_outlined,
-                                  color: AppColorsManger.primary,
-                                ),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        r.restorationName,
-                                        style: AppTextStyles.font14MediumText,
-                                      ),
-                                      const SizedBox(height: 2),
-                                      Text(
-                                        'الكمية: ${r.quantity}'
-                                        '${r.unitPrice != null ? ' • ${r.unitPrice!.toStringAsFixed(0)} ${r.currencyName ?? ''}' : ''}',
-                                        style: AppTextStyles.font12RegularHint,
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ],
-                            ),
+                          (r) => _RestorationCard(
+                            restoration: r,
+                            isBusy: isBusy,
+                            onChangeStage: () => onChangeStage(r),
                           ),
                         ),
                       const SizedBox(height: 24),
@@ -184,11 +131,10 @@ class _Header extends StatelessWidget {
                 label: caseDetail.priority.arabicLabel,
                 color: AppColorsManger.warning,
               ),
-              if (caseDetail.currentStageName != null)
-                _Badge(
-                  label: caseDetail.currentStageName!,
-                  color: AppColorsManger.success,
-                ),
+              _Badge(
+                label: caseDetail.caseStatusLabel,
+                color: AppColorsManger.success,
+              ),
             ],
           ),
         ],
@@ -232,6 +178,12 @@ class _InfoCard extends StatelessWidget {
           ),
           const Divider(height: 1, color: AppColorsManger.divider),
           DetailInfoRowWidget(
+            icon: Icons.move_to_inbox_outlined,
+            label: 'تاريخ الاستلام',
+            value: _date(caseDetail.receivedAt),
+          ),
+          const Divider(height: 1, color: AppColorsManger.divider),
+          DetailInfoRowWidget(
             icon: Icons.tag_outlined,
             label: 'الرقم المرجعي',
             value: caseDetail.referenceNumber ?? '',
@@ -246,6 +198,118 @@ class _InfoCard extends StatelessWidget {
     final date = DateTime.tryParse(iso);
     if (date == null) return iso;
     return '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
+  }
+}
+
+/// One restoration card in the details view: name, quantity/price, its own
+/// teeth (with bridge connections) and shade/alloy info.
+class _RestorationCard extends StatelessWidget {
+  const _RestorationCard({
+    required this.restoration,
+    required this.isBusy,
+    required this.onChangeStage,
+  });
+
+  final CaseRestorationModel restoration;
+  final bool isBusy;
+  final VoidCallback onChangeStage;
+
+  @override
+  Widget build(BuildContext context) {
+    final shadeParts = [
+      if (restoration.shadeCervical?.isNotEmpty == true)
+        'العنقي: ${restoration.shadeCervical}',
+      if (restoration.shadeMiddle?.isNotEmpty == true)
+        'الوسط: ${restoration.shadeMiddle}',
+      if (restoration.shadeIncisal?.isNotEmpty == true)
+        'القاطع: ${restoration.shadeIncisal}',
+    ];
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: AppColorsManger.surface,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColorsManger.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(
+                Icons.category_outlined,
+                color: AppColorsManger.primary,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      restoration.restorationName,
+                      style: AppTextStyles.font14MediumText,
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      'الكمية: ${restoration.quantity}'
+                      '${restoration.unitPrice != null ? ' • ${restoration.unitPrice!.toStringAsFixed(0)} ${restoration.currencyName ?? ''}' : ''}',
+                      style: AppTextStyles.font12RegularHint,
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              if (restoration.currentStageName != null)
+                _Badge(
+                  label: restoration.currentStageName!,
+                  color: AppColorsManger.success,
+                ),
+              const Spacer(),
+              TextButton.icon(
+                onPressed: isBusy ? null : onChangeStage,
+                icon: const Icon(Icons.swap_horiz, size: 18),
+                label: const Text('تغيير المرحلة'),
+              ),
+            ],
+          ),
+          if (restoration.teeth.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              children: restoration.teeth
+                  .map(
+                    (t) => _Badge(
+                      label: t.connectedToToothNumber != null
+                          ? '${t.toothNumber} ↔ ${t.connectedToToothNumber}'
+                          : '${t.toothNumber}',
+                      color: AppColorsManger.info,
+                    ),
+                  )
+                  .toList(),
+            ),
+          ],
+          if (shadeParts.isNotEmpty ||
+              restoration.baseToothColor?.isNotEmpty == true) ...[
+            const SizedBox(height: 8),
+            Text(
+              [
+                if (shadeParts.isNotEmpty) shadeParts.join(' • '),
+                if (restoration.baseToothColor?.isNotEmpty == true)
+                  'لون الأساس: ${restoration.baseToothColor}',
+              ].join('  •  '),
+              style: AppTextStyles.font12RegularHint,
+            ),
+          ],
+        ],
+      ),
+    );
   }
 }
 

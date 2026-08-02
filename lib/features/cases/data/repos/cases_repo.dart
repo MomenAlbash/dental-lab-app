@@ -7,7 +7,9 @@ import 'package:dental_lab_app/core/helper/local/cached_helper.dart';
 import 'package:dental_lab_app/core/helper/network_helper/api_service.dart';
 import 'package:dental_lab_app/features/cases/data/models/case_detail_model.dart';
 import 'package:dental_lab_app/features/cases/data/models/case_file_model.dart';
+import 'package:dental_lab_app/features/cases/data/models/case_filters_model.dart';
 import 'package:dental_lab_app/features/cases/data/models/case_list_item_model.dart';
+import 'package:dental_lab_app/features/cases/data/models/case_message_model.dart';
 import 'package:dental_lab_app/features/cases/data/models/create_case_request_model.dart';
 import 'package:dio/dio.dart';
 
@@ -17,11 +19,22 @@ class CasesRepo {
 
   String? get _token => CacheHelper.getData(key: CacheKeys.token) as String?;
 
+  String? _isoDate(DateTime? date) => date?.toIso8601String();
+
   Future<Either<Failure, List<CaseListItemModel>>> getCases({
     String? search,
+    CaseFiltersModel filters = CaseFiltersModel.empty,
   }) async {
     try {
-      final cases = await _apiService.getCases(search: search, token: _token);
+      final cases = await _apiService.getCases(
+        search: search,
+        doctorId: filters.doctorId,
+        clinicId: filters.clinicId,
+        priority: filters.priority?.apiValue,
+        dueDateFrom: _isoDate(filters.dueDateFrom),
+        dueDateTo: _isoDate(filters.dueDateTo),
+        token: _token,
+      );
 
       log('Fetched ${cases.length} cases');
       return right(cases);
@@ -84,26 +97,31 @@ class CasesRepo {
     }
   }
 
-  Future<Either<Failure, void>> setStage({
-    required String id,
+  /// Sets the stage of one restoration within the case — stages are scoped
+  /// to a restoration (and, through it, to its restoration type), not to the
+  /// case as a whole.
+  Future<Either<Failure, void>> setRestorationStage({
+    required String caseId,
+    required String restorationId,
     required String stageId,
     String? note,
   }) async {
     try {
-      await _apiService.setCaseStage(
-        id: id,
+      await _apiService.setRestorationStage(
+        caseId: caseId,
+        restorationId: restorationId,
         stageId: stageId,
         note: note,
         token: _token,
       );
 
-      log('Set stage for case: $id');
+      log('Set stage for restoration $restorationId (case $caseId)');
       return right(null);
     } on DioException catch (e) {
-      log('DioException while setting case stage: ${e.message}');
+      log('DioException while setting restoration stage: ${e.message}');
       return left(ServerFailure.FromDioExecption(e));
     } catch (e) {
-      log('General Exception while setting case stage: ${e.toString()}');
+      log('General Exception while setting restoration stage: ${e.toString()}');
       return left(ServerFailure.fromException(e));
     }
   }
@@ -126,6 +144,47 @@ class CasesRepo {
       return left(ServerFailure.FromDioExecption(e));
     } catch (e) {
       log('General Exception while uploading case file: ${e.toString()}');
+      return left(ServerFailure.fromException(e));
+    }
+  }
+
+  Future<Either<Failure, List<CaseMessageModel>>> getMessages(String id) async {
+    try {
+      final messages = await _apiService.getCaseMessages(id: id, token: _token);
+
+      log('Fetched ${messages.length} messages for case: $id');
+      return right(messages);
+    } on DioException catch (e) {
+      log('DioException while fetching case messages: ${e.message}');
+      return left(ServerFailure.FromDioExecption(e));
+    } catch (e) {
+      log('General Exception while fetching case messages: ${e.toString()}');
+      return left(ServerFailure.fromException(e));
+    }
+  }
+
+  Future<Either<Failure, CaseMessageModel>> sendMessage({
+    required String id,
+    String? message,
+    String? replyToMessageId,
+    String? filePath,
+  }) async {
+    try {
+      final sent = await _apiService.sendCaseMessage(
+        id: id,
+        message: message,
+        replyToMessageId: replyToMessageId,
+        filePath: filePath,
+        token: _token,
+      );
+
+      log('Sent message for case: $id');
+      return right(sent);
+    } on DioException catch (e) {
+      log('DioException while sending case message: ${e.message}');
+      return left(ServerFailure.FromDioExecption(e));
+    } catch (e) {
+      log('General Exception while sending case message: ${e.toString()}');
       return left(ServerFailure.fromException(e));
     }
   }

@@ -4,7 +4,9 @@ import 'package:dental_lab_app/core/theming/colors.dart';
 import 'package:dental_lab_app/core/theming/styles.dart';
 import 'package:dental_lab_app/core/widgets/app_drawer_widget.dart';
 import 'package:dental_lab_app/features/cases/logic/cases/cases_cubit.dart';
+import 'package:dental_lab_app/features/cases/logic/cases/cases_state.dart';
 import 'package:dental_lab_app/features/cases/ui/case_form_page.dart';
+import 'package:dental_lab_app/features/cases/ui/widgets/case_filters_sheet.dart';
 import 'package:dental_lab_app/features/cases/ui/widgets/cases_list_body.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -49,6 +51,22 @@ class _CasesShellViewState extends State<_CasesShellView> {
           _index == 0 ? 'الحالات' : 'إضافة حالة',
           style: AppTextStyles.font18MediumText,
         ),
+        actions: [
+          if (_index == 0)
+            BlocBuilder<CasesCubit, CasesState>(
+              builder: (context, state) {
+                final activeCount = context.read<CasesCubit>().filters.activeCount;
+                return IconButton(
+                  onPressed: () => openCaseFiltersSheet(context),
+                  icon: Badge(
+                    label: Text('$activeCount'),
+                    isLabelVisible: activeCount > 0,
+                    child: const Icon(Icons.filter_list),
+                  ),
+                );
+              },
+            ),
+        ],
       ),
       body: SafeArea(
         child: IndexedStack(

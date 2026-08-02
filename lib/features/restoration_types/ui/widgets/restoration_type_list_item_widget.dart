@@ -8,7 +8,7 @@ class RestorationTypeListItemWidget extends StatelessWidget {
     required this.name,
     required this.defaultPrice,
     required this.isActive,
-    required this.showInClinicApp,
+    required this.stagesCount,
     required this.onEdit,
     required this.onDelete,
   });
@@ -16,7 +16,7 @@ class RestorationTypeListItemWidget extends StatelessWidget {
   final String name;
   final double defaultPrice;
   final bool isActive;
-  final bool showInClinicApp;
+  final int stagesCount;
   final VoidCallback onEdit;
   final VoidCallback onDelete;
 
@@ -59,9 +59,12 @@ class RestorationTypeListItemWidget extends StatelessWidget {
                       label: isActive ? 'مفعّل' : 'موقوف',
                       color: isActive ? AppColorsManger.success : AppColorsManger.textHint,
                     ),
-                    if (showInClinicApp) ...[
+                    if (stagesCount > 0) ...[
                       const SizedBox(width: 6),
-                      const _Badge(label: 'ظاهر للعيادات', color: AppColorsManger.info),
+                      _Badge(
+                        label: '$stagesCount مراحل',
+                        color: AppColorsManger.info,
+                      ),
                     ],
                   ],
                 ),

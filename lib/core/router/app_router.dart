@@ -1,7 +1,5 @@
 import 'package:dental_lab_app/core/router/routes.dart';
 import 'package:dental_lab_app/features/auth/ui/login_page.dart';
-import 'package:dental_lab_app/features/case_workflow_stages/data/models/case_workflow_stage_model.dart';
-import 'package:dental_lab_app/features/case_workflow_stages/ui/case_workflow_stage_form_page.dart';
 import 'package:dental_lab_app/features/cases/ui/case_detail_page.dart';
 import 'package:dental_lab_app/features/cases/ui/case_form_page.dart';
 import 'package:dental_lab_app/features/cases/ui/cases_shell_page.dart';
@@ -9,10 +7,11 @@ import 'package:dental_lab_app/features/clinics/data/models/clinic_model.dart';
 import 'package:dental_lab_app/features/clinics/ui/clinic_detail_page.dart';
 import 'package:dental_lab_app/features/clinics/ui/clinic_form_page.dart';
 import 'package:dental_lab_app/features/clinics/ui/clinics_list_page.dart';
-import 'package:dental_lab_app/features/case_workflow_stages/ui/case_workflow_stages_list_page.dart';
 import 'package:dental_lab_app/features/currencies/ui/currencies_list_page.dart';
 import 'package:dental_lab_app/features/currencies/ui/currency_detail_page.dart';
 import 'package:dental_lab_app/features/currencies/ui/currency_form_page.dart';
+import 'package:dental_lab_app/features/cities/ui/cities_list_page.dart';
+import 'package:dental_lab_app/features/countries/ui/countries_list_page.dart';
 import 'package:dental_lab_app/features/doctors/data/models/doctor_model.dart';
 import 'package:dental_lab_app/features/doctors/ui/doctor_detail_page.dart';
 import 'package:dental_lab_app/features/doctors/ui/doctor_form_page.dart';
@@ -28,6 +27,13 @@ import 'package:dental_lab_app/features/laboratories/ui/laboratory_selection_pag
 import 'package:dental_lab_app/features/laboratories/ui/laboratory_detail_page.dart';
 import 'package:dental_lab_app/features/laboratories/ui/laboratory_form_page.dart';
 import 'package:dental_lab_app/features/laboratories/ui/my_laboratory_page.dart';
+import 'package:dental_lab_app/features/patients/ui/patient_detail_page.dart';
+import 'package:dental_lab_app/features/patients/ui/patient_form_page.dart';
+import 'package:dental_lab_app/features/patients/ui/patients_list_page.dart';
+import 'package:dental_lab_app/features/price_tiers/data/models/price_tier_model.dart';
+import 'package:dental_lab_app/features/price_tiers/ui/price_tier_form_page.dart';
+import 'package:dental_lab_app/features/price_tiers/ui/price_tier_prices_page.dart';
+import 'package:dental_lab_app/features/price_tiers/ui/price_tiers_list_page.dart';
 import 'package:dental_lab_app/features/restoration_types/data/models/restoration_type_model.dart';
 import 'package:dental_lab_app/features/restoration_types/ui/restoration_type_form_page.dart';
 import 'package:dental_lab_app/features/restoration_types/ui/restoration_types_list_page.dart';
@@ -90,16 +96,6 @@ abstract class AppRouter {
         path: Routes.caseDetailScreen,
         builder: (context, state) =>
             CaseDetailPage(caseId: state.extra as String),
-      ),
-      GoRoute(
-        path: Routes.caseWorkflowStagesListScreen,
-        builder: (context, state) => const CaseWorkflowStagesListPage(),
-      ),
-      GoRoute(
-        path: Routes.caseWorkflowStageFormScreen,
-        builder: (context, state) => CaseWorkflowStageFormPage(
-          initialStage: state.extra as CaseWorkflowStageModel?,
-        ),
       ),
       GoRoute(
         path: Routes.restorationTypesListScreen,
@@ -183,6 +179,41 @@ abstract class AppRouter {
         path: Routes.currencyDetailScreen,
         builder: (context, state) =>
             CurrencyDetailPage(currency: state.extra as Map<String, dynamic>),
+      ),
+      GoRoute(
+        path: Routes.countriesListScreen,
+        builder: (context, state) => const CountriesListPage(),
+      ),
+      GoRoute(
+        path: Routes.citiesListScreen,
+        builder: (context, state) => const CitiesListPage(),
+      ),
+      GoRoute(
+        path: Routes.priceTiersListScreen,
+        builder: (context, state) => const PriceTiersListPage(),
+      ),
+      GoRoute(
+        path: Routes.priceTierFormScreen,
+        builder: (context, state) =>
+            PriceTierFormPage(initialPriceTier: state.extra as PriceTierModel?),
+      ),
+      GoRoute(
+        path: Routes.priceTierPricesScreen,
+        builder: (context, state) =>
+            PriceTierPricesPage(priceTier: state.extra as PriceTierModel),
+      ),
+      GoRoute(
+        path: Routes.patientsListScreen,
+        builder: (context, state) => const PatientsListPage(),
+      ),
+      GoRoute(
+        path: Routes.patientDetailScreen,
+        builder: (context, state) =>
+            PatientDetailPage(patientId: state.extra as String),
+      ),
+      GoRoute(
+        path: Routes.patientFormScreen,
+        builder: (context, state) => const PatientFormPage(),
       ),
     ],
   );

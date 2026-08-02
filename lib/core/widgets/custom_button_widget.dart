@@ -1,3 +1,4 @@
+import 'package:dental_lab_app/core/theming/app_dimensions.dart';
 import 'package:flutter/material.dart';
 
 class CustomButtonWidget extends StatelessWidget {
@@ -35,13 +36,13 @@ class CustomButtonWidget extends StatelessWidget {
         style: ButtonStyle(
           shape: WidgetStateProperty.all<RoundedRectangleBorder>(
             RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(borderRadius ?? 16),
+              borderRadius: BorderRadius.circular(borderRadius ?? AppRadius.sm),
             ),
           ),
           padding: WidgetStateProperty.all<EdgeInsets>(
             EdgeInsets.symmetric(
-              vertical: verticalPadding ?? 14,
-              horizontal: horizontalPadding ?? 16,
+              vertical: verticalPadding ?? 12,
+              horizontal: horizontalPadding ?? AppSpacing.lg,
             ),
           ),
           backgroundColor: WidgetStateProperty.all(

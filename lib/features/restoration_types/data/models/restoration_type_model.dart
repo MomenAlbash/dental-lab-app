@@ -1,3 +1,5 @@
+import 'package:dental_lab_app/features/case_workflow_stages/data/models/case_workflow_stage_model.dart';
+
 /*
 {
   "id": "...",
@@ -8,12 +10,18 @@
   "transparency": 0.5,
   "defaultPrice": 250000.0,
   "pricingType": 1,
-  "showInClinicApp": true,
   "isActive": true,
-  "displayOrder": 1
+  "lowPriorityDurationMinutes": 4320,
+  "normalPriorityDurationMinutes": 2880,
+  "highPriorityDurationMinutes": 1440,
+  "urgentPriorityDurationMinutes": 720,
+  "stages": [ { "id": "...", "name": "التصميم", "order": 1, ... } ]
 }
  */
 
+/// A restoration type and the ordered workflow [stages] a restoration of this
+/// type moves through inside the lab. Stages belong to the type — they are
+/// not a separate lab-wide list.
 class RestorationTypeModel {
   final String id;
   final String? laboratoryId;
@@ -23,9 +31,12 @@ class RestorationTypeModel {
   final double? transparency;
   final double defaultPrice;
   final int? pricingType;
-  final bool showInClinicApp;
   final bool isActive;
-  final int? displayOrder;
+  final int? lowPriorityDurationMinutes;
+  final int? normalPriorityDurationMinutes;
+  final int? highPriorityDurationMinutes;
+  final int? urgentPriorityDurationMinutes;
+  final List<CaseWorkflowStageModel> stages;
 
   RestorationTypeModel({
     required this.id,
@@ -36,9 +47,12 @@ class RestorationTypeModel {
     this.transparency,
     this.defaultPrice = 0,
     this.pricingType,
-    this.showInClinicApp = true,
     this.isActive = true,
-    this.displayOrder,
+    this.lowPriorityDurationMinutes,
+    this.normalPriorityDurationMinutes,
+    this.highPriorityDurationMinutes,
+    this.urgentPriorityDurationMinutes,
+    this.stages = const [],
   });
 
   /// Prefers the Arabic name for display, falling back to the base name.
@@ -46,6 +60,15 @@ class RestorationTypeModel {
       (nameAr != null && nameAr!.isNotEmpty) ? nameAr! : (name ?? '—');
 
   factory RestorationTypeModel.fromJson(Map<String, dynamic> json) {
+    final stages =
+        (json['stages'] as List<dynamic>?)
+            ?.map(
+              (e) => CaseWorkflowStageModel.fromJson(e as Map<String, dynamic>),
+            )
+            .toList() ??
+        <CaseWorkflowStageModel>[];
+    stages.sort((a, b) => a.order.compareTo(b.order));
+
     return RestorationTypeModel(
       id: json['id'] as String,
       laboratoryId: json['laboratoryId'] as String?,
@@ -55,9 +78,14 @@ class RestorationTypeModel {
       transparency: (json['transparency'] as num?)?.toDouble(),
       defaultPrice: (json['defaultPrice'] as num?)?.toDouble() ?? 0,
       pricingType: json['pricingType'] as int?,
-      showInClinicApp: json['showInClinicApp'] as bool? ?? true,
       isActive: json['isActive'] as bool? ?? true,
-      displayOrder: json['displayOrder'] as int?,
+      lowPriorityDurationMinutes: json['lowPriorityDurationMinutes'] as int?,
+      normalPriorityDurationMinutes:
+          json['normalPriorityDurationMinutes'] as int?,
+      highPriorityDurationMinutes: json['highPriorityDurationMinutes'] as int?,
+      urgentPriorityDurationMinutes:
+          json['urgentPriorityDurationMinutes'] as int?,
+      stages: stages,
     );
   }
 }

@@ -13,6 +13,8 @@ class LoginRepo {
   final ApiService _apiService;
   LoginRepo(this._apiService);
 
+  String? get _token => CacheHelper.getData(key: CacheKeys.token) as String?;
+
   Future<Either<Failure, LoginResponseModel>> login(
     LoginRequestModel loginRequestBody,
   ) async {
@@ -31,6 +33,11 @@ class LoginRepo {
       }
 
       await CacheHelper.saveData(key: CacheKeys.token, value: token);
+
+      final userId = response.data?.id;
+      if (userId != null) {
+        await CacheHelper.saveData(key: CacheKeys.userId, value: userId);
+      }
 
       // Scope the session to the laboratory the account belongs to. If the
       // user has access to more than one, the laboratory-selection screen
@@ -57,5 +64,36 @@ class LoginRepo {
       log('General Exception during login: ${e.toString()}');
       return left(ServerFailure.fromException(e));
     }
+  }
+
+  Future<Either<Failure, void>> changePassword({
+    required String currentPassword,
+    required String newPassword,
+  }) async {
+    try {
+      await _apiService.changePassword(
+        currentPassword: currentPassword,
+        newPassword: newPassword,
+        token: _token,
+      );
+
+      log('Password changed successfully');
+      return right(null);
+    } on DioException catch (e) {
+      log('DioException while changing password: ${e.message}');
+      return left(ServerFailure.FromDioExecption(e));
+    } catch (e) {
+      log('General Exception while changing password: ${e.toString()}');
+      return left(ServerFailure.fromException(e));
+    }
+  }
+
+  /// Clears the locally cached session — the API has no logout endpoint, so
+  /// this is purely a client-side reset of the account/laboratory scope.
+  Future<void> logout() async {
+    await CacheHelper.removeData(key: CacheKeys.token);
+    await CacheHelper.removeData(key: CacheKeys.userId);
+    await CacheHelper.removeData(key: CacheKeys.laboratoryId);
+    await CacheHelper.removeData(key: CacheKeys.laboratoryName);
   }
 }

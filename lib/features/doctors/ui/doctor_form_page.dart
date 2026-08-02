@@ -63,8 +63,7 @@ class _DoctorFormViewState extends State<_DoctorFormView> {
     text: widget.initialDoctor?.address ?? '',
   );
 
-  late DoctorGender _gender =
-      widget.initialDoctor?.gender ?? DoctorGender.male;
+  late DoctorGender _gender = widget.initialDoctor?.gender ?? DoctorGender.male;
   late DateTime? _dateOfBirth = _parseDate(widget.initialDoctor?.dateOfBirth);
   late String? _cityId = widget.initialDoctor?.cityId;
   late String? _clinicId = widget.initialDoctor?.clinicId;
@@ -165,7 +164,9 @@ class _DoctorFormViewState extends State<_DoctorFormView> {
             switch (state) {
               case DoctorFormSuccess():
                 ShowToast(
-                  message: _isEditing ? 'تم حفظ التعديلات' : 'تمت إضافة الدكتور',
+                  message: _isEditing
+                      ? 'تم حفظ التعديلات'
+                      : 'تمت إضافة الدكتور',
                   state: toastState.success,
                 );
                 Navigator.of(context).pop(true);

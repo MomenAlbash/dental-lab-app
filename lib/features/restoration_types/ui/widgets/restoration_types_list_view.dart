@@ -42,7 +42,7 @@ class RestorationTypesListView extends StatelessWidget {
                     name: type.displayName,
                     defaultPrice: type.defaultPrice,
                     isActive: type.isActive,
-                    showInClinicApp: type.showInClinicApp,
+                    stagesCount: type.stages.length,
                     onEdit: () async {
                       await context.push(
                         Routes.restorationTypeFormScreen,

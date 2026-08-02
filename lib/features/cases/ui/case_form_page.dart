@@ -8,18 +8,19 @@ import 'package:dental_lab_app/features/cases/data/models/create_case_request_mo
 import 'package:dental_lab_app/features/cases/data/models/tooth_mark_model.dart';
 import 'package:dental_lab_app/features/cases/logic/case_form/case_form_cubit.dart';
 import 'package:dental_lab_app/features/cases/logic/case_form/case_form_state.dart';
-import 'package:dental_lab_app/features/cases/ui/widgets/case_restorations_step.dart';
-import 'package:dental_lab_app/features/cases/ui/widgets/case_teeth_step.dart';
 import 'package:dental_lab_app/features/cases/ui/widgets/case_patient_step.dart';
+import 'package:dental_lab_app/features/cases/ui/widgets/case_restorations_step.dart';
 import 'package:dental_lab_app/features/cases/ui/widgets/case_review_step.dart';
-import 'package:dental_lab_app/features/clinics/logic/clinics/clinics_cubit.dart';
 import 'package:dental_lab_app/features/doctors/logic/doctors/doctors_cubit.dart';
+import 'package:dental_lab_app/features/patients/data/models/patient_model.dart';
+import 'package:dental_lab_app/features/patients/logic/patients/patients_cubit.dart';
 import 'package:dental_lab_app/features/restoration_types/logic/restoration_types/restoration_types_cubit.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-/// A restoration line being built in the form (keeps the display name so the
-/// review step doesn't need to re-resolve the lookup).
+/// A restoration line being built in the form. Teeth (with bridge
+/// connections) and shade/color choices are owned by the restoration itself
+/// — the API stores them per restoration, not per case.
 class RestorationEntry {
   RestorationEntry({
     required this.restorationTypeId,
@@ -27,6 +28,12 @@ class RestorationEntry {
     this.quantity = 1,
     this.unitPrice,
     this.notes,
+    this.teeth = const [],
+    this.shadeLayout,
+    this.shadeCervical,
+    this.shadeMiddle,
+    this.shadeIncisal,
+    this.baseToothColor,
   });
 
   final String restorationTypeId;
@@ -34,16 +41,28 @@ class RestorationEntry {
   final int quantity;
   final double? unitPrice;
   final String? notes;
+  final List<ToothMarkModel> teeth;
+  final String? shadeLayout;
+  final String? shadeCervical;
+  final String? shadeMiddle;
+  final String? shadeIncisal;
+  final String? baseToothColor;
 
   CaseRestorationRequestModel toRequest() => CaseRestorationRequestModel(
     restorationTypeId: restorationTypeId,
     quantity: quantity,
     unitPrice: unitPrice,
     notes: notes,
+    teeth: teeth,
+    shadeLayout: shadeLayout,
+    shadeCervical: shadeCervical,
+    shadeMiddle: shadeMiddle,
+    shadeIncisal: shadeIncisal,
+    baseToothColor: baseToothColor,
   );
 }
 
-/// Create-case screen, laid out as a stepper because of the amount of data.
+/// Create-case screen, laid out as a wizard because of the amount of data.
 /// When embedded in the cases shell, [onCreated] is called on success instead
 /// of popping the route.
 class CaseFormPage extends StatelessWidget {
@@ -57,7 +76,7 @@ class CaseFormPage extends StatelessWidget {
       providers: [
         BlocProvider(create: (_) => getIt<CaseFormCubit>()),
         BlocProvider(create: (_) => getIt<DoctorsCubit>()..getDoctors()),
-        BlocProvider(create: (_) => getIt<ClinicsCubit>()..getClinics()),
+        BlocProvider(create: (_) => getIt<PatientsCubit>()..getPatients()),
         BlocProvider(
           create: (_) =>
               getIt<RestorationTypesCubit>()..getRestorationTypes(),
@@ -80,21 +99,21 @@ class _CaseFormView extends StatefulWidget {
 class _CaseFormViewState extends State<_CaseFormView> {
   int _currentStep = 0;
 
-  final _patientNameController = TextEditingController();
   final _referenceController = TextEditingController();
   final _notesController = TextEditingController();
 
+  String? _patientId;
+  PatientModel? _selectedPatient;
   String? _doctorId;
   String? _clinicId;
   CasePriority _priority = CasePriority.normal;
   DateTime? _dueDate;
+  DateTime? _receivedAt;
 
-  final List<ToothMarkModel> _teeth = [];
   final List<RestorationEntry> _restorations = [];
 
   @override
   void dispose() {
-    _patientNameController.dispose();
     _referenceController.dispose();
     _notesController.dispose();
     super.dispose();
@@ -105,21 +124,22 @@ class _CaseFormViewState extends State<_CaseFormView> {
   void _reset() {
     setState(() {
       _currentStep = 0;
-      _patientNameController.clear();
+      _patientId = null;
+      _selectedPatient = null;
       _referenceController.clear();
       _notesController.clear();
       _doctorId = null;
       _clinicId = null;
       _priority = CasePriority.normal;
       _dueDate = null;
-      _teeth.clear();
+      _receivedAt = null;
       _restorations.clear();
     });
   }
 
   void _onSubmit() {
-    if (_patientNameController.text.trim().isEmpty) {
-      ShowToast(message: 'اسم المريض مطلوب', state: toastState.error);
+    if (_patientId == null) {
+      ShowToast(message: 'الرجاء اختيار المريض', state: toastState.error);
       setState(() => _currentStep = 0);
       return;
     }
@@ -130,7 +150,7 @@ class _CaseFormViewState extends State<_CaseFormView> {
     }
     if (_restorations.isEmpty) {
       ShowToast(message: 'أضف تعويضاً واحداً على الأقل', state: toastState.error);
-      setState(() => _currentStep = 2);
+      setState(() => _currentStep = 1);
       return;
     }
 
@@ -138,7 +158,7 @@ class _CaseFormViewState extends State<_CaseFormView> {
       CreateCaseRequestModel(
         doctorId: _doctorId,
         clinicId: _clinicId,
-        patientName: _patientNameController.text.trim(),
+        patientId: _patientId,
         referenceNumber: _referenceController.text.trim().isEmpty
             ? null
             : _referenceController.text.trim(),
@@ -147,7 +167,7 @@ class _CaseFormViewState extends State<_CaseFormView> {
             ? null
             : _notesController.text.trim(),
         dueDate: _isoDate(_dueDate),
-        teeth: _teeth,
+        receivedAt: _isoDate(_receivedAt),
         restorations: _restorations.map((r) => r.toRequest()).toList(),
       ),
     );
@@ -196,7 +216,6 @@ class _CaseFormViewState extends State<_CaseFormView> {
 
   static const List<String> _stepTitles = [
     'معلومات المريض',
-    'الأسنان',
     'التعويضات',
     'مراجعة',
   ];
@@ -207,8 +226,8 @@ class _CaseFormViewState extends State<_CaseFormView> {
   bool _validateCurrentStep() {
     switch (_currentStep) {
       case 0:
-        if (_patientNameController.text.trim().isEmpty) {
-          ShowToast(message: 'اسم المريض مطلوب', state: toastState.error);
+        if (_patientId == null) {
+          ShowToast(message: 'الرجاء اختيار المريض', state: toastState.error);
           return false;
         }
         if (_doctorId == null) {
@@ -216,7 +235,7 @@ class _CaseFormViewState extends State<_CaseFormView> {
           return false;
         }
         return true;
-      case 2:
+      case 1:
         if (_restorations.isEmpty) {
           ShowToast(
             message: 'أضف تعويضاً واحداً على الأقل',
@@ -244,32 +263,33 @@ class _CaseFormViewState extends State<_CaseFormView> {
   Widget _stepContent(int index) {
     return switch (index) {
       0 => CasePatientStep(
-        patientNameController: _patientNameController,
+        patientId: _patientId,
+        onPatientChanged: (id, patient) => setState(() {
+          _patientId = id;
+          _selectedPatient = patient;
+        }),
         referenceController: _referenceController,
         notesController: _notesController,
         doctorId: _doctorId,
-        onDoctorChanged: (v) => setState(() => _doctorId = v),
-        clinicId: _clinicId,
-        onClinicChanged: (v) => setState(() => _clinicId = v),
+        onDoctorChanged: (doctorId, clinicId) => setState(() {
+          _doctorId = doctorId;
+          _clinicId = clinicId;
+        }),
         priority: _priority,
         onPriorityChanged: (v) => setState(() => _priority = v),
         dueDate: _dueDate,
         onPickDueDate: _pickDueDate,
+        receivedAt: _receivedAt,
+        onPickReceivedAt: _pickReceivedAt,
       ),
-      1 => CaseTeethStep(
-        teeth: _teeth,
-        onAdd: _addTooth,
-        onRemove: (i) => setState(() => _teeth.removeAt(i)),
-      ),
-      2 => CaseRestorationsStep(
+      1 => CaseRestorationsStep(
         restorations: _restorations,
         onAdd: _addRestoration,
         onRemove: (i) => setState(() => _restorations.removeAt(i)),
       ),
       _ => CaseReviewStep(
-        patientName: _patientNameController.text,
+        patientName: _selectedPatient?.fullName ?? '',
         priority: _priority,
-        teethCount: _teeth.length,
         restorations: _restorations,
       ),
     };
@@ -382,13 +402,15 @@ class _CaseFormViewState extends State<_CaseFormView> {
     if (picked != null) setState(() => _dueDate = picked);
   }
 
-  Future<void> _addTooth() async {
-    final tooth = await showDialog<ToothMarkModel>(
+  Future<void> _pickReceivedAt() async {
+    final now = DateTime.now();
+    final picked = await showDatePicker(
       context: context,
-      builder: (_) => const AddToothDialog(),
+      initialDate: _receivedAt ?? now,
+      firstDate: DateTime(now.year - 1),
+      lastDate: now,
     );
-
-    if (tooth != null) setState(() => _teeth.add(tooth));
+    if (picked != null) setState(() => _receivedAt = picked);
   }
 
   Future<void> _addRestoration() async {
@@ -396,7 +418,7 @@ class _CaseFormViewState extends State<_CaseFormView> {
       context: context,
       builder: (_) => BlocProvider.value(
         value: context.read<RestorationTypesCubit>(),
-        child: const AddRestorationDialog(),
+        child: const AddRestorationPage(),
       ),
     );
 

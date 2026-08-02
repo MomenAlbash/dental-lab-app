@@ -5,12 +5,14 @@ import 'package:dental_lab_app/core/theming/styles.dart';
 import 'package:dental_lab_app/core/widgets/custom_circle_progress_indiacator_widget.dart';
 import 'package:dental_lab_app/core/widgets/custom_text_field_widget.dart';
 import 'package:dental_lab_app/core/widgets/show_toast_widget.dart';
-import 'package:dental_lab_app/features/case_workflow_stages/logic/stages/stages_cubit.dart';
-import 'package:dental_lab_app/features/case_workflow_stages/logic/stages/stages_state.dart';
+import 'package:dental_lab_app/features/case_workflow_stages/data/models/case_workflow_stage_model.dart';
+import 'package:dental_lab_app/features/cases/data/models/case_restoration_model.dart';
 import 'package:dental_lab_app/features/cases/logic/case_details/case_details_cubit.dart';
 import 'package:dental_lab_app/features/cases/logic/case_details/case_details_state.dart';
+import 'package:dental_lab_app/features/cases/logic/case_messages/case_messages_cubit.dart';
 import 'package:dental_lab_app/features/cases/ui/widgets/case_details_body.dart';
 import 'package:dental_lab_app/features/cases/ui/widgets/case_lookup_dropdown.dart';
+import 'package:dental_lab_app/features/cases/ui/widgets/case_messages_tab.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -28,15 +30,17 @@ class CaseDetailPage extends StatelessWidget {
     return MultiBlocProvider(
       providers: [
         BlocProvider(create: (_) => getIt<CaseDetailsCubit>()..getCase(caseId)),
-        BlocProvider(create: (_) => getIt<StagesCubit>()..getStages()),
+        BlocProvider(create: (_) => getIt<CaseMessagesCubit>()),
       ],
-      child: const _CaseDetailView(),
+      child: _CaseDetailView(caseId: caseId),
     );
   }
 }
 
 class _CaseDetailView extends StatelessWidget {
-  const _CaseDetailView();
+  const _CaseDetailView({required this.caseId});
+
+  final String caseId;
 
   Future<void> _pickAndUploadFile(BuildContext context) async {
     final cubit = context.read<CaseDetailsCubit>();
@@ -69,30 +73,52 @@ class _CaseDetailView extends StatelessWidget {
     }
   }
 
-  Future<void> _changeStage(BuildContext context) async {
+  Future<void> _changeStage(
+    BuildContext context,
+    CaseRestorationModel restoration,
+  ) async {
     final cubit = context.read<CaseDetailsCubit>();
+    final stages = restoration.restorationType?.stages ?? const [];
     final result = await showDialog<({String stageId, String? note})>(
       context: context,
-      builder: (_) => BlocProvider.value(
-        value: context.read<StagesCubit>(),
-        child: const _ChangeStageDialog(),
-      ),
+      builder: (_) => _ChangeStageDialog(stages: stages),
     );
 
     if (result != null) {
-      await cubit.setStage(stageId: result.stageId, note: result.note);
+      await cubit.setRestorationStage(
+        restorationId: restoration.id,
+        stageId: result.stageId,
+        note: result.note,
+      );
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppColorsManger.background,
-      appBar: AppBar(
-        title: Text('تفاصيل الحالة', style: AppTextStyles.font18MediumText),
+    return DefaultTabController(
+      length: 2,
+      child: Scaffold(
+        backgroundColor: AppColorsManger.background,
+        appBar: AppBar(
+          title: Text('تفاصيل الحالة', style: AppTextStyles.font18MediumText),
+          bottom: const TabBar(
+            tabs: [
+              Tab(text: 'التفاصيل'),
+              Tab(text: 'المراسلة'),
+            ],
+          ),
+        ),
+        body: SafeArea(
+          child: TabBarView(
+            children: [_buildDetailsTab(context), CaseMessagesTab(caseId: caseId)],
+          ),
+        ),
       ),
-      body: SafeArea(
-        child: BlocConsumer<CaseDetailsCubit, CaseDetailsState>(
+    );
+  }
+
+  Widget _buildDetailsTab(BuildContext context) {
+    return BlocConsumer<CaseDetailsCubit, CaseDetailsState>(
           listenWhen: (previous, current) =>
               current is CaseDetailsActionError ||
               current is CaseDetailsActionSuccess,
@@ -115,7 +141,8 @@ class _CaseDetailView extends StatelessWidget {
                 CaseDetailsBody(
                   caseDetail: caseDetail,
                   isBusy: isBusy,
-                  onChangeStage: () => _changeStage(context),
+                  onChangeStage: (restoration) =>
+                      _changeStage(context, restoration),
                   onAddFile: () => _pickAndUploadFile(context),
                   onOpenFile: (file) => _openFile(file.filePath),
                   onDeleteFile: (fileId) =>
@@ -134,15 +161,16 @@ class _CaseDetailView extends StatelessWidget {
               _ => const Center(child: CustomCircleProgressIndiacatorWidget()),
             };
           },
-        ),
-      ),
     );
   }
 }
 
-/// Dialog to pick a new stage and add an optional note.
+/// Dialog to pick a new stage (from the restoration's type stages) and add
+/// an optional note.
 class _ChangeStageDialog extends StatefulWidget {
-  const _ChangeStageDialog();
+  const _ChangeStageDialog({required this.stages});
+
+  final List<CaseWorkflowStageModel> stages;
 
   @override
   State<_ChangeStageDialog> createState() => _ChangeStageDialogState();
@@ -176,26 +204,21 @@ class _ChangeStageDialogState extends State<_ChangeStageDialog> {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          BlocBuilder<StagesCubit, StagesState>(
-            builder: (context, state) {
-              final stages = state is StagesLoaded ? state.stages : null;
-              return CaseLookupDropdown(
-                value: _stageId,
-                icon: Icons.timeline_outlined,
-                hintText: state is StagesLoading
-                    ? 'جارٍ تحميل المراحل...'
-                    : 'اختر المرحلة',
-                items: stages
-                    ?.map(
-                      (s) => DropdownMenuItem(
-                        value: s.id,
-                        child: Text(s.name ?? '—'),
-                      ),
-                    )
-                    .toList(),
-                onChanged: (value) => setState(() => _stageId = value),
-              );
-            },
+          CaseLookupDropdown(
+            value: _stageId,
+            icon: Icons.timeline_outlined,
+            hintText: widget.stages.isEmpty
+                ? 'لا يوجد مراحل لهذا التعويض'
+                : 'اختر المرحلة',
+            items: widget.stages
+                .map(
+                  (s) => DropdownMenuItem(
+                    value: s.id,
+                    child: Text(s.name ?? '—'),
+                  ),
+                )
+                .toList(),
+            onChanged: (value) => setState(() => _stageId = value),
           ),
           const SizedBox(height: 12),
           AppTextFormField(

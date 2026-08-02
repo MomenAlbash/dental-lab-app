@@ -1,7 +1,7 @@
-import 'package:dental_lab_app/features/case_workflow_stages/data/models/case_workflow_stage_model.dart';
 import 'package:dental_lab_app/features/cases/data/models/case_file_model.dart';
 import 'package:dental_lab_app/features/cases/data/models/case_priority.dart';
 import 'package:dental_lab_app/features/cases/data/models/case_restoration_model.dart';
+import 'package:dental_lab_app/features/cases/data/models/case_status.dart';
 import 'package:dental_lab_app/features/cases/data/models/tooth_mark_model.dart';
 import 'package:dental_lab_app/features/clinics/data/models/clinic_model.dart';
 import 'package:dental_lab_app/features/doctors/data/models/doctor_model.dart';
@@ -15,9 +15,10 @@ class CaseDetailModel {
   final String? patientName;
   final DoctorModel? doctor;
   final ClinicModel? clinic;
-  final CaseWorkflowStageModel? currentStage;
+  final CaseStatus caseStatus;
   final String? dueDate;
   final String? createdAt;
+  final String? receivedAt;
   final String? notes;
   final List<ToothMarkModel> teeth;
   final List<CaseRestorationModel> restorations;
@@ -31,9 +32,10 @@ class CaseDetailModel {
     this.patientName,
     this.doctor,
     this.clinic,
-    this.currentStage,
+    this.caseStatus = CaseStatus.created,
     this.dueDate,
     this.createdAt,
+    this.receivedAt,
     this.notes,
     this.teeth = const [],
     this.restorations = const [],
@@ -42,7 +44,7 @@ class CaseDetailModel {
 
   String? get doctorName => doctor?.fullName;
   String? get clinicName => clinic?.name;
-  String? get currentStageName => currentStage?.name;
+  String get caseStatusLabel => caseStatus.arabicLabel;
 
   static List<T> _list<T>(
     dynamic value,
@@ -67,13 +69,10 @@ class CaseDetailModel {
       clinic: json['clinic'] == null
           ? null
           : ClinicModel.fromJson(json['clinic'] as Map<String, dynamic>),
-      currentStage: json['currentStage'] == null
-          ? null
-          : CaseWorkflowStageModel.fromJson(
-              json['currentStage'] as Map<String, dynamic>,
-            ),
+      caseStatus: CaseStatus.fromApi(json['caseStatus'] as int?),
       dueDate: json['dueDate'] as String?,
       createdAt: json['createdAt'] as String?,
+      receivedAt: json['receivedAt'] as String?,
       notes: json['notes'] as String?,
       teeth: _list(json['teeth'], ToothMarkModel.fromJson),
       restorations: _list(json['restorations'], CaseRestorationModel.fromJson),

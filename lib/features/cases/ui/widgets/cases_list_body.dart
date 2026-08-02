@@ -117,7 +117,7 @@ class _CasesList extends StatelessWidget {
                     caseNumber: caseItem.caseNumber ?? '',
                     patientName: caseItem.patientName ?? '',
                     doctorName: caseItem.doctorName ?? '',
-                    stageName: caseItem.currentStageName ?? '',
+                    stageName: caseItem.caseStatusLabel,
                     priority: caseItem.priority,
                     onTap: () async {
                       await context.push(

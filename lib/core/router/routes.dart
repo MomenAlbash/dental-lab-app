@@ -8,8 +8,6 @@ class Routes {
   static const String doctorsListScreen = '/doctors';
   static const String doctorFormScreen = '/doctors/form';
   static const String doctorDetailScreen = '/doctors/detail';
-  static const String caseWorkflowStagesListScreen = '/case-workflow-stages';
-  static const String caseWorkflowStageFormScreen = '/case-workflow-stages/form';
   static const String restorationTypesListScreen = '/restoration-types';
   static const String restorationTypeFormScreen = '/restoration-types/form';
   static const String employeesListScreen = '/employees';
@@ -32,5 +30,13 @@ class Routes {
   static const String currenciesListScreen = '/currencies';
   static const String currencyFormScreen = '/currencies/form';
   static const String currencyDetailScreen = '/currencies/detail';
+  static const String priceTiersListScreen = '/price-tiers';
+  static const String priceTierFormScreen = '/price-tiers/form';
+  static const String priceTierPricesScreen = '/price-tiers/prices';
+  static const String patientsListScreen = '/patients';
+  static const String patientDetailScreen = '/patients/detail';
+  static const String patientFormScreen = '/patients/form';
+  static const String countriesListScreen = '/countries';
+  static const String citiesListScreen = '/cities';
   // Feature routes are added incrementally as each feature is built.
 }

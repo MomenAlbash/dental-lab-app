@@ -23,14 +23,20 @@ class CaseDetailsCubit extends Cubit<CaseDetailsState> {
     });
   }
 
-  Future<void> setStage({required String stageId, String? note}) async {
+  /// Sets the stage of one restoration on the loaded case.
+  Future<void> setRestorationStage({
+    required String restorationId,
+    required String stageId,
+    String? note,
+  }) async {
     final caseDetail = _case;
     if (caseDetail == null) return;
 
     emit(CaseDetailsLoaded(caseDetail, isBusy: true));
 
-    final result = await _casesRepo.setStage(
-      id: caseDetail.id,
+    final result = await _casesRepo.setRestorationStage(
+      caseId: caseDetail.id,
+      restorationId: restorationId,
       stageId: stageId,
       note: note,
     );

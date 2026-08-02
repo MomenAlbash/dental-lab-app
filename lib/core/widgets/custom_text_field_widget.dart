@@ -1,5 +1,5 @@
+import 'package:dental_lab_app/core/theming/app_dimensions.dart';
 import 'package:dental_lab_app/core/theming/colors.dart';
-import 'package:dental_lab_app/core/theming/styles.dart';
 import 'package:flutter/material.dart';
 
 class AppTextFormField extends StatelessWidget {
@@ -60,8 +60,8 @@ class AppTextFormField extends StatelessWidget {
                 focusBorder ?? borderType(color: AppColorsManger.mainBlue),
             enabledBorder:
                 enableBorder ?? borderType(color: AppColorsManger.lighterGray),
-            errorBorder: borderType(color: Colors.red),
-            focusedErrorBorder: borderType(color: Colors.red),
+            errorBorder: borderType(color: AppColorsManger.error),
+            focusedErrorBorder: borderType(color: AppColorsManger.error),
             hintText: hintText,
             prefixIcon: prefixIcon,
             suffixIcon: suffixIcon,
@@ -77,7 +77,7 @@ class AppTextFormField extends StatelessWidget {
   OutlineInputBorder borderType({required Color color}) {
     return OutlineInputBorder(
       borderSide: BorderSide(color: color, width: 1.3),
-      borderRadius: BorderRadius.circular(16.0),
+      borderRadius: BorderRadius.circular(AppRadius.md),
     );
   }
 }

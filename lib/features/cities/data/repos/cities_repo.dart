@@ -14,9 +14,9 @@ class CitiesRepo {
 
   String? get _token => CacheHelper.getData(key: CacheKeys.token) as String?;
 
-  Future<Either<Failure, List<CityModel>>> getCities() async {
+  Future<Either<Failure, List<CityModel>>> getCities({String? countryId}) async {
     try {
-      final cities = await _apiService.getCities(token: _token);
+      final cities = await _apiService.getCities(countryId: countryId, token: _token);
 
       log('Fetched ${cities.length} cities');
       return right(cities);
@@ -25,6 +25,67 @@ class CitiesRepo {
       return left(ServerFailure.FromDioExecption(e));
     } catch (e) {
       log('General Exception while fetching cities: ${e.toString()}');
+      return left(ServerFailure.fromException(e));
+    }
+  }
+
+  Future<Either<Failure, CityModel>> createCity({
+    required String name,
+    String? countryId,
+  }) async {
+    try {
+      final city = await _apiService.createCity(
+        name: name,
+        countryId: countryId,
+        token: _token,
+      );
+
+      log('Created city: ${city.name}');
+      return right(city);
+    } on DioException catch (e) {
+      log('DioException while creating city: ${e.message}');
+      return left(ServerFailure.FromDioExecption(e));
+    } catch (e) {
+      log('General Exception while creating city: ${e.toString()}');
+      return left(ServerFailure.fromException(e));
+    }
+  }
+
+  Future<Either<Failure, CityModel>> updateCity({
+    required String id,
+    required String name,
+    String? countryId,
+  }) async {
+    try {
+      final city = await _apiService.updateCity(
+        id: id,
+        name: name,
+        countryId: countryId,
+        token: _token,
+      );
+
+      log('Updated city: ${city.name}');
+      return right(city);
+    } on DioException catch (e) {
+      log('DioException while updating city: ${e.message}');
+      return left(ServerFailure.FromDioExecption(e));
+    } catch (e) {
+      log('General Exception while updating city: ${e.toString()}');
+      return left(ServerFailure.fromException(e));
+    }
+  }
+
+  Future<Either<Failure, void>> deleteCity(String id) async {
+    try {
+      await _apiService.deleteCity(id: id, token: _token);
+
+      log('Deleted city: $id');
+      return right(null);
+    } on DioException catch (e) {
+      log('DioException while deleting city: ${e.message}');
+      return left(ServerFailure.FromDioExecption(e));
+    } catch (e) {
+      log('General Exception while deleting city: ${e.toString()}');
       return left(ServerFailure.fromException(e));
     }
   }
