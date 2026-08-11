@@ -1,5 +1,7 @@
 import 'dart:developer';
 import 'dart:convert';
+import 'package:dental_lab_app/core/connectivity/connectivity_cubit.dart';
+import 'package:dental_lab_app/core/di/dependency_injection.dart';
 import 'package:dental_lab_app/core/helper/local/cache_keys.dart';
 import 'package:dental_lab_app/core/helper/local/cached_helper.dart';
 import 'package:dio/dio.dart';
@@ -39,8 +41,46 @@ class Api {
 
           return handler.next(options);
         },
+        // The device-level connectivity check (ConnectivityCubit) can
+        // misreport on some devices/OS versions, so real request outcomes
+        // are the ground truth: any response (even an error one) proves the
+        // server was reachable; only an actual connectivity-type failure
+        // (timeout / connection error / no route to host) means it wasn't —
+        // other response-less errors (e.g. cancellation) must not flip the
+        // banner, since nothing may ever call markOnline() again to correct it.
+        onResponse: (response, handler) {
+          getIt<ConnectivityCubit>().markOnline();
+          return handler.next(response);
+        },
+        onError: (error, handler) {
+          if (error.response != null) {
+            getIt<ConnectivityCubit>().markOnline();
+          } else if (_isConnectivityError(error)) {
+            log('Marking offline due to: ${error.type} - ${error.message}');
+            getIt<ConnectivityCubit>().markOffline();
+          }
+          return handler.next(error);
+        },
       ),
     );
+  }
+
+  /// Whether [error] represents a real connectivity failure (no route to
+  /// the server at all) rather than some other response-less error like a
+  /// cancelled request — mirrors the criteria `ServerFailure.FromDioExecption`
+  /// already trusts for its "No Internet Connection" message.
+  static bool _isConnectivityError(DioException error) {
+    switch (error.type) {
+      case DioExceptionType.connectionError:
+      case DioExceptionType.connectionTimeout:
+      case DioExceptionType.sendTimeout:
+      case DioExceptionType.receiveTimeout:
+        return true;
+      case DioExceptionType.unknown:
+        return error.message?.contains('SocketException') ?? false;
+      default:
+        return false;
+    }
   }
 
   Future<dynamic> get({required String Url, @required String? token}) async {
@@ -62,9 +102,13 @@ class Api {
       log('DioError: ${e.message}');
       log('Status Code: ${e.response?.statusCode}');
       log('Response Data: ${e.response?.data}');
-      throw Exception('there is a problem in status Code');
+      // Unwrapped the same way as post/put/delete. This used to throw a fixed
+      // 'there is a problem in status Code', which meant every failed read in
+      // the app reported the same unusable sentence no matter what went wrong.
+      throw Exception(_readError(e));
     } catch (e) {
-      throw Exception("there is an error");
+      log('General error in GET: $e');
+      throw Exception(e.toString());
     }
   }
 
@@ -87,7 +131,9 @@ class Api {
         ),
       );
     } on DioException catch (e) {
-      log('DioError: ${e.response?.statusCode} - ${e.response?.data ?? e.message}');
+      log(
+        'DioError: ${e.response?.statusCode} - ${e.response?.data ?? e.message}',
+      );
       throw Exception(_readError(e));
     }
   }
@@ -112,7 +158,11 @@ class Api {
           ?.toString();
       if (message != null && message.trim().isNotEmpty) return message;
     } else if (data is String && data.trim().isNotEmpty) {
-      return data;
+      final text = data.trim();
+      // An unhandled server exception comes back as an HTML error page. It is
+      // a stack trace for a developer, not a sentence for a user, so it falls
+      // through to the status-code message below.
+      if (!_looksLikeHtml(text)) return text;
     }
 
     final fallback = e.message;
@@ -120,6 +170,14 @@ class Api {
       return status != null ? '$fallback (HTTP $status)' : fallback;
     }
     return status != null ? 'خطأ من الخادم (HTTP $status)' : 'خطأ غير متوقع';
+  }
+
+  static bool _looksLikeHtml(String text) {
+    final start = text.trimLeft().toLowerCase();
+    return start.startsWith('<!doctype html') ||
+        start.startsWith('<html') ||
+        start.startsWith('<br') ||
+        start.contains('</html>');
   }
 
   Future<Response> put({
@@ -154,14 +212,7 @@ class Api {
       log('Status Code: ${e.response?.statusCode}');
       log('Response Data: ${e.response?.data}');
 
-      if (e.response?.data != null) {
-        final errorData = e.response!.data;
-        final errorMessage = errorData is Map
-            ? errorData['title'] ?? errorData.toString()
-            : errorData.toString();
-        throw Exception(errorMessage);
-      }
-      throw Exception(e.message ?? 'Unknown error in PUT request');
+      throw Exception(_readError(e));
     } catch (e) {
       log('General error in PUT: $e');
       throw Exception(e.toString());
@@ -189,16 +240,9 @@ class Api {
       log('Status Code: ${e.response?.statusCode}');
       log('Response Data: ${e.response?.data}');
 
-      if (e.response?.data != null) {
-        final errorData = e.response!.data;
-        final errorMessage = errorData is Map
-            ? errorData['title'] ?? errorData.toString()
-            : errorData.toString();
-        throw Exception(errorMessage);
-      }
-      throw Exception(e.message ?? 'Unknown error in PUT request');
+      throw Exception(_readError(e));
     } catch (e) {
-      log('General error in PUT: $e');
+      log('General error in delete: $e');
       throw Exception(e.toString());
     }
   }

@@ -3,6 +3,7 @@ import 'dart:developer';
 import 'package:dartz/dartz.dart';
 import 'package:dental_lab_app/core/errors/failures.dart';
 import 'package:dental_lab_app/core/helper/local/cache_keys.dart';
+import 'package:dental_lab_app/core/helper/local/cacheable_fetch.dart';
 import 'package:dental_lab_app/core/helper/local/cached_helper.dart';
 import 'package:dental_lab_app/core/helper/network_helper/api_service.dart';
 import 'package:dental_lab_app/features/cases/data/models/case_detail_model.dart';
@@ -10,6 +11,7 @@ import 'package:dental_lab_app/features/cases/data/models/case_file_model.dart';
 import 'package:dental_lab_app/features/cases/data/models/case_filters_model.dart';
 import 'package:dental_lab_app/features/cases/data/models/case_list_item_model.dart';
 import 'package:dental_lab_app/features/cases/data/models/case_message_model.dart';
+import 'package:dental_lab_app/features/cases/data/models/case_status.dart';
 import 'package:dental_lab_app/features/cases/data/models/create_case_request_model.dart';
 import 'package:dio/dio.dart';
 
@@ -21,6 +23,18 @@ class CasesRepo {
 
   String? _isoDate(DateTime? date) => date?.toIso8601String();
 
+  /// Enforces the status filter on the rows we ended up with. The API does not
+  /// reliably narrow by `CaseStatus` — an unrecognised query param comes back
+  /// as the full list, which read as "the filter does nothing". Re-applying it
+  /// here also covers the cache-fallback path, where no query ran at all.
+  List<CaseListItemModel> _applyStatus(
+    List<CaseListItemModel> cases,
+    CaseStatus? status,
+  ) {
+    if (status == null) return cases;
+    return cases.where((c) => c.caseStatus == status).toList();
+  }
+
   Future<Either<Failure, List<CaseListItemModel>>> getCases({
     String? search,
     CaseFiltersModel filters = CaseFiltersModel.empty,
@@ -30,20 +44,32 @@ class CasesRepo {
         search: search,
         doctorId: filters.doctorId,
         clinicId: filters.clinicId,
-        priority: filters.priority?.apiValue,
+        patientId: filters.patientId,
+        priorityId: filters.priorityId,
+        caseStatus: filters.caseStatus?.apiValue,
         dueDateFrom: _isoDate(filters.dueDateFrom),
         dueDateTo: _isoDate(filters.dueDateTo),
         token: _token,
       );
 
       log('Fetched ${cases.length} cases');
-      return right(cases);
+      return right(_applyStatus(cases, filters.caseStatus));
     } on DioException catch (e) {
       log('DioException while fetching cases: ${e.message}');
-      return left(ServerFailure.FromDioExecption(e));
+      final cached = fallbackToCache(
+        cacheKey: CacheKeys.cachedCasesList,
+        fromJson: CaseListItemModel.fromJson,
+        onFailure: () => ServerFailure.FromDioExecption(e),
+      );
+      return cached.map((cases) => _applyStatus(cases, filters.caseStatus));
     } catch (e) {
       log('General Exception while fetching cases: ${e.toString()}');
-      return left(ServerFailure.fromException(e));
+      final cached = fallbackToCache(
+        cacheKey: CacheKeys.cachedCasesList,
+        fromJson: CaseListItemModel.fromJson,
+        onFailure: () => ServerFailure.fromException(e),
+      );
+      return cached.map((cases) => _applyStatus(cases, filters.caseStatus));
     }
   }
 
@@ -126,6 +152,32 @@ class CasesRepo {
     }
   }
 
+  /// Sets the case's overall status — a fixed lifecycle owned by the case
+  /// itself, distinct from any restoration's workflow stage.
+  Future<Either<Failure, CaseDetailModel>> setCaseStatus({
+    required String id,
+    required CaseStatus status,
+    String? note,
+  }) async {
+    try {
+      final caseDetail = await _apiService.setCaseStatus(
+        id: id,
+        caseStatus: status.apiValue,
+        note: note,
+        token: _token,
+      );
+
+      log('Set status ${status.apiValue} for case $id');
+      return right(caseDetail);
+    } on DioException catch (e) {
+      log('DioException while setting case status: ${e.message}');
+      return left(ServerFailure.FromDioExecption(e));
+    } catch (e) {
+      log('General Exception while setting case status: ${e.toString()}');
+      return left(ServerFailure.fromException(e));
+    }
+  }
+
   Future<Either<Failure, CaseFileModel>> uploadFile({
     required String id,
     required String filePath,
@@ -185,6 +237,28 @@ class CasesRepo {
       return left(ServerFailure.FromDioExecption(e));
     } catch (e) {
       log('General Exception while sending case message: ${e.toString()}');
+      return left(ServerFailure.fromException(e));
+    }
+  }
+
+  Future<Either<Failure, void>> deleteMessage({
+    required String id,
+    required String messageId,
+  }) async {
+    try {
+      await _apiService.deleteCaseMessage(
+        id: id,
+        messageId: messageId,
+        token: _token,
+      );
+
+      log('Deleted message $messageId for case: $id');
+      return right(null);
+    } on DioException catch (e) {
+      log('DioException while deleting case message: ${e.message}');
+      return left(ServerFailure.FromDioExecption(e));
+    } catch (e) {
+      log('General Exception while deleting case message: ${e.toString()}');
       return left(ServerFailure.fromException(e));
     }
   }

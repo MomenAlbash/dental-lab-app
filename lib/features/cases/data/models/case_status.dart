@@ -7,8 +7,8 @@ enum CaseStatus {
   underReview(3, 'قيد المراجعة'),
   approved(4, 'تمت الموافقة'),
   rejected(5, 'مرفوضة'),
-  ready(6, 'جاهزة'),
-  inProgress(7, 'قيد التنفيذ'),
+  inProgress(6, 'قيد التنفيذ'),
+  ready(7, 'جاهزة'),
   inTrying(8, 'قيد التجربة'),
   delivered(9, 'تم التسليم'),
   finished(10, 'منتهية');

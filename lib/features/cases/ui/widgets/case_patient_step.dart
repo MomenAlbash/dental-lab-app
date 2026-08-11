@@ -1,8 +1,11 @@
 import 'package:dental_lab_app/core/router/routes.dart';
-import 'package:dental_lab_app/core/theming/colors.dart';
+import 'package:dental_lab_app/core/theming/app_dimensions.dart';
+import 'package:dental_lab_app/core/theming/glass.dart';
 import 'package:dental_lab_app/core/theming/styles.dart';
 import 'package:dental_lab_app/core/widgets/custom_text_field_widget.dart';
-import 'package:dental_lab_app/features/cases/data/models/case_priority.dart';
+import 'package:dental_lab_app/features/case_priorities/data/models/case_priority_model.dart';
+import 'package:dental_lab_app/features/case_priorities/logic/case_priorities/case_priorities_cubit.dart';
+import 'package:dental_lab_app/features/case_priorities/logic/case_priorities/case_priorities_state.dart';
 import 'package:dental_lab_app/features/cases/ui/widgets/case_lookup_dropdown.dart';
 import 'package:dental_lab_app/features/doctors/data/models/doctor_model.dart';
 import 'package:dental_lab_app/features/doctors/logic/doctors/doctors_cubit.dart';
@@ -38,8 +41,8 @@ class CasePatientStep extends StatelessWidget {
   final TextEditingController notesController;
   final String? doctorId;
   final void Function(String? doctorId, String? clinicId) onDoctorChanged;
-  final CasePriority priority;
-  final ValueChanged<CasePriority> onPriorityChanged;
+  final CasePriorityModel? priority;
+  final ValueChanged<CasePriorityModel?> onPriorityChanged;
   final DateTime? dueDate;
   final VoidCallback onPickDueDate;
   final DateTime? receivedAt;
@@ -58,7 +61,9 @@ class CasePatientStep extends StatelessWidget {
             if (doctors != null && doctors.isEmpty) {
               return _NoDoctorsNotice(
                 onAddDoctor: () async {
-                  final added = await context.push<bool>(Routes.doctorFormScreen);
+                  final added = await context.push<bool>(
+                    Routes.doctorFormScreen,
+                  );
                   if (added == true && context.mounted) {
                     context.read<DoctorsCubit>().getDoctors();
                   }
@@ -74,10 +79,8 @@ class CasePatientStep extends StatelessWidget {
                   : 'اختر الطبيب',
               items: doctors
                   ?.map(
-                    (d) => DropdownMenuItem(
-                      value: d.id,
-                      child: Text(d.fullName),
-                    ),
+                    (d) =>
+                        DropdownMenuItem(value: d.id, child: Text(d.fullName)),
                   )
                   .toList(),
               onChanged: (id) {
@@ -142,10 +145,8 @@ class CasePatientStep extends StatelessWidget {
                   : 'اختر المريض',
               items: patients
                   ?.map(
-                    (p) => DropdownMenuItem(
-                      value: p.id,
-                      child: Text(p.fullName),
-                    ),
+                    (p) =>
+                        DropdownMenuItem(value: p.id, child: Text(p.fullName)),
                   )
                   .toList(),
               onChanged: (id) {
@@ -165,15 +166,29 @@ class CasePatientStep extends StatelessWidget {
         ),
         const SizedBox(height: 16),
         const _Label('الأولوية'),
-        SegmentedButton<CasePriority>(
-          segments: CasePriority.values
-              .map(
-                (p) => ButtonSegment(value: p, label: Text(p.arabicLabel)),
-              )
-              .toList(),
-          selected: {priority},
-          showSelectedIcon: false,
-          onSelectionChanged: (s) => onPriorityChanged(s.first),
+        // Still the one-tap row of options it always was — only its contents
+        // changed, from a fixed four-way enum to whatever the lab configured.
+        BlocBuilder<CasePrioritiesCubit, CasePrioritiesState>(
+          builder: (context, state) {
+            if (state is CasePrioritiesLoading ||
+                state is CasePrioritiesInitial) {
+              return const _PriorityPlaceholder(
+                text: 'جارٍ تحميل الأولويات...',
+              );
+            }
+            if (state is! CasePrioritiesLoaded) {
+              return const _PriorityPlaceholder(text: 'تعذّر تحميل الأولويات');
+            }
+
+            final priorities = state.priorities;
+            if (priorities.isEmpty) return const _NoPrioritiesNotice();
+
+            return _PrioritySelector(
+              priorities: priorities,
+              selected: priority,
+              onChanged: onPriorityChanged,
+            );
+          },
         ),
         const SizedBox(height: 16),
         const _Label('تاريخ التسليم'),
@@ -194,9 +209,9 @@ class CasePatientStep extends StatelessWidget {
         AppTextFormField(
           controller: referenceController,
           hintText: 'أدخل الرقم المرجعي (اختياري)',
-          prefixIcon: const Icon(
+          prefixIcon: Icon(
             Icons.tag_outlined,
-            color: AppColorsManger.textSecondary,
+            color: context.glass.onGlassMuted,
           ),
           validator: (_) => null,
         ),
@@ -205,9 +220,9 @@ class CasePatientStep extends StatelessWidget {
         AppTextFormField(
           controller: notesController,
           hintText: 'ملاحظات (اختياري)',
-          prefixIcon: const Icon(
+          prefixIcon: Icon(
             Icons.notes_outlined,
-            color: AppColorsManger.textSecondary,
+            color: context.glass.onGlassMuted,
           ),
           validator: (_) => null,
         ),
@@ -231,27 +246,34 @@ class _DatePickerField extends StatelessWidget {
   Widget build(BuildContext context) {
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(16),
+      borderRadius: BorderRadius.circular(AppRadius.glass),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
         decoration: BoxDecoration(
-          color: AppColorsManger.moreLightGray,
-          borderRadius: BorderRadius.circular(16),
+          gradient: context.glass.surfaceGradient,
+          borderRadius: BorderRadius.circular(AppRadius.glass),
+          border: Border.all(color: context.glass.strokeColor),
         ),
         child: Row(
           children: [
-            const Icon(
-              Icons.event_outlined,
-              color: AppColorsManger.textSecondary,
-            ),
+            Icon(Icons.event_outlined, color: context.glass.onGlassMuted),
             const SizedBox(width: 12),
-            Text(
-              value == null
-                  ? hintText
-                  : '${value!.year}-${value!.month.toString().padLeft(2, '0')}-${value!.day.toString().padLeft(2, '0')}',
-              style: value == null
-                  ? AppTextStyles.font14RegularSecondary
-                  : AppTextStyles.font14MediumText,
+            // Expanded like the read-only field beside it: the unconstrained
+            // Text overflowed the row by ~150px at a 360dp width.
+            Expanded(
+              child: Text(
+                value == null
+                    ? hintText
+                    : '${value!.year}-${value!.month.toString().padLeft(2, '0')}-${value!.day.toString().padLeft(2, '0')}',
+                overflow: TextOverflow.ellipsis,
+                style: value == null
+                    ? AppTextStyles.font14RegularSecondary.copyWith(
+                        color: context.glass.onGlassMuted,
+                      )
+                    : AppTextStyles.font14MediumText.copyWith(
+                        color: context.glass.onGlass,
+                      ),
+              ),
             ),
           ],
         ),
@@ -278,19 +300,24 @@ class _ReadOnlyField extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
       decoration: BoxDecoration(
-        color: AppColorsManger.moreLightGray,
-        borderRadius: BorderRadius.circular(16),
+        gradient: context.glass.surfaceGradient,
+        borderRadius: BorderRadius.circular(AppRadius.glass),
+        border: Border.all(color: context.glass.strokeColor),
       ),
       child: Row(
         children: [
-          Icon(icon, color: AppColorsManger.textSecondary),
+          Icon(icon, color: context.glass.onGlassMuted),
           const SizedBox(width: 12),
           Expanded(
             child: Text(
               text,
               style: isPlaceholder
-                  ? AppTextStyles.font14RegularSecondary
-                  : AppTextStyles.font14MediumText,
+                  ? AppTextStyles.font14RegularSecondary.copyWith(
+                      color: context.glass.onGlassMuted,
+                    )
+                  : AppTextStyles.font14MediumText.copyWith(
+                      color: context.glass.onGlass,
+                    ),
             ),
           ),
         ],
@@ -309,25 +336,29 @@ class _NoDoctorsNotice extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(AppSpacing.lg),
       decoration: BoxDecoration(
-        color: AppColorsManger.moreLightGray,
-        borderRadius: BorderRadius.circular(16),
+        // Tinted rather than a plain glass pane: this is a blocking notice,
+        // not another field.
+        color: context.glass.accentSurface,
+        borderRadius: BorderRadius.circular(AppRadius.glass),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              const Icon(
+              Icon(
                 Icons.info_outline,
-                color: AppColorsManger.textSecondary,
+                color: Theme.of(context).colorScheme.primary,
               ),
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
                   'ما في أطباء مسجّلين بعد — لازم تضيف طبيب أولاً',
-                  style: AppTextStyles.font14RegularSecondary,
+                  style: AppTextStyles.font14RegularSecondary.copyWith(
+                    color: context.glass.onGlassMuted,
+                  ),
                 ),
               ),
             ],
@@ -337,6 +368,138 @@ class _NoDoctorsNotice extends StatelessWidget {
             onPressed: onAddDoctor,
             icon: const Icon(Icons.add),
             label: const Text('إضافة طبيب'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// The priority picker: a segmented row, exactly as it read before
+/// priorities became lab-defined.
+///
+/// A segmented button divides its width evenly, so it only stays legible for
+/// a handful of options. Since a lab can configure any number of priorities,
+/// anything past four falls back to wrapping chips — the same one-tap pick,
+/// but free to use more than one line instead of squeezing every label to
+/// nothing.
+class _PrioritySelector extends StatelessWidget {
+  const _PrioritySelector({
+    required this.priorities,
+    required this.selected,
+    required this.onChanged,
+  });
+
+  final List<CasePriorityModel> priorities;
+  final CasePriorityModel? selected;
+  final ValueChanged<CasePriorityModel?> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    if (priorities.length > 4) {
+      return Wrap(
+        spacing: 8,
+        runSpacing: 8,
+        children: [
+          for (final p in priorities)
+            ChoiceChip(
+              label: Text(p.displayName),
+              selected: selected?.id == p.id,
+              onSelected: (_) => onChanged(p),
+            ),
+        ],
+      );
+    }
+
+    return SegmentedButton<String>(
+      segments: priorities
+          .map(
+            (p) => ButtonSegment(
+              value: p.id,
+              // Long lab-defined names would otherwise overflow their segment
+              // at the 360dp breakpoint.
+              label: Text(
+                p.displayName,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          )
+          .toList(),
+      // Empty until the default arrives; SegmentedButton allows this only
+      // with emptySelectionAllowed.
+      selected: {if (selected != null) selected!.id},
+      emptySelectionAllowed: true,
+      showSelectedIcon: false,
+      onSelectionChanged: (selection) {
+        if (selection.isEmpty) return;
+        for (final p in priorities) {
+          if (p.id == selection.first) {
+            onChanged(p);
+            return;
+          }
+        }
+      },
+    );
+  }
+}
+
+/// Stands in for the priority row while the list is loading or unavailable,
+/// so the form does not jump as it arrives.
+class _PriorityPlaceholder extends StatelessWidget {
+  const _PriorityPlaceholder({required this.text});
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return _ReadOnlyField(
+      icon: Icons.flag_outlined,
+      text: text,
+      isPlaceholder: true,
+    );
+  }
+}
+
+/// Shown instead of the priority lookup when the lab has not configured any
+/// priorities yet — the same dead end the doctor field can hit, with the way
+/// out pointing at the priorities screen.
+class _NoPrioritiesNotice extends StatelessWidget {
+  const _NoPrioritiesNotice();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(AppSpacing.lg),
+      decoration: BoxDecoration(
+        color: context.glass.accentSurface,
+        borderRadius: BorderRadius.circular(AppRadius.glass),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(
+                Icons.info_outline,
+                color: Theme.of(context).colorScheme.primary,
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'ما في أولويات معرّفة بعد — عرّف أولوية من شاشة الأولويات',
+                  style: AppTextStyles.font14RegularSecondary.copyWith(
+                    color: context.glass.onGlassMuted,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          OutlinedButton.icon(
+            onPressed: () => context.push(Routes.casePrioritiesListScreen),
+            icon: const Icon(Icons.flag_outlined),
+            label: const Text('إدارة الأولويات'),
           ),
         ],
       ),
@@ -355,7 +518,12 @@ class _Label extends StatelessWidget {
       padding: const EdgeInsets.only(bottom: 8),
       child: Align(
         alignment: AlignmentDirectional.centerStart,
-        child: Text(text, style: AppTextStyles.font14MediumText),
+        child: Text(
+          text,
+          style: AppTextStyles.font14MediumText.copyWith(
+            color: context.glass.onGlass,
+          ),
+        ),
       ),
     );
   }

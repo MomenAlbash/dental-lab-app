@@ -12,7 +12,7 @@ class CreateCaseRequestModel {
   final String? clinicId;
   final String? patientId;
   final String? referenceNumber;
-  final int? priority;
+  final String? priorityId;
   final String? notes;
   final String? dueDate;
   final String? receivedAt;
@@ -23,7 +23,7 @@ class CreateCaseRequestModel {
     this.clinicId,
     this.patientId,
     this.referenceNumber,
-    this.priority,
+    this.priorityId,
     this.notes,
     this.dueDate,
     this.receivedAt,
@@ -36,7 +36,7 @@ class CreateCaseRequestModel {
       'clinicId': clinicId,
       'patientId': patientId,
       'referenceNumber': referenceNumber,
-      'priority': priority,
+      'priorityId': priorityId,
       'notes': notes,
       'dueDate': dueDate,
       'receivedAt': receivedAt,

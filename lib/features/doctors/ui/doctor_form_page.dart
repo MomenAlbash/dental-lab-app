@@ -1,7 +1,11 @@
 import 'package:dental_lab_app/core/di/dependency_injection.dart';
-import 'package:dental_lab_app/core/theming/colors.dart';
+import 'package:dental_lab_app/core/theming/glass.dart';
 import 'package:dental_lab_app/core/theming/styles.dart';
+import 'package:dental_lab_app/core/widgets/glass/glass_app_bar.dart';
+import 'package:dental_lab_app/core/widgets/glass/glass_save_bar.dart';
+import 'package:dental_lab_app/core/widgets/glass/glass_scaffold.dart';
 import 'package:dental_lab_app/core/widgets/show_toast_widget.dart';
+import 'package:dental_lab_app/core/widgets/unsaved_changes_guard.dart';
 import 'package:dental_lab_app/features/cities/logic/cities/cities_cubit.dart';
 import 'package:dental_lab_app/features/clinics/logic/clinics/clinics_cubit.dart';
 import 'package:dental_lab_app/features/doctors/data/models/create_doctor_request_model.dart';
@@ -72,7 +76,19 @@ class _DoctorFormViewState extends State<_DoctorFormView> {
   bool get _isEditing => widget.initialDoctor != null;
 
   @override
+  void initState() {
+    super.initState();
+    // The header preview mirrors the name as it is typed.
+    _firstNameController.addListener(_onNameChanged);
+    _lastNameController.addListener(_onNameChanged);
+  }
+
+  void _onNameChanged() => setState(() {});
+
+  @override
   void dispose() {
+    _firstNameController.removeListener(_onNameChanged);
+    _lastNameController.removeListener(_onNameChanged);
     _firstNameController.dispose();
     _lastNameController.dispose();
     _emailController.dispose();
@@ -108,6 +124,26 @@ class _DoctorFormViewState extends State<_DoctorFormView> {
   String? _optional(TextEditingController controller) {
     final value = controller.text.trim();
     return value.isEmpty ? null : value;
+  }
+
+  /// Whether anything differs from what the form opened with — asked when the
+  /// user tries to leave, so a discarded edit is never silent.
+  bool get _isDirty {
+    final initial = widget.initialDoctor;
+    return isTextDirty(_firstNameController, initial?.firstName) ||
+        isTextDirty(_lastNameController, initial?.lastName) ||
+        isTextDirty(_emailController, initial?.email) ||
+        isTextDirty(_phoneController, initial?.phoneNumber) ||
+        isTextDirty(_addressController, initial?.address) ||
+        _gender != (initial?.gender ?? DoctorGender.male) ||
+        // Compared as `yyyy-MM-dd`, not as DateTime: the API can return a
+        // UTC-suffixed value while the picker yields local midnight, which
+        // would make an untouched date look edited.
+        _formatDate(_dateOfBirth) !=
+            _formatDate(_parseDate(initial?.dateOfBirth)) ||
+        _cityId != initial?.cityId ||
+        _clinicId != initial?.clinicId ||
+        _isActive != (initial?.isActive ?? true);
   }
 
   void _onSavePressed() {
@@ -150,77 +186,91 @@ class _DoctorFormViewState extends State<_DoctorFormView> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppColorsManger.background,
-      appBar: AppBar(
-        title: Text(
-          _isEditing ? 'تعديل الدكتور' : 'إضافة دكتور',
-          style: AppTextStyles.font18MediumText,
+    return UnsavedChangesGuard(
+      isDirty: () => _isDirty,
+      child: GlassScaffold(
+        appBar: GlassAppBar(
+          title: Text(
+            _isEditing ? 'تعديل الدكتور' : 'إضافة دكتور',
+            style: AppTextStyles.font18MediumText.copyWith(
+              color: context.glass.onGlass,
+            ),
+          ),
         ),
-      ),
-      body: SafeArea(
-        child: BlocConsumer<DoctorFormCubit, DoctorFormState>(
-          listener: (context, state) {
-            switch (state) {
-              case DoctorFormSuccess():
-                ShowToast(
-                  message: _isEditing
-                      ? 'تم حفظ التعديلات'
-                      : 'تمت إضافة الدكتور',
-                  state: toastState.success,
-                );
-                Navigator.of(context).pop(true);
-              case DoctorFormError(:final message):
-                ShowToast(message: message, state: toastState.error);
-              default:
-                break;
-            }
-          },
-          builder: (context, state) {
-            return LayoutBuilder(
-              builder: (context, constraints) {
-                final isWide = constraints.maxWidth >= 600;
-                final contentWidth = isWide ? 560.0 : constraints.maxWidth;
+        // Save stays reachable without scrolling to the bottom of the form.
+        bottomNavigationBar: BlocBuilder<DoctorFormCubit, DoctorFormState>(
+          builder: (context, state) => GlassSaveBar(
+            isSubmitting: state is DoctorFormSubmitting,
+            label: _isEditing ? 'حفظ التعديلات' : 'إضافة الدكتور',
+            onSave: _onSavePressed,
+          ),
+        ),
+        body: SafeArea(
+          child: BlocConsumer<DoctorFormCubit, DoctorFormState>(
+            listener: (context, state) {
+              switch (state) {
+                case DoctorFormSuccess():
+                  ShowToast(
+                    message: _isEditing
+                        ? 'تم حفظ التعديلات'
+                        : 'تمت إضافة الدكتور',
+                    state: toastState.success,
+                  );
+                  Navigator.of(context).pop(true);
+                case DoctorFormError(:final message):
+                  ShowToast(message: message, state: toastState.error);
+                default:
+                  break;
+              }
+            },
+            builder: (context, state) {
+              return LayoutBuilder(
+                builder: (context, constraints) {
+                  final isWide = constraints.maxWidth >= 600;
+                  final contentWidth = isWide ? 560.0 : constraints.maxWidth;
 
-                return Center(
-                  child: SingleChildScrollView(
-                    padding: EdgeInsets.symmetric(
-                      horizontal: isWide ? 32 : 20,
-                      vertical: 20,
-                    ),
-                    child: ConstrainedBox(
-                      constraints: BoxConstraints(maxWidth: contentWidth),
-                      child: DoctorFormFields(
-                        formKey: _formKey,
-                        firstNameController: _firstNameController,
-                        lastNameController: _lastNameController,
-                        emailController: _emailController,
-                        phoneController: _phoneController,
-                        addressController: _addressController,
-                        gender: _gender,
-                        onGenderChanged: (value) =>
-                            setState(() => _gender = value),
-                        dateOfBirth: _formatDate(_dateOfBirth),
-                        onPickDate: _pickDateOfBirth,
-                        cityId: _cityId,
-                        onCityChanged: (value) =>
-                            setState(() => _cityId = value),
-                        clinicId: _clinicId,
-                        onClinicChanged: (value) =>
-                            setState(() => _clinicId = value),
-                        isSubmitting: state is DoctorFormSubmitting,
-                        isEditing: _isEditing,
-                        isActive: _isActive,
-                        onActiveChanged: (value) =>
-                            setState(() => _isActive = value),
-                        onSave: _onSavePressed,
+                  return Center(
+                    child: SingleChildScrollView(
+                      padding: EdgeInsets.fromLTRB(
+                        isWide ? 32 : 20,
+                        20,
+                        isWide ? 32 : 20,
+                        // Clears the pinned action bar so the last field is
+                        // never trapped underneath it.
+                        110,
+                      ),
+                      child: ConstrainedBox(
+                        constraints: BoxConstraints(maxWidth: contentWidth),
+                        child: DoctorFormFields(
+                          formKey: _formKey,
+                          firstNameController: _firstNameController,
+                          lastNameController: _lastNameController,
+                          emailController: _emailController,
+                          phoneController: _phoneController,
+                          addressController: _addressController,
+                          gender: _gender,
+                          onGenderChanged: (value) =>
+                              setState(() => _gender = value),
+                          dateOfBirth: _formatDate(_dateOfBirth),
+                          onPickDate: _pickDateOfBirth,
+                          cityId: _cityId,
+                          onCityChanged: (value) =>
+                              setState(() => _cityId = value),
+                          clinicId: _clinicId,
+                          onClinicChanged: (value) =>
+                              setState(() => _clinicId = value),
+                          isEditing: _isEditing,
+                          isActive: _isActive,
+                          onActiveChanged: (value) =>
+                              setState(() => _isActive = value),
+                        ),
                       ),
                     ),
-                  ),
-                );
-              },
-            );
-          },
+                  );
+                },
+              );
+            },
+          ),
         ),
       ),
     );

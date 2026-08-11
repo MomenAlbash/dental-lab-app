@@ -1,4 +1,4 @@
-import 'package:dental_lab_app/core/theming/colors.dart';
+import 'package:dental_lab_app/core/theming/glass.dart';
 import 'package:dental_lab_app/core/theming/styles.dart';
 import 'package:dental_lab_app/core/widgets/custom_button_widget.dart';
 import 'package:dental_lab_app/core/widgets/custom_circle_progress_indiacator_widget.dart';
@@ -89,9 +89,9 @@ class UserFormFields extends StatelessWidget {
             controller: usernameController,
             hintText: 'أدخل اسم المستخدم',
             textInputAction: TextInputAction.next,
-            prefixIcon: const Icon(
+            prefixIcon: Icon(
               Icons.person_outline,
-              color: AppColorsManger.textSecondary,
+              color: context.glass.onGlassMuted,
             ),
             validator: (value) => (value == null || value.trim().isEmpty)
                 ? 'اسم المستخدم مطلوب'
@@ -104,9 +104,9 @@ class UserFormFields extends StatelessWidget {
             hintText: 'أدخل كلمة المرور',
             textInputAction: TextInputAction.next,
             isObscureText: obscurePassword,
-            prefixIcon: const Icon(
+            prefixIcon: Icon(
               Icons.lock_outline,
-              color: AppColorsManger.textSecondary,
+              color: context.glass.onGlassMuted,
             ),
             suffixIcon: IconButton(
               onPressed: onToggleObscure,
@@ -114,7 +114,7 @@ class UserFormFields extends StatelessWidget {
                 obscurePassword
                     ? Icons.visibility_off_outlined
                     : Icons.visibility_outlined,
-                color: AppColorsManger.textSecondary,
+                color: context.glass.onGlassMuted,
               ),
             ),
             validator: (value) {
@@ -128,9 +128,9 @@ class UserFormFields extends StatelessWidget {
             controller: emailController,
             hintText: 'أدخل البريد الإلكتروني (اختياري)',
             textInputAction: TextInputAction.next,
-            prefixIcon: const Icon(
+            prefixIcon: Icon(
               Icons.email_outlined,
-              color: AppColorsManger.textSecondary,
+              color: context.glass.onGlassMuted,
             ),
             validator: (value) {
               if (value == null || value.isEmpty) return null;
@@ -146,12 +146,7 @@ class UserFormFields extends StatelessWidget {
           if (isSubmitting)
             const Center(child: CustomCircleProgressIndiacatorWidget())
           else
-            CustomButtonWidget(
-              onPressed: onSave,
-              buttonText: 'إضافة المستخدم',
-              textColor: Colors.white,
-              backgroundColor: AppColorsManger.primary,
-            ),
+            CustomButtonWidget(onPressed: onSave, buttonText: 'إضافة المستخدم'),
         ],
       ),
     );
@@ -183,16 +178,16 @@ class _AdminSwitch extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
       decoration: BoxDecoration(
-        color: AppColorsManger.surface,
+        color: context.glass.surfaceColor,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: AppColorsManger.border),
+        border: Border.all(color: context.glass.strokeColor),
       ),
       child: Row(
         children: [
           Expanded(child: Text('مدير', style: AppTextStyles.font14MediumText)),
           Switch(
             value: value,
-            activeThumbColor: AppColorsManger.primary,
+            activeThumbColor: Theme.of(context).colorScheme.primary,
             onChanged: onChanged,
           ),
         ],

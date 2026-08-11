@@ -11,11 +11,7 @@ class DoctorAttachmentFileModel {
   final String? fileName;
   final String? filePath;
 
-  DoctorAttachmentFileModel({
-    required this.id,
-    this.fileName,
-    this.filePath,
-  });
+  DoctorAttachmentFileModel({required this.id, this.fileName, this.filePath});
 
   factory DoctorAttachmentFileModel.fromJson(Map<String, dynamic> json) {
     return DoctorAttachmentFileModel(

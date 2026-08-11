@@ -1,7 +1,11 @@
-import 'package:dental_lab_app/core/theming/colors.dart';
+import 'package:dental_lab_app/core/theming/app_dimensions.dart';
+import 'package:dental_lab_app/core/theming/glass.dart';
 import 'package:dental_lab_app/core/theming/styles.dart';
 import 'package:dental_lab_app/core/widgets/custom_button_widget.dart';
 import 'package:dental_lab_app/core/widgets/custom_text_field_widget.dart';
+import 'package:dental_lab_app/core/widgets/glass/glass_app_bar.dart';
+import 'package:dental_lab_app/core/widgets/glass/glass_scaffold.dart';
+import 'package:dental_lab_app/core/widgets/glass/glass_section_title.dart';
 import 'package:flutter/material.dart';
 
 /// The API's permission enums (`PermissionName` 1..9, `PermissionType` 0..1)
@@ -54,12 +58,13 @@ class _RoleFormPageState extends State<RoleFormPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppColorsManger.background,
-      appBar: AppBar(
+    return GlassScaffold(
+      appBar: GlassAppBar(
         title: Text(
           _isEditing ? 'تعديل الدور' : 'إضافة دور',
-          style: AppTextStyles.font18MediumText,
+          style: AppTextStyles.font18MediumText.copyWith(
+            color: context.glass.onGlass,
+          ),
         ),
       ),
       body: SafeArea(
@@ -91,9 +96,9 @@ class _RoleFormPageState extends State<RoleFormPage> {
                           controller: _nameController,
                           hintText: 'أدخل اسم الدور',
                           textInputAction: TextInputAction.next,
-                          prefixIcon: const Icon(
+                          prefixIcon: Icon(
                             Icons.badge_outlined,
-                            color: AppColorsManger.textSecondary,
+                            color: context.glass.onGlassMuted,
                           ),
                           validator: (value) =>
                               (value == null || value.trim().isEmpty)
@@ -107,21 +112,20 @@ class _RoleFormPageState extends State<RoleFormPage> {
                           controller: _descriptionController,
                           hintText: 'أدخل وصف الدور (اختياري)',
                           textInputAction: TextInputAction.done,
-                          prefixIcon: const Icon(
+                          prefixIcon: Icon(
                             Icons.notes_outlined,
-                            color: AppColorsManger.textSecondary,
+                            color: context.glass.onGlassMuted,
                           ),
                           validator: (_) => null,
                         ),
                         const SizedBox(height: 24),
-                        Text(
-                          'الصلاحيات',
-                          style: AppTextStyles.font16MediumText,
-                        ),
+                        const GlassSectionTitle('الصلاحيات'),
                         const SizedBox(height: 4),
                         Text(
                           'فعّل الصلاحية وحدد نوعها',
-                          style: AppTextStyles.font12RegularHint,
+                          style: AppTextStyles.font12RegularHint.copyWith(
+                            color: context.glass.onGlassMuted,
+                          ),
                         ),
                         const SizedBox(height: 12),
                         ..._permissionNames.map(_buildPermissionRow),
@@ -131,8 +135,6 @@ class _RoleFormPageState extends State<RoleFormPage> {
                           buttonText: _isEditing
                               ? 'حفظ التعديلات'
                               : 'إضافة الدور',
-                          textColor: Colors.white,
-                          backgroundColor: AppColorsManger.primary,
                         ),
                       ],
                     ),
@@ -150,13 +152,18 @@ class _RoleFormPageState extends State<RoleFormPage> {
     final selectedType = _permissions[permissionName];
     final isEnabled = selectedType != null;
 
+    final glass = context.glass;
+
     return Container(
-      margin: const EdgeInsets.only(bottom: 10),
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      margin: const EdgeInsets.only(bottom: AppSpacing.sm),
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.lg,
+        vertical: AppSpacing.sm,
+      ),
       decoration: BoxDecoration(
-        color: AppColorsManger.surface,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: AppColorsManger.border),
+        gradient: glass.surfaceGradient,
+        borderRadius: BorderRadius.circular(AppRadius.glass),
+        border: Border.all(color: glass.strokeColor),
       ),
       child: Row(
         children: [
@@ -182,7 +189,7 @@ class _RoleFormPageState extends State<RoleFormPage> {
             ),
           Switch(
             value: isEnabled,
-            activeThumbColor: AppColorsManger.primary,
+            activeThumbColor: Theme.of(context).colorScheme.primary,
             onChanged: (value) {
               setState(
                 () => _permissions[permissionName] = value

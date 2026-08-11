@@ -22,8 +22,7 @@ class RestorationTypesCubit extends Cubit<RestorationTypesState> {
     final result = await _repo.deleteRestorationType(id);
 
     await result.fold(
-      (failure) async =>
-          emit(RestorationTypeDeleteError(failure.errorMessage)),
+      (failure) async => emit(RestorationTypeDeleteError(failure.errorMessage)),
       (_) async {
         emit(const RestorationTypeDeleted());
         await getRestorationTypes();

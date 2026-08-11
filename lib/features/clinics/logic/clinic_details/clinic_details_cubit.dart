@@ -3,8 +3,7 @@ import 'package:dental_lab_app/features/clinics/logic/clinic_details/clinic_deta
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 class ClinicDetailsCubit extends Cubit<ClinicDetailsState> {
-  ClinicDetailsCubit(this._clinicsRepo)
-    : super(const ClinicDetailsInitial());
+  ClinicDetailsCubit(this._clinicsRepo) : super(const ClinicDetailsInitial());
 
   final ClinicsRepo _clinicsRepo;
 

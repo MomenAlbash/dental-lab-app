@@ -1,17 +1,22 @@
-import 'package:dental_lab_app/core/theming/colors.dart';
+import 'package:dental_lab_app/core/theming/app_dimensions.dart';
+import 'package:dental_lab_app/core/widgets/adaptive_detail_sections.dart';
+import 'package:dental_lab_app/core/theming/glass.dart';
 import 'package:dental_lab_app/core/theming/styles.dart';
 import 'package:dental_lab_app/core/widgets/custom_button_widget.dart';
 import 'package:dental_lab_app/core/widgets/custom_text_field_widget.dart';
 import 'package:dental_lab_app/core/widgets/detail_info_row_widget.dart';
+import 'package:dental_lab_app/core/widgets/glass/glass_section_title.dart';
 import 'package:dental_lab_app/features/roles/logic/roles/roles_cubit.dart';
 import 'package:dental_lab_app/features/roles/logic/roles/roles_state.dart';
 import 'package:dental_lab_app/features/users/data/models/user_model.dart';
 import 'package:dental_lab_app/features/users/ui/widgets/labeled_dropdown.dart';
+import 'package:dental_lab_app/features/users/ui/widgets/user_hero_header.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-/// The user details section: identity header, linked record + role, the
-/// editable fields (email, role, admin) and account actions.
+/// The user details section: a collapsing identity header (mirrors the
+/// doctor/employee detail screens), linked record + role, the editable
+/// fields (email, role, admin) and account actions.
 class UserDetailsBody extends StatelessWidget {
   const UserDetailsBody({
     super.key,
@@ -44,30 +49,62 @@ class UserDetailsBody extends StatelessWidget {
 
     return Stack(
       children: [
-        LayoutBuilder(
-          builder: (context, constraints) {
-            final isWide = constraints.maxWidth >= 600;
-            final contentWidth = isWide ? 560.0 : constraints.maxWidth;
-
-            return Center(
-              child: SingleChildScrollView(
-                padding: EdgeInsets.symmetric(
-                  horizontal: isWide ? 32 : 20,
-                  vertical: 20,
-                ),
-                child: ConstrainedBox(
-                  constraints: BoxConstraints(maxWidth: contentWidth),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      _Header(user: user),
-                      const SizedBox(height: 24),
+        Builder(
+          builder: (context) {
+            return CustomScrollView(
+              slivers: [
+                UserSliverHeader(user: user),
+                SliverToBoxAdapter(
+                  child: AdaptiveDetailSections(
+                    // The edit form is the screen's real work, so it takes the
+                    // wide column; the read-only summary and the account
+                    // actions sit beside it.
+                    main: [
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          const GlassSectionTitle('تعديل البيانات'),
+                          const SizedBox(height: 12),
+                          const _Label('البريد الإلكتروني'),
+                          AppTextFormField(
+                            controller: emailController,
+                            hintText: 'أدخل البريد الإلكتروني',
+                            prefixIcon: Icon(
+                              Icons.email_outlined,
+                              color: context.glass.onGlassMuted,
+                            ),
+                            validator: (_) => null,
+                          ),
+                          const SizedBox(height: 20),
+                          const _Label('الدور'),
+                          _RoleDropdown(
+                            value: roleId,
+                            onChanged: onRoleChanged,
+                          ),
+                          const SizedBox(height: 12),
+                          _SwitchTile(
+                            label: 'مدير',
+                            value: isAdmin,
+                            onChanged: onAdminChanged,
+                          ),
+                          const SizedBox(height: 24),
+                          CustomButtonWidget(
+                            onPressed: onSave,
+                            buttonText: 'حفظ التعديلات',
+                          ),
+                        ],
+                      ),
+                    ],
+                    side: [
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: AppSpacing.lg,
+                        ),
                         decoration: BoxDecoration(
-                          color: AppColorsManger.surface,
-                          borderRadius: BorderRadius.circular(16),
-                          border: Border.all(color: AppColorsManger.border),
+                          gradient: context.glass.surfaceGradient,
+                          borderRadius: BorderRadius.circular(AppRadius.glass),
+                          border: Border.all(color: context.glass.strokeColor),
+                          boxShadow: context.glass.shadows,
                         ),
                         child: Column(
                           children: [
@@ -80,9 +117,9 @@ class UserDetailsBody extends StatelessWidget {
                                   : 'الموظف المرتبط',
                               value: user.linkedName,
                             ),
-                            const Divider(
+                            Divider(
                               height: 1,
-                              color: AppColorsManger.divider,
+                              color: context.glass.strokeColor,
                             ),
                             DetailInfoRowWidget(
                               icon: Icons.email_outlined,
@@ -92,67 +129,47 @@ class UserDetailsBody extends StatelessWidget {
                           ],
                         ),
                       ),
-                      const SizedBox(height: 24),
-                      Text('تعديل البيانات', style: AppTextStyles.font16MediumText),
-                      const SizedBox(height: 12),
-                      const _Label('البريد الإلكتروني'),
-                      AppTextFormField(
-                        controller: emailController,
-                        hintText: 'أدخل البريد الإلكتروني',
-                        prefixIcon: const Icon(
-                          Icons.email_outlined,
-                          color: AppColorsManger.textSecondary,
-                        ),
-                        validator: (_) => null,
-                      ),
-                      const SizedBox(height: 20),
-                      const _Label('الدور'),
-                      _RoleDropdown(value: roleId, onChanged: onRoleChanged),
-                      const SizedBox(height: 12),
-                      _SwitchTile(
-                        label: 'مدير',
-                        value: isAdmin,
-                        onChanged: onAdminChanged,
-                      ),
-                      const SizedBox(height: 24),
-                      CustomButtonWidget(
-                        onPressed: onSave,
-                        buttonText: 'حفظ التعديلات',
-                        textColor: Colors.white,
-                        backgroundColor: AppColorsManger.primary,
-                      ),
-                      const SizedBox(height: 32),
-                      Text('إجراءات الحساب', style: AppTextStyles.font16MediumText),
-                      const SizedBox(height: 12),
-                      CustomButtonWidget(
-                        onPressed: onToggleActive,
-                        icon: user.isActive
-                            ? Icons.block_outlined
-                            : Icons.check_circle_outline,
-                        buttonText: user.isActive
-                            ? 'إيقاف المستخدم'
-                            : 'تفعيل المستخدم',
-                        textColor: user.isActive
-                            ? AppColorsManger.error
-                            : AppColorsManger.success,
-                        backgroundColor:
-                            (user.isActive
-                                    ? AppColorsManger.error
-                                    : AppColorsManger.success)
-                                .withValues(alpha: 0.08),
-                      ),
-                      const SizedBox(height: 12),
-                      CustomButtonWidget(
-                        onPressed: onResetPassword,
-                        icon: Icons.lock_reset_outlined,
-                        buttonText: 'إعادة تعيين كلمة المرور',
-                        textColor: AppColorsManger.primary,
-                        backgroundColor: AppColorsManger.primarySurface,
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          const GlassSectionTitle('إجراءات الحساب'),
+                          const SizedBox(height: 12),
+                          CustomButtonWidget(
+                            onPressed: onToggleActive,
+                            icon: user.isActive
+                                ? Icons.block_outlined
+                                : Icons.check_circle_outline,
+                            buttonText: user.isActive
+                                ? 'إيقاف المستخدم'
+                                : 'تفعيل المستخدم',
+                            textColor: user.isActive
+                                ? context.glass.error
+                                : context.glass.success,
+                            backgroundColor:
+                                (user.isActive
+                                        ? context.glass.error
+                                        : context.glass.success)
+                                    .withValues(alpha: 0.08),
+                          ),
+                          const SizedBox(height: 12),
+                          // Tonal secondary action: the accent is the
+                          // theme's, not a fixed brand constant, so it
+                          // follows dark mode too.
+                          CustomButtonWidget(
+                            onPressed: onResetPassword,
+                            icon: Icons.lock_reset_outlined,
+                            buttonText: 'إعادة تعيين كلمة المرور',
+                            textColor: Theme.of(context).colorScheme.primary,
+                            backgroundColor: Theme.of(
+                              context,
+                            ).colorScheme.primary.withValues(alpha: 0.12),
+                          ),
+                        ],
                       ),
                     ],
                   ),
                 ),
-              ),
+              ],
             );
           },
         ),
@@ -164,72 +181,6 @@ class UserDetailsBody extends StatelessWidget {
             child: LinearProgressIndicator(minHeight: 2),
           ),
       ],
-    );
-  }
-}
-
-class _Header extends StatelessWidget {
-  const _Header({required this.user});
-
-  final UserModel user;
-
-  @override
-  Widget build(BuildContext context) {
-    final isDoctor = user.type.isDoctor;
-    return Center(
-      child: Column(
-        children: [
-          Container(
-            width: 72,
-            height: 72,
-            decoration: const BoxDecoration(
-              color: AppColorsManger.primarySurface,
-              shape: BoxShape.circle,
-            ),
-            child: Icon(
-              isDoctor ? Icons.medical_services_outlined : Icons.badge_outlined,
-              size: 36,
-              color: AppColorsManger.primary,
-            ),
-          ),
-          const SizedBox(height: 12),
-          Text(user.username ?? '—', style: AppTextStyles.font20BoldText),
-          const SizedBox(height: 4),
-          Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                isDoctor ? 'حساب طبيب' : 'حساب موظف',
-                style: AppTextStyles.font13MediumPrimary,
-              ),
-              const SizedBox(width: 8),
-              _StatusBadge(isActive: user.isActive),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _StatusBadge extends StatelessWidget {
-  const _StatusBadge({required this.isActive});
-
-  final bool isActive;
-
-  @override
-  Widget build(BuildContext context) {
-    final color = isActive ? AppColorsManger.success : AppColorsManger.textHint;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Text(
-        isActive ? 'مفعّل' : 'موقوف',
-        style: AppTextStyles.font12RegularHint.copyWith(color: color),
-      ),
     );
   }
 }
@@ -265,18 +216,21 @@ class _SwitchTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.lg,
+        vertical: 4,
+      ),
       decoration: BoxDecoration(
-        color: AppColorsManger.surface,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: AppColorsManger.border),
+        gradient: context.glass.surfaceGradient,
+        borderRadius: BorderRadius.circular(AppRadius.glass),
+        border: Border.all(color: context.glass.strokeColor),
       ),
       child: Row(
         children: [
           Expanded(child: Text(label, style: AppTextStyles.font14MediumText)),
           Switch(
             value: value,
-            activeThumbColor: AppColorsManger.primary,
+            activeThumbColor: Theme.of(context).colorScheme.primary,
             onChanged: onChanged,
           ),
         ],

@@ -1,4 +1,4 @@
-import 'package:dental_lab_app/core/theming/colors.dart';
+import 'package:dental_lab_app/core/theming/glass.dart';
 import 'package:dental_lab_app/core/theming/styles.dart';
 import 'package:dental_lab_app/core/widgets/custom_text_field_widget.dart';
 import 'package:flutter/material.dart';
@@ -28,9 +28,9 @@ class LoginInputSection extends StatelessWidget {
           controller: userNameController,
           hintText: 'أدخل اسم المستخدم',
           textInputAction: TextInputAction.next,
-          prefixIcon: const Icon(
+          prefixIcon: Icon(
             Icons.person_outline,
-            color: AppColorsManger.textSecondary,
+            color: context.glass.onGlassMuted,
           ),
           validator: (value) => (value == null || value.trim().isEmpty)
               ? 'اسم المستخدم مطلوب'
@@ -44,9 +44,9 @@ class LoginInputSection extends StatelessWidget {
           hintText: 'أدخل كلمة المرور',
           textInputAction: TextInputAction.done,
           isObscureText: !isPasswordVisible,
-          prefixIcon: const Icon(
+          prefixIcon: Icon(
             Icons.lock_outline,
-            color: AppColorsManger.textSecondary,
+            color: context.glass.onGlassMuted,
           ),
           suffixIcon: IconButton(
             onPressed: onTogglePasswordVisibility,
@@ -54,7 +54,7 @@ class LoginInputSection extends StatelessWidget {
               isPasswordVisible
                   ? Icons.visibility_outlined
                   : Icons.visibility_off_outlined,
-              color: AppColorsManger.textSecondary,
+              color: context.glass.onGlassMuted,
             ),
           ),
           validator: (value) =>

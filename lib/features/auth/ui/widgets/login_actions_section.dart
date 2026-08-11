@@ -1,4 +1,3 @@
-import 'package:dental_lab_app/core/theming/colors.dart';
 import 'package:dental_lab_app/core/theming/styles.dart';
 import 'package:dental_lab_app/core/widgets/custom_button_widget.dart';
 import 'package:dental_lab_app/core/widgets/custom_circle_progress_indiacator_widget.dart';
@@ -59,8 +58,6 @@ class LoginActionsSection extends StatelessWidget {
           CustomButtonWidget(
             onPressed: () => _onLoginPressed(context),
             buttonText: 'تسجيل الدخول',
-            textColor: Colors.white,
-            backgroundColor: AppColorsManger.primary,
           ),
       ],
     );

@@ -1,8 +1,17 @@
+import 'package:dental_lab_app/core/connectivity/connectivity_cubit.dart';
 import 'package:dental_lab_app/core/helper/network_helper/api_service.dart';
+import 'package:dental_lab_app/core/theming/font_scale_cubit.dart';
 import 'package:dental_lab_app/core/theming/theme_cubit.dart';
 import 'package:dental_lab_app/features/auth/data/repos/login_repo.dart';
 import 'package:dental_lab_app/features/auth/logic/change_password/change_password_cubit.dart';
 import 'package:dental_lab_app/features/auth/logic/login/login_cubit.dart';
+import 'package:dental_lab_app/features/scanner_availability/data/repos/scanner_availability_repo.dart';
+import 'package:dental_lab_app/features/scanner_availability/logic/scanner_calendar/scanner_calendar_cubit.dart';
+import 'package:dental_lab_app/features/scanner_availability/logic/scanner_exceptions/scanner_exceptions_cubit.dart';
+import 'package:dental_lab_app/features/scanner_availability/logic/scanner_rules/scanner_rules_cubit.dart';
+import 'package:dental_lab_app/features/case_priorities/data/repos/case_priorities_repo.dart';
+import 'package:dental_lab_app/features/case_priorities/logic/case_priorities/case_priorities_cubit.dart';
+import 'package:dental_lab_app/features/case_priorities/logic/case_priority_form/case_priority_form_cubit.dart';
 import 'package:dental_lab_app/features/cases/data/repos/cases_repo.dart';
 import 'package:dental_lab_app/features/cases/logic/case_details/case_details_cubit.dart';
 import 'package:dental_lab_app/features/cases/logic/case_form/case_form_cubit.dart';
@@ -56,11 +65,15 @@ Future<void> setupGetIt() async {
   // ---- Core ----
   getIt.registerLazySingleton<ApiService>(() => ApiService());
   getIt.registerLazySingleton<ThemeCubit>(() => ThemeCubit());
+  getIt.registerLazySingleton<FontScaleCubit>(() => FontScaleCubit());
+  getIt.registerLazySingleton<ConnectivityCubit>(() => ConnectivityCubit());
 
   // ---- Auth ----
   getIt.registerLazySingleton<LoginRepo>(() => LoginRepo(getIt()));
   getIt.registerFactory<LoginCubit>(() => LoginCubit(getIt()));
-  getIt.registerFactory<ChangePasswordCubit>(() => ChangePasswordCubit(getIt()));
+  getIt.registerFactory<ChangePasswordCubit>(
+    () => ChangePasswordCubit(getIt()),
+  );
 
   // ---- Laboratories ----
   getIt.registerLazySingleton<LaboratoriesRepo>(
@@ -70,7 +83,9 @@ Future<void> setupGetIt() async {
   getIt.registerFactory<LaboratoryDetailsCubit>(
     () => LaboratoryDetailsCubit(getIt()),
   );
-  getIt.registerFactory<LaboratoryFormCubit>(() => LaboratoryFormCubit(getIt()));
+  getIt.registerFactory<LaboratoryFormCubit>(
+    () => LaboratoryFormCubit(getIt()),
+  );
   getIt.registerFactory<LaboratorySelectionCubit>(
     () => LaboratorySelectionCubit(getIt()),
   );
@@ -86,18 +101,14 @@ Future<void> setupGetIt() async {
   // ---- Clinics ----
   getIt.registerLazySingleton<ClinicsRepo>(() => ClinicsRepo(getIt()));
   getIt.registerFactory<ClinicsCubit>(() => ClinicsCubit(getIt()));
-  getIt.registerFactory<ClinicDetailsCubit>(
-    () => ClinicDetailsCubit(getIt()),
-  );
+  getIt.registerFactory<ClinicDetailsCubit>(() => ClinicDetailsCubit(getIt()));
   getIt.registerFactory<ClinicFormCubit>(() => ClinicFormCubit(getIt()));
 
   // ---- Doctors ----
   getIt.registerLazySingleton<DoctorsRepo>(() => DoctorsRepo(getIt()));
   getIt.registerFactory<DoctorsCubit>(() => DoctorsCubit(getIt()));
   getIt.registerFactory<DoctorFormCubit>(() => DoctorFormCubit(getIt()));
-  getIt.registerFactory<DoctorDetailsCubit>(
-    () => DoctorDetailsCubit(getIt()),
-  );
+  getIt.registerFactory<DoctorDetailsCubit>(() => DoctorDetailsCubit(getIt()));
 
   // ---- Employees ----
   getIt.registerLazySingleton<EmployeesRepo>(() => EmployeesRepo(getIt()));
@@ -142,6 +153,29 @@ Future<void> setupGetIt() async {
   getIt.registerFactory<PatientFormCubit>(() => PatientFormCubit(getIt()));
   getIt.registerFactory<PatientDetailsCubit>(
     () => PatientDetailsCubit(getIt()),
+  );
+
+  // ---- Scanner availability ----
+  getIt.registerLazySingleton<ScannerAvailabilityRepo>(
+    () => ScannerAvailabilityRepo(getIt()),
+  );
+  getIt.registerFactory<ScannerRulesCubit>(() => ScannerRulesCubit(getIt()));
+  getIt.registerFactory<ScannerExceptionsCubit>(
+    () => ScannerExceptionsCubit(getIt()),
+  );
+  getIt.registerFactory<ScannerCalendarCubit>(
+    () => ScannerCalendarCubit(getIt()),
+  );
+
+  // ---- Case priorities ----
+  getIt.registerLazySingleton<CasePrioritiesRepo>(
+    () => CasePrioritiesRepo(getIt()),
+  );
+  getIt.registerFactory<CasePrioritiesCubit>(
+    () => CasePrioritiesCubit(getIt()),
+  );
+  getIt.registerFactory<CasePriorityFormCubit>(
+    () => CasePriorityFormCubit(getIt()),
   );
 
   // ---- Cases ----

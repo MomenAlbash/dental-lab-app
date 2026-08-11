@@ -21,6 +21,13 @@ class AppRadius {
 
   /// Avatars, switch, pills, circular icon containers.
   static const double full = 9999;
+
+  /// Glass surfaces: list cards, inputs, sheets. Softer than [xl] so the
+  /// translucent fill reads as a pane of glass rather than a boxed card.
+  static const double glass = 20;
+
+  /// Large glass surfaces: bottom sheets, dialogs, hero panels.
+  static const double glassLg = 28;
 }
 
 class AppSpacing {

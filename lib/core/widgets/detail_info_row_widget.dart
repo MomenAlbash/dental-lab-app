@@ -1,4 +1,4 @@
-import 'package:dental_lab_app/core/theming/colors.dart';
+import 'package:dental_lab_app/core/theming/glass.dart';
 import 'package:dental_lab_app/core/theming/styles.dart';
 import 'package:flutter/material.dart';
 
@@ -17,22 +17,33 @@ class DetailInfoRowWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Reads the glass tokens so the row stays legible on a translucent card in
+    // both themes, instead of the fixed light-mode greys it used before.
+    final glass = context.glass;
+
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 10),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(icon, size: 20, color: AppColorsManger.textSecondary),
+          Icon(icon, size: 20, color: glass.onGlassMuted),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(label, style: AppTextStyles.font12RegularHint),
+                Text(
+                  label,
+                  style: AppTextStyles.font12RegularHint.copyWith(
+                    color: glass.onGlassMuted,
+                  ),
+                ),
                 const SizedBox(height: 2),
                 Text(
                   value.isEmpty ? '—' : value,
-                  style: AppTextStyles.font14MediumText,
+                  style: AppTextStyles.font14MediumText.copyWith(
+                    color: glass.onGlass,
+                  ),
                 ),
               ],
             ),

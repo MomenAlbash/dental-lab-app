@@ -1,14 +1,17 @@
 import 'package:dental_lab_app/core/di/dependency_injection.dart';
-import 'package:dental_lab_app/core/theming/colors.dart';
+import 'package:dental_lab_app/core/theming/glass.dart';
 import 'package:dental_lab_app/core/theming/styles.dart';
 import 'package:dental_lab_app/core/widgets/custom_button_widget.dart';
 import 'package:dental_lab_app/core/widgets/custom_circle_progress_indiacator_widget.dart';
 import 'package:dental_lab_app/core/widgets/custom_text_field_widget.dart';
+import 'package:dental_lab_app/core/widgets/glass/glass_app_bar.dart';
+import 'package:dental_lab_app/core/widgets/glass/glass_scaffold.dart';
 import 'package:dental_lab_app/core/widgets/show_toast_widget.dart';
 import 'package:dental_lab_app/features/price_tiers/data/models/price_tier_model.dart';
 import 'package:dental_lab_app/features/price_tiers/logic/price_tier_prices/price_tier_prices_cubit.dart';
 import 'package:dental_lab_app/features/price_tiers/logic/price_tier_prices/price_tier_prices_state.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 /// Edits every restoration type's price within one price tier.
@@ -57,12 +60,13 @@ class _PriceTierPricesViewState extends State<_PriceTierPricesView> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppColorsManger.background,
-      appBar: AppBar(
+    return GlassScaffold(
+      appBar: GlassAppBar(
         title: Text(
           'أسعار "${widget.priceTierName}"',
-          style: AppTextStyles.font18MediumText,
+          style: AppTextStyles.font18MediumText.copyWith(
+            color: context.glass.onGlass,
+          ),
         ),
       ),
       body: SafeArea(
@@ -82,30 +86,31 @@ class _PriceTierPricesViewState extends State<_PriceTierPricesView> {
               current is! PriceTierPricesActionSuccess,
           builder: (context, state) {
             return switch (state) {
-              PriceTierPricesLoaded(:final items, :final isBusy) =>
-                _PricesList(
-                  items: items,
-                  isBusy: isBusy,
-                  controllerFor: _controllerFor,
-                  onSave: () {
-                    final cubit = context.read<PriceTierPricesCubit>();
-                    for (var i = 0; i < items.length; i++) {
-                      final text = _controllerFor(items[i]).text.trim();
-                      final price = text.isEmpty
-                          ? 0.0
-                          : double.tryParse(text) ?? items[i].price;
-                      cubit.setPrice(i, price);
-                    }
-                    cubit.save();
-                  },
-                ),
+              PriceTierPricesLoaded(:final items, :final isBusy) => _PricesList(
+                items: items,
+                isBusy: isBusy,
+                controllerFor: _controllerFor,
+                onSave: () {
+                  final cubit = context.read<PriceTierPricesCubit>();
+                  for (var i = 0; i < items.length; i++) {
+                    final text = _controllerFor(items[i]).text.trim();
+                    final price = text.isEmpty
+                        ? 0.0
+                        : double.tryParse(text) ?? items[i].price;
+                    cubit.setPrice(i, price);
+                  }
+                  cubit.save();
+                },
+              ),
               PriceTierPricesError(:final message) => Center(
                 child: Padding(
                   padding: const EdgeInsets.all(24),
                   child: Text(
                     message,
                     textAlign: TextAlign.center,
-                    style: AppTextStyles.font14RegularSecondary,
+                    style: AppTextStyles.font14RegularSecondary.copyWith(
+                      color: context.glass.onGlassMuted,
+                    ),
                   ),
                 ),
               ),
@@ -158,7 +163,8 @@ class _PricesList extends StatelessWidget {
                             child: Text(
                               'لا يوجد تعويضات لتسعيرها',
                               textAlign: TextAlign.center,
-                              style: AppTextStyles.font14RegularSecondary,
+                              style: AppTextStyles.font14RegularSecondary
+                                  .copyWith(color: context.glass.onGlassMuted),
                             ),
                           )
                         else
@@ -182,6 +188,15 @@ class _PricesList extends StatelessWidget {
                                       controller: controllerFor(item),
                                       hintText: '0',
                                       validator: (_) => null,
+                                      keyboardType:
+                                          const TextInputType.numberWithOptions(
+                                            decimal: true,
+                                          ),
+                                      inputFormatters: [
+                                        FilteringTextInputFormatter.allow(
+                                          RegExp(r'^\d*\.?\d*'),
+                                        ),
+                                      ],
                                     ),
                                   ),
                                 ],
@@ -207,8 +222,6 @@ class _PricesList extends StatelessWidget {
                       : CustomButtonWidget(
                           onPressed: onSave,
                           buttonText: 'حفظ الأسعار',
-                          textColor: Colors.white,
-                          backgroundColor: AppColorsManger.primary,
                         ),
                 ),
               ),

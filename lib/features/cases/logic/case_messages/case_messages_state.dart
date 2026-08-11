@@ -26,8 +26,13 @@ class CaseMessagesError extends CaseMessagesState {
   final String message;
 }
 
-/// Transient failure of a send — surfaced as a toast.
+/// Transient failure of a send or delete — surfaced as a toast.
 class CaseMessagesActionError extends CaseMessagesState {
   const CaseMessagesActionError(this.message);
   final String message;
+}
+
+/// Transient success of a delete — surfaced as a toast.
+class CaseMessageDeleted extends CaseMessagesState {
+  const CaseMessageDeleted();
 }

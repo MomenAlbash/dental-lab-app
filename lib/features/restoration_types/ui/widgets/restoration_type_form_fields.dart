@@ -1,4 +1,4 @@
-import 'package:dental_lab_app/core/theming/colors.dart';
+import 'package:dental_lab_app/core/theming/glass.dart';
 import 'package:dental_lab_app/core/theming/styles.dart';
 import 'package:dental_lab_app/core/widgets/custom_button_widget.dart';
 import 'package:dental_lab_app/core/widgets/custom_circle_progress_indiacator_widget.dart';
@@ -84,25 +84,26 @@ class RestorationTypeFormFields extends StatelessWidget {
             controller: nameController,
             hintText: 'أدخل اسم التعويض',
             textInputAction: TextInputAction.next,
-            prefixIcon: const Icon(
+            prefixIcon: Icon(
               Icons.category_outlined,
-              color: AppColorsManger.textSecondary,
+              color: context.glass.onGlassMuted,
             ),
-            validator: (value) => (value == null || value.trim().isEmpty)
-                ? 'الاسم مطلوب'
-                : null,
+            validator: (value) =>
+                (value == null || value.trim().isEmpty) ? 'الاسم مطلوب' : null,
           ),
           const SizedBox(height: 20),
           const _Label('الاسم بالعربية'),
           AppTextFormField(
             controller: nameArController,
-            hintText: 'أدخل الاسم بالعربية (اختياري)',
+            hintText: 'أدخل الاسم بالعربية',
             textInputAction: TextInputAction.next,
-            prefixIcon: const Icon(
+            prefixIcon: Icon(
               Icons.translate_outlined,
-              color: AppColorsManger.textSecondary,
+              color: context.glass.onGlassMuted,
             ),
-            validator: (_) => null,
+            validator: (value) => (value == null || value.trim().isEmpty)
+                ? 'الاسم بالعربية مطلوب'
+                : null,
           ),
           const SizedBox(height: 20),
           const _Label('الوصف'),
@@ -110,9 +111,9 @@ class RestorationTypeFormFields extends StatelessWidget {
             controller: descriptionController,
             hintText: 'أدخل وصف التعويض (اختياري)',
             textInputAction: TextInputAction.next,
-            prefixIcon: const Icon(
+            prefixIcon: Icon(
               Icons.notes_outlined,
-              color: AppColorsManger.textSecondary,
+              color: context.glass.onGlassMuted,
             ),
             validator: (_) => null,
           ),
@@ -122,9 +123,9 @@ class RestorationTypeFormFields extends StatelessWidget {
             controller: defaultPriceController,
             hintText: 'أدخل السعر الافتراضي',
             textInputAction: TextInputAction.next,
-            prefixIcon: const Icon(
+            prefixIcon: Icon(
               Icons.attach_money_outlined,
-              color: AppColorsManger.textSecondary,
+              color: context.glass.onGlassMuted,
             ),
             validator: (value) {
               if (value == null || value.trim().isEmpty) {
@@ -141,9 +142,9 @@ class RestorationTypeFormFields extends StatelessWidget {
             controller: transparencyController,
             hintText: 'أدخل نسبة الشفافية (اختياري)',
             textInputAction: TextInputAction.next,
-            prefixIcon: const Icon(
+            prefixIcon: Icon(
               Icons.opacity_outlined,
-              color: AppColorsManger.textSecondary,
+              color: context.glass.onGlassMuted,
             ),
             validator: (value) {
               if (value == null || value.isEmpty) return null;
@@ -167,32 +168,22 @@ class RestorationTypeFormFields extends StatelessWidget {
           const SizedBox(height: 24),
           _SectionTitle('مدة الإنجاز حسب الأولوية (بالدقائق)'),
           const SizedBox(height: 12),
-          _DurationField(
-            label: 'منخفضة',
-            controller: lowDurationController,
-          ),
+          _DurationField(label: 'منخفضة', controller: lowDurationController),
           const SizedBox(height: 12),
-          _DurationField(
-            label: 'عادية',
-            controller: normalDurationController,
-          ),
+          _DurationField(label: 'عادية', controller: normalDurationController),
           const SizedBox(height: 12),
-          _DurationField(
-            label: 'عالية',
-            controller: highDurationController,
-          ),
+          _DurationField(label: 'عالية', controller: highDurationController),
           const SizedBox(height: 12),
-          _DurationField(
-            label: 'عاجلة',
-            controller: urgentDurationController,
-          ),
+          _DurationField(label: 'عاجلة', controller: urgentDurationController),
           const SizedBox(height: 24),
           if (!isEditing) ...[
             _SectionTitle('مراحل العمل'),
             const SizedBox(height: 4),
             Text(
               'المراحل التي يمر بها هذا التعويض داخل المخبر، بالترتيب.',
-              style: AppTextStyles.font12RegularHint,
+              style: AppTextStyles.font12RegularHint.copyWith(
+                color: context.glass.onGlassMuted,
+              ),
             ),
             const SizedBox(height: 12),
             _StagesEditor(
@@ -208,7 +199,9 @@ class RestorationTypeFormFields extends StatelessWidget {
             const SizedBox(height: 4),
             Text(
               'المراحل التي يمر بها هذا التعويض داخل المخبر، بالترتيب.',
-              style: AppTextStyles.font12RegularHint,
+              style: AppTextStyles.font12RegularHint.copyWith(
+                color: context.glass.onGlassMuted,
+              ),
             ),
             const SizedBox(height: 12),
             _EditStagesEditor(
@@ -233,8 +226,6 @@ class RestorationTypeFormFields extends StatelessWidget {
             CustomButtonWidget(
               onPressed: onSave,
               buttonText: isEditing ? 'حفظ التعديلات' : 'إضافة التعويض',
-              textColor: Colors.white,
-              backgroundColor: AppColorsManger.primary,
             ),
         ],
       ),
@@ -268,7 +259,9 @@ class _StagesEditor extends StatelessWidget {
             child: Text(
               'لم تتم إضافة مراحل',
               textAlign: TextAlign.center,
-              style: AppTextStyles.font14RegularSecondary,
+              style: AppTextStyles.font14RegularSecondary.copyWith(
+                color: context.glass.onGlassMuted,
+              ),
             ),
           )
         else
@@ -277,19 +270,19 @@ class _StagesEditor extends StatelessWidget {
               margin: const EdgeInsets.only(bottom: 8),
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               decoration: BoxDecoration(
-                color: AppColorsManger.surface,
+                gradient: context.glass.surfaceGradient,
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: AppColorsManger.border),
+                border: Border.all(color: context.glass.strokeColor),
               ),
               child: Row(
                 children: [
                   CircleAvatar(
                     radius: 14,
-                    backgroundColor: AppColorsManger.primarySurface,
+                    backgroundColor: context.glass.accentSurface,
                     child: Text(
                       '${entry.key + 1}',
                       style: AppTextStyles.font12RegularHint.copyWith(
-                        color: AppColorsManger.primary,
+                        color: Theme.of(context).colorScheme.primary,
                         fontWeight: FontWeight.w700,
                       ),
                     ),
@@ -308,21 +301,16 @@ class _StagesEditor extends StatelessWidget {
                     child: IconButton(
                       onPressed: () => onToggleFinal(entry.key),
                       icon: Icon(
-                        entry.value.isFinal
-                            ? Icons.flag
-                            : Icons.outlined_flag,
+                        entry.value.isFinal ? Icons.flag : Icons.outlined_flag,
                         color: entry.value.isFinal
-                            ? AppColorsManger.success
-                            : AppColorsManger.textHint,
+                            ? context.glass.success
+                            : context.glass.onGlassMuted,
                       ),
                     ),
                   ),
                   IconButton(
                     onPressed: () => onRemove(entry.key),
-                    icon: const Icon(
-                      Icons.close,
-                      color: AppColorsManger.error,
-                    ),
+                    icon: Icon(Icons.close, color: context.glass.error),
                   ),
                 ],
               ),
@@ -364,7 +352,9 @@ class _EditStagesEditor extends StatelessWidget {
             child: Text(
               'لم تتم إضافة مراحل',
               textAlign: TextAlign.center,
-              style: AppTextStyles.font14RegularSecondary,
+              style: AppTextStyles.font14RegularSecondary.copyWith(
+                color: context.glass.onGlassMuted,
+              ),
             ),
           )
         else
@@ -373,19 +363,19 @@ class _EditStagesEditor extends StatelessWidget {
               margin: const EdgeInsets.only(bottom: 8),
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               decoration: BoxDecoration(
-                color: AppColorsManger.surface,
+                gradient: context.glass.surfaceGradient,
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: AppColorsManger.border),
+                border: Border.all(color: context.glass.strokeColor),
               ),
               child: Row(
                 children: [
                   CircleAvatar(
                     radius: 14,
-                    backgroundColor: AppColorsManger.primarySurface,
+                    backgroundColor: context.glass.accentSurface,
                     child: Text(
                       '${entry.key + 1}',
                       style: AppTextStyles.font12RegularHint.copyWith(
-                        color: AppColorsManger.primary,
+                        color: Theme.of(context).colorScheme.primary,
                         fontWeight: FontWeight.w700,
                       ),
                     ),
@@ -406,21 +396,18 @@ class _EditStagesEditor extends StatelessWidget {
                           ? null
                           : () => onToggleFinal!(entry.key),
                       icon: Icon(
-                        entry.value.isFinal
-                            ? Icons.flag
-                            : Icons.outlined_flag,
+                        entry.value.isFinal ? Icons.flag : Icons.outlined_flag,
                         color: entry.value.isFinal
-                            ? AppColorsManger.success
-                            : AppColorsManger.textHint,
+                            ? context.glass.success
+                            : context.glass.onGlassMuted,
                       ),
                     ),
                   ),
                   IconButton(
-                    onPressed: onRemove == null ? null : () => onRemove!(entry.key),
-                    icon: const Icon(
-                      Icons.close,
-                      color: AppColorsManger.error,
-                    ),
+                    onPressed: onRemove == null
+                        ? null
+                        : () => onRemove!(entry.key),
+                    icon: Icon(Icons.close, color: context.glass.error),
                   ),
                 ],
               ),
@@ -455,9 +442,9 @@ class _DurationField extends StatelessWidget {
             controller: controller,
             hintText: 'المدة بالدقائق (اختياري)',
             textInputAction: TextInputAction.next,
-            prefixIcon: const Icon(
+            prefixIcon: Icon(
               Icons.timer_outlined,
-              color: AppColorsManger.textSecondary,
+              color: context.glass.onGlassMuted,
             ),
             validator: (value) {
               if (value == null || value.isEmpty) return null;
@@ -519,16 +506,16 @@ class _SwitchTile extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
       decoration: BoxDecoration(
-        color: AppColorsManger.surface,
+        gradient: context.glass.surfaceGradient,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: AppColorsManger.border),
+        border: Border.all(color: context.glass.strokeColor),
       ),
       child: Row(
         children: [
           Expanded(child: Text(label, style: AppTextStyles.font14MediumText)),
           Switch(
             value: value,
-            activeThumbColor: AppColorsManger.primary,
+            activeThumbColor: Theme.of(context).colorScheme.primary,
             onChanged: onChanged,
           ),
         ],

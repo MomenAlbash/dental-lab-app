@@ -1,7 +1,10 @@
 import 'package:dental_lab_app/core/router/routes.dart';
-import 'package:dental_lab_app/core/theming/colors.dart';
+import 'package:dental_lab_app/core/theming/app_dimensions.dart';
+import 'package:dental_lab_app/core/theming/glass.dart';
 import 'package:dental_lab_app/core/theming/styles.dart';
 import 'package:dental_lab_app/core/widgets/detail_info_row_widget.dart';
+import 'package:dental_lab_app/core/widgets/glass/glass_app_bar.dart';
+import 'package:dental_lab_app/core/widgets/glass/glass_scaffold.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
@@ -17,13 +20,18 @@ class CurrencyDetailPage extends StatelessWidget {
     final symbol = currency['symbol'] as String? ?? '';
     final code = currency['code'] as String;
 
-    return Scaffold(
-      backgroundColor: AppColorsManger.background,
-      appBar: AppBar(
-        title: Text('تفاصيل العملة', style: AppTextStyles.font18MediumText),
+    return GlassScaffold(
+      appBar: GlassAppBar(
+        title: Text(
+          'تفاصيل العملة',
+          style: AppTextStyles.font18MediumText.copyWith(
+            color: context.glass.onGlass,
+          ),
+        ),
         actions: [
           IconButton(
-            onPressed: () => context.push(Routes.currencyFormScreen, extra: currency),
+            onPressed: () =>
+                context.push(Routes.currencyFormScreen, extra: currency),
             icon: const Icon(Icons.edit_outlined),
           ),
         ],
@@ -51,32 +59,38 @@ class CurrencyDetailPage extends StatelessWidget {
                             Container(
                               width: 72,
                               height: 72,
-                              decoration: const BoxDecoration(
-                                color: AppColorsManger.primarySurface,
+                              decoration: BoxDecoration(
+                                gradient: context.glass.brandGradient,
                                 shape: BoxShape.circle,
                               ),
                               alignment: Alignment.center,
                               child: Text(
                                 symbol.isEmpty ? code : symbol,
-                                style: AppTextStyles.font24BoldText
-                                    .copyWith(color: AppColorsManger.primary),
+                                style: AppTextStyles.font24BoldText.copyWith(
+                                  color: Colors.white,
+                                ),
                               ),
                             ),
                             const SizedBox(height: 12),
                             Text(
                               currency['name'] as String,
-                              style: AppTextStyles.font20BoldText,
+                              style: AppTextStyles.font20BoldText.copyWith(
+                                color: context.glass.onGlass,
+                              ),
                             ),
                           ],
                         ),
                       ),
                       const SizedBox(height: 24),
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: AppSpacing.lg,
+                        ),
                         decoration: BoxDecoration(
-                          color: AppColorsManger.surface,
-                          borderRadius: BorderRadius.circular(16),
-                          border: Border.all(color: AppColorsManger.border),
+                          gradient: context.glass.surfaceGradient,
+                          borderRadius: BorderRadius.circular(AppRadius.glass),
+                          border: Border.all(color: context.glass.strokeColor),
+                          boxShadow: context.glass.shadows,
                         ),
                         child: Column(
                           children: [
@@ -85,7 +99,10 @@ class CurrencyDetailPage extends StatelessWidget {
                               label: 'الرمز الدولي (الكود)',
                               value: code,
                             ),
-                            const Divider(height: 1, color: AppColorsManger.divider),
+                            Divider(
+                              height: 1,
+                              color: context.glass.strokeColor,
+                            ),
                             DetailInfoRowWidget(
                               icon: Icons.currency_exchange_outlined,
                               label: 'رمز العملة',

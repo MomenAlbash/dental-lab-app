@@ -8,9 +8,7 @@ class UserFormCubit extends Cubit<UserFormState> {
 
   final UsersRepo _usersRepo;
 
-  Future<void> createUser(
-    CreateUserRequestModel createUserRequestBody,
-  ) async {
+  Future<void> createUser(CreateUserRequestModel createUserRequestBody) async {
     emit(const UserFormSubmitting());
 
     final result = await _usersRepo.createUser(createUserRequestBody);

@@ -1,3 +1,4 @@
+import 'package:dental_lab_app/features/doctors/data/models/approve_doctor_request_model.dart';
 import 'package:dental_lab_app/features/doctors/data/models/doctor_model.dart';
 import 'package:dental_lab_app/features/doctors/data/repos/doctors_repo.dart';
 import 'package:dental_lab_app/features/doctors/logic/doctor_details/doctor_details_state.dart';
@@ -64,6 +65,69 @@ class DoctorDetailsCubit extends Cubit<DoctorDetailsState> {
       },
       (_) async {
         emit(const DoctorDetailsActionSuccess('تم حذف الملف'));
+        await _refresh();
+      },
+    );
+  }
+
+  /// Accepts a self-registered doctor's registration.
+  ///
+  /// [clinicId] links them to a clinic the lab already has; [newClinicName]
+  /// creates the one they asked for. Passing neither approves without a
+  /// clinic, which the API allows.
+  Future<void> approve({
+    String? clinicId,
+    String? newClinicName,
+    String? note,
+  }) async {
+    final doctor = _doctor;
+    if (doctor == null) return;
+
+    emit(DoctorDetailsLoaded(doctor, isBusy: true));
+
+    final result = await _doctorsRepo.approveDoctor(
+      id: doctor.id,
+      approveDoctorRequestBody: ApproveDoctorRequestModel(
+        clinicId: clinicId,
+        newClinic: newClinicName == null
+            ? null
+            : NewClinicForDoctorRequestModel(name: newClinicName),
+        note: note,
+      ),
+    );
+
+    await result.fold(
+      (failure) async {
+        emit(DoctorDetailsActionError(failure.errorMessage));
+        emit(DoctorDetailsLoaded(doctor));
+      },
+      (_) async {
+        emit(const DoctorDetailsActionSuccess('تم قبول الدكتور'));
+        await _refresh();
+      },
+    );
+  }
+
+  /// Turns a registration down. [reason] is required by the API and is shown
+  /// back on the doctor's page afterwards.
+  Future<void> reject(String reason) async {
+    final doctor = _doctor;
+    if (doctor == null) return;
+
+    emit(DoctorDetailsLoaded(doctor, isBusy: true));
+
+    final result = await _doctorsRepo.rejectDoctor(
+      id: doctor.id,
+      rejectDoctorRequestBody: RejectDoctorRequestModel(reason: reason),
+    );
+
+    await result.fold(
+      (failure) async {
+        emit(DoctorDetailsActionError(failure.errorMessage));
+        emit(DoctorDetailsLoaded(doctor));
+      },
+      (_) async {
+        emit(const DoctorDetailsActionSuccess('تم رفض الدكتور'));
         await _refresh();
       },
     );

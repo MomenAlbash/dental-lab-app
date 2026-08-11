@@ -3,10 +3,12 @@ import 'dart:developer';
 import 'package:dartz/dartz.dart';
 import 'package:dental_lab_app/core/errors/failures.dart';
 import 'package:dental_lab_app/core/helper/local/cache_keys.dart';
+import 'package:dental_lab_app/core/helper/local/cacheable_fetch.dart';
 import 'package:dental_lab_app/core/helper/local/cached_helper.dart';
 import 'package:dental_lab_app/core/helper/network_helper/api_service.dart';
 import 'package:dental_lab_app/features/users/data/models/create_user_request_model.dart';
 import 'package:dental_lab_app/features/users/data/models/update_user_request_model.dart';
+import 'package:dental_lab_app/features/users/data/models/user_filters_model.dart';
 import 'package:dental_lab_app/features/users/data/models/user_model.dart';
 import 'package:dio/dio.dart';
 
@@ -16,18 +18,39 @@ class UsersRepo {
 
   String? get _token => CacheHelper.getData(key: CacheKeys.token) as String?;
 
-  Future<Either<Failure, List<UserModel>>> getUsers() async {
+  /// The laboratory the session is scoped to. Sent on every request as the
+  /// `X-Laboratory-Id` header by the interceptor in `Api.init`, not in the
+  /// body — `CreateUserRequest` has no such field.
+  String? get _laboratoryId =>
+      CacheHelper.getData(key: CacheKeys.laboratoryId) as String?;
+
+  Future<Either<Failure, List<UserModel>>> getUsers({
+    UserFiltersModel filters = UserFiltersModel.empty,
+  }) async {
     try {
-      final users = await _apiService.getUsers(token: _token);
+      final users = await _apiService.getUsers(
+        laboratoryId: filters.laboratoryId,
+        doctorId: filters.type == UserType.doctor ? filters.linkedId : null,
+        employeeId: filters.type == UserType.employee ? filters.linkedId : null,
+        token: _token,
+      );
 
       log('Fetched ${users.length} users');
       return right(users);
     } on DioException catch (e) {
       log('DioException while fetching users: ${e.message}');
-      return left(ServerFailure.FromDioExecption(e));
+      return fallbackToCache(
+        cacheKey: CacheKeys.cachedUsersList,
+        fromJson: UserModel.fromJson,
+        onFailure: () => ServerFailure.FromDioExecption(e),
+      );
     } catch (e) {
       log('General Exception while fetching users: ${e.toString()}');
-      return left(ServerFailure.fromException(e));
+      return fallbackToCache(
+        cacheKey: CacheKeys.cachedUsersList,
+        fromJson: UserModel.fromJson,
+        onFailure: () => ServerFailure.fromException(e),
+      );
     }
   }
 
@@ -49,6 +72,18 @@ class UsersRepo {
   Future<Either<Failure, UserModel>> createUser(
     CreateUserRequestModel createUserRequestBody,
   ) async {
+    // A session always has a laboratory, so this is a safety net rather than a
+    // case the user is expected to hit: without it the request would go out
+    // with no `X-Laboratory-Id` header and the account would be created
+    // unscoped — silently wrong instead of loudly refused.
+    final laboratoryId = _laboratoryId;
+    if (laboratoryId == null || laboratoryId.isEmpty) {
+      log('Refusing to create a user: no laboratory in the session');
+      return left(
+        ServerFailure('لم يتم تحديد المخبر. أعد تسجيل الدخول ثم حاول مجدداً'),
+      );
+    }
+
     try {
       final user = await _apiService.createUser(
         createUserRequestBody: createUserRequestBody,

@@ -1,6 +1,6 @@
+import 'package:dental_lab_app/core/theming/glass.dart';
 import 'package:dental_lab_app/core/helper/local/cache_keys.dart';
 import 'package:dental_lab_app/core/helper/local/cached_helper.dart';
-import 'package:dental_lab_app/core/theming/colors.dart';
 import 'package:dental_lab_app/core/widgets/custom_circle_progress_indiacator_widget.dart';
 import 'package:dental_lab_app/core/widgets/custom_text_field_widget.dart';
 import 'package:dental_lab_app/core/widgets/show_toast_widget.dart';
@@ -28,7 +28,16 @@ class _CaseMessagesTabState extends State<CaseMessagesTab> {
   final _scrollController = ScrollController();
   String? _pendingFilePath;
 
-  String? get _myUserId => CacheHelper.getData(key: CacheKeys.userId) as String?;
+  String? get _myUserId =>
+      CacheHelper.getData(key: CacheKeys.userId) as String?;
+
+  /// Mirrors the API's rule for deleting a case message: an admin, or the
+  /// sender of that message.
+  bool _canDelete(String senderId) {
+    final isAdmin =
+        CacheHelper.getData(key: CacheKeys.isAdmin) as bool? ?? false;
+    return isAdmin || senderId == _myUserId;
+  }
 
   @override
   void initState() {
@@ -82,10 +91,16 @@ class _CaseMessagesTabState extends State<CaseMessagesTab> {
   @override
   Widget build(BuildContext context) {
     return BlocConsumer<CaseMessagesCubit, CaseMessagesState>(
-      listenWhen: (previous, current) => current is CaseMessagesActionError,
+      listenWhen: (previous, current) =>
+          current is CaseMessagesActionError || current is CaseMessageDeleted,
       listener: (context, state) {
-        if (state case CaseMessagesActionError(:final message)) {
-          ShowToast(message: message, state: toastState.error);
+        switch (state) {
+          case CaseMessagesActionError(:final message):
+            ShowToast(message: message, state: toastState.error);
+          case CaseMessageDeleted():
+            ShowToast(message: 'تم حذف الرسالة', state: toastState.success);
+          default:
+            break;
         }
       },
       builder: (context, state) {
@@ -126,10 +141,18 @@ class _CaseMessagesTabState extends State<CaseMessagesTab> {
             return CaseMessageBubble(
               message: message,
               isMine: message.senderId == _myUserId,
+              onDelete: _canDelete(message.senderId)
+                  ? () => context.read<CaseMessagesCubit>().deleteMessage(
+                      message.id,
+                    )
+                  : null,
             );
           },
         );
+      // Both are transient states emitted between two Loaded states, so the
+      // list is never actually painted from them.
       case CaseMessagesActionError():
+      case CaseMessageDeleted():
         return const SizedBox.shrink();
     }
   }
@@ -139,7 +162,7 @@ class _CaseMessagesTabState extends State<CaseMessagesTab> {
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Row(
         children: [
-          const Icon(Icons.attach_file, size: 18, color: AppColorsManger.textSecondary),
+          Icon(Icons.attach_file, size: 18, color: context.glass.onGlassMuted),
           const SizedBox(width: 6),
           Expanded(
             child: Text(
@@ -167,10 +190,7 @@ class _CaseMessagesTabState extends State<CaseMessagesTab> {
           children: [
             IconButton(
               onPressed: isSending ? null : _pickFile,
-              icon: const Icon(
-                Icons.attach_file,
-                color: AppColorsManger.textSecondary,
-              ),
+              icon: Icon(Icons.attach_file, color: context.glass.onGlassMuted),
             ),
             Expanded(
               child: AppTextFormField(
@@ -193,7 +213,10 @@ class _CaseMessagesTabState extends State<CaseMessagesTab> {
               VoiceRecorderButton(onRecorded: _sendVoice),
               IconButton(
                 onPressed: _send,
-                icon: const Icon(Icons.send, color: AppColorsManger.primary),
+                icon: Icon(
+                  Icons.send,
+                  color: Theme.of(context).colorScheme.primary,
+                ),
               ),
             ],
           ],

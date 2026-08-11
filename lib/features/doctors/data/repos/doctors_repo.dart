@@ -3,8 +3,10 @@ import 'dart:developer';
 import 'package:dartz/dartz.dart';
 import 'package:dental_lab_app/core/errors/failures.dart';
 import 'package:dental_lab_app/core/helper/local/cache_keys.dart';
+import 'package:dental_lab_app/core/helper/local/cacheable_fetch.dart';
 import 'package:dental_lab_app/core/helper/local/cached_helper.dart';
 import 'package:dental_lab_app/core/helper/network_helper/api_service.dart';
+import 'package:dental_lab_app/features/doctors/data/models/approve_doctor_request_model.dart';
 import 'package:dental_lab_app/features/doctors/data/models/create_doctor_request_model.dart';
 import 'package:dental_lab_app/features/doctors/data/models/doctor_attachment_file_model.dart';
 import 'package:dental_lab_app/features/doctors/data/models/doctor_model.dart';
@@ -25,10 +27,18 @@ class DoctorsRepo {
       return right(doctors);
     } on DioException catch (e) {
       log('DioException while fetching doctors: ${e.message}');
-      return left(ServerFailure.FromDioExecption(e));
+      return fallbackToCache(
+        cacheKey: CacheKeys.cachedDoctorsList,
+        fromJson: DoctorModel.fromJson,
+        onFailure: () => ServerFailure.FromDioExecption(e),
+      );
     } catch (e) {
       log('General Exception while fetching doctors: ${e.toString()}');
-      return left(ServerFailure.fromException(e));
+      return fallbackToCache(
+        cacheKey: CacheKeys.cachedDoctorsList,
+        fromJson: DoctorModel.fromJson,
+        onFailure: () => ServerFailure.fromException(e),
+      );
     }
   }
 
@@ -89,6 +99,50 @@ class DoctorsRepo {
     }
   }
 
+  Future<Either<Failure, DoctorModel>> approveDoctor({
+    required String id,
+    required ApproveDoctorRequestModel approveDoctorRequestBody,
+  }) async {
+    try {
+      final doctor = await _apiService.approveDoctor(
+        id: id,
+        approveDoctorRequestBody: approveDoctorRequestBody,
+        token: _token,
+      );
+
+      log('Approved doctor: ${doctor.fullName}');
+      return right(doctor);
+    } on DioException catch (e) {
+      log('DioException while approving doctor: ${e.message}');
+      return left(ServerFailure.FromDioExecption(e));
+    } catch (e) {
+      log('General Exception while approving doctor: ${e.toString()}');
+      return left(ServerFailure.fromException(e));
+    }
+  }
+
+  Future<Either<Failure, DoctorModel>> rejectDoctor({
+    required String id,
+    required RejectDoctorRequestModel rejectDoctorRequestBody,
+  }) async {
+    try {
+      final doctor = await _apiService.rejectDoctor(
+        id: id,
+        rejectDoctorRequestBody: rejectDoctorRequestBody,
+        token: _token,
+      );
+
+      log('Rejected doctor: ${doctor.fullName}');
+      return right(doctor);
+    } on DioException catch (e) {
+      log('DioException while rejecting doctor: ${e.message}');
+      return left(ServerFailure.FromDioExecption(e));
+    } catch (e) {
+      log('General Exception while rejecting doctor: ${e.toString()}');
+      return left(ServerFailure.fromException(e));
+    }
+  }
+
   Future<Either<Failure, void>> deleteDoctor(String id) async {
     try {
       await _apiService.deleteDoctor(id: id, token: _token);
@@ -131,11 +185,7 @@ class DoctorsRepo {
     required String fileId,
   }) async {
     try {
-      await _apiService.deleteDoctorFile(
-        id: id,
-        fileId: fileId,
-        token: _token,
-      );
+      await _apiService.deleteDoctorFile(id: id, fileId: fileId, token: _token);
 
       log('Deleted file $fileId for doctor: $id');
       return right(null);

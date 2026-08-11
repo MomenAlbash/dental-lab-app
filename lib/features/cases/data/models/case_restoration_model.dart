@@ -1,4 +1,5 @@
 import 'package:dental_lab_app/features/case_workflow_stages/data/models/case_workflow_stage_model.dart';
+import 'package:dental_lab_app/features/cases/data/models/case_restoration_status_history_model.dart';
 import 'package:dental_lab_app/features/cases/data/models/tooth_mark_model.dart';
 import 'package:dental_lab_app/features/restoration_types/data/models/restoration_type_model.dart';
 
@@ -23,6 +24,9 @@ class CaseRestorationModel {
   final CaseWorkflowStageModel? currentStage;
   final int orderNum;
 
+  /// The restoration's stage timeline — one entry per stage change.
+  final List<CaseRestorationStatusHistoryModel> statusHistory;
+
   CaseRestorationModel({
     required this.id,
     this.restorationType,
@@ -41,6 +45,7 @@ class CaseRestorationModel {
     this.currentStageId,
     this.currentStage,
     this.orderNum = 0,
+    this.statusHistory = const [],
   });
 
   String get restorationName => restorationType?.displayName ?? '—';
@@ -68,7 +73,8 @@ class CaseRestorationModel {
       shadeIncisal: json['shadeIncisal'] as String?,
       baseToothColor: json['baseToothColor'] as String?,
       notes: json['notes'] as String?,
-      teeth: (json['teeth'] as List<dynamic>?)
+      teeth:
+          (json['teeth'] as List<dynamic>?)
               ?.map((e) => ToothMarkModel.fromJson(e as Map<String, dynamic>))
               .toList() ??
           const [],
@@ -79,6 +85,15 @@ class CaseRestorationModel {
               json['currentStage'] as Map<String, dynamic>,
             ),
       orderNum: json['orderNum'] as int? ?? 0,
+      statusHistory:
+          (json['statusHistory'] as List<dynamic>?)
+              ?.map(
+                (e) => CaseRestorationStatusHistoryModel.fromJson(
+                  e as Map<String, dynamic>,
+                ),
+              )
+              .toList() ??
+          const [],
     );
   }
 }

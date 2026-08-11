@@ -16,13 +16,12 @@ class EmployeeDetailsCubit extends Cubit<EmployeeDetailsState> {
 
     final result = await _employeesRepo.getEmployeeById(id);
 
-    result.fold(
-      (failure) => emit(EmployeeDetailsError(failure.errorMessage)),
-      (employee) {
-        _employee = employee;
-        emit(EmployeeDetailsLoaded(employee));
-      },
-    );
+    result.fold((failure) => emit(EmployeeDetailsError(failure.errorMessage)), (
+      employee,
+    ) {
+      _employee = employee;
+      emit(EmployeeDetailsLoaded(employee));
+    });
   }
 
   Future<void> uploadFile(String filePath) async {

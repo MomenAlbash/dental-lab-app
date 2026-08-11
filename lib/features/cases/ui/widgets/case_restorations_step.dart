@@ -1,6 +1,9 @@
-import 'package:dental_lab_app/core/theming/colors.dart';
+import 'package:dental_lab_app/core/theming/app_dimensions.dart';
+import 'package:dental_lab_app/core/theming/glass.dart';
 import 'package:dental_lab_app/core/theming/styles.dart';
 import 'package:dental_lab_app/core/widgets/custom_text_field_widget.dart';
+import 'package:dental_lab_app/core/widgets/glass/glass_app_bar.dart';
+import 'package:dental_lab_app/core/widgets/glass/glass_scaffold.dart';
 import 'package:dental_lab_app/features/cases/data/models/tooth_mark_model.dart';
 import 'package:dental_lab_app/features/cases/ui/case_form_page.dart';
 import 'package:dental_lab_app/features/cases/ui/widgets/case_lookup_dropdown.dart';
@@ -43,50 +46,69 @@ class CaseRestorationsStep extends StatelessWidget {
             child: Text(
               'لم تتم إضافة تعويضات',
               textAlign: TextAlign.center,
-              style: AppTextStyles.font14RegularSecondary,
+              style: AppTextStyles.font14RegularSecondary.copyWith(
+                color: context.glass.onGlassMuted,
+              ),
             ),
           )
         else
           ...restorations.asMap().entries.map(
             (entry) => Container(
-              margin: const EdgeInsets.only(bottom: 8),
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              margin: const EdgeInsets.only(bottom: AppSpacing.sm),
+              padding: const EdgeInsets.symmetric(
+                horizontal: AppSpacing.md,
+                vertical: AppSpacing.sm,
+              ),
               decoration: BoxDecoration(
-                color: AppColorsManger.surface,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: AppColorsManger.border),
+                gradient: context.glass.surfaceGradient,
+                borderRadius: BorderRadius.circular(AppRadius.glass),
+                border: Border.all(color: context.glass.strokeColor),
+                boxShadow: context.glass.shadows,
               ),
               child: Row(
                 children: [
-                  const Icon(
-                    Icons.category_outlined,
-                    color: AppColorsManger.primary,
+                  Container(
+                    width: 38,
+                    height: 38,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      gradient: context.glass.brandGradient,
+                    ),
+                    child: const Icon(
+                      Icons.category_outlined,
+                      color: Colors.white,
+                      size: 18,
+                    ),
                   ),
-                  const SizedBox(width: 12),
+                  const SizedBox(width: AppSpacing.md),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
                           entry.value.restorationName,
-                          style: AppTextStyles.font14MediumText,
+                          style: AppTextStyles.font14MediumText.copyWith(
+                            color: context.glass.onGlass,
+                          ),
                         ),
                         const SizedBox(height: 2),
                         Text(
                           'الكمية: ${entry.value.quantity}'
                           '${entry.value.unitPrice != null ? ' • ${entry.value.unitPrice!.toStringAsFixed(0)}' : ''}'
                           '${entry.value.teeth.isNotEmpty ? ' • الأسنان: ${entry.value.teeth.map((t) => t.toothNumber).join(', ')}' : ''}',
-                          style: AppTextStyles.font12RegularHint,
+                          style: AppTextStyles.font12RegularHint.copyWith(
+                            color: context.glass.onGlassMuted,
+                          ),
                         ),
                       ],
                     ),
                   ),
                   IconButton(
+                    tooltip: 'حذف',
                     onPressed: () => onRemove(entry.key),
-                    icon: const Icon(
-                      Icons.close,
-                      color: AppColorsManger.error,
-                    ),
+                    visualDensity: VisualDensity.compact,
+                    icon: Icon(Icons.close, color: context.glass.error),
                   ),
                 ],
               ),
@@ -108,7 +130,12 @@ class _FieldLabel extends StatelessWidget {
       padding: const EdgeInsets.only(bottom: 6, top: 2),
       child: Align(
         alignment: AlignmentDirectional.centerStart,
-        child: Text(text, style: AppTextStyles.font14MediumText),
+        child: Text(
+          text,
+          style: AppTextStyles.font14MediumText.copyWith(
+            color: context.glass.onGlass,
+          ),
+        ),
       ),
     );
   }
@@ -151,9 +178,9 @@ class _AddRestorationPageState extends State<AddRestorationPage> {
 
   void _onAdd() {
     if (_typeId == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('الرجاء اختيار التعويض')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('الرجاء اختيار التعويض')));
       return;
     }
     if (!(_formKey.currentState?.validate() ?? false)) return;
@@ -182,17 +209,20 @@ class _AddRestorationPageState extends State<AddRestorationPage> {
   @override
   Widget build(BuildContext context) {
     return Dialog.fullscreen(
-      child: Scaffold(
-        backgroundColor: AppColorsManger.background,
-        appBar: AppBar(
-          title: Text('إضافة تعويض', style: AppTextStyles.font18MediumText),
+      backgroundColor: Colors.transparent,
+      child: GlassScaffold(
+        appBar: GlassAppBar(
+          title: Text(
+            'إضافة تعويض',
+            style: AppTextStyles.font18MediumText.copyWith(
+              color: context.glass.onGlass,
+            ),
+          ),
           leading: IconButton(
             onPressed: () => Navigator.of(context).pop(),
             icon: const Icon(Icons.close),
           ),
-          actions: [
-            TextButton(onPressed: _onAdd, child: const Text('إضافة')),
-          ],
+          actions: [TextButton(onPressed: _onAdd, child: const Text('إضافة'))],
         ),
         body: SafeArea(
           child: SingleChildScrollView(
@@ -237,9 +267,9 @@ class _AddRestorationPageState extends State<AddRestorationPage> {
                   AppTextFormField(
                     controller: _quantityController,
                     hintText: 'أدخل الكمية',
-                    prefixIcon: const Icon(
+                    prefixIcon: Icon(
                       Icons.numbers_outlined,
-                      color: AppColorsManger.textSecondary,
+                      color: context.glass.onGlassMuted,
                     ),
                     validator: (v) =>
                         (v == null || int.tryParse(v.trim()) == null)
@@ -251,9 +281,9 @@ class _AddRestorationPageState extends State<AddRestorationPage> {
                   AppTextFormField(
                     controller: _priceController,
                     hintText: 'أدخل سعر الوحدة (اختياري)',
-                    prefixIcon: const Icon(
+                    prefixIcon: Icon(
                       Icons.attach_money_outlined,
-                      color: AppColorsManger.textSecondary,
+                      color: context.glass.onGlassMuted,
                     ),
                     validator: (v) {
                       if (v == null || v.isEmpty) return null;
@@ -265,9 +295,9 @@ class _AddRestorationPageState extends State<AddRestorationPage> {
                   AppTextFormField(
                     controller: _notesController,
                     hintText: 'أدخل ملاحظات (اختياري)',
-                    prefixIcon: const Icon(
+                    prefixIcon: Icon(
                       Icons.notes_outlined,
-                      color: AppColorsManger.textSecondary,
+                      color: context.glass.onGlassMuted,
                     ),
                     validator: (_) => null,
                   ),
@@ -275,12 +305,13 @@ class _AddRestorationPageState extends State<AddRestorationPage> {
                   const _FieldLabel('نوع التقسيمات'),
                   SegmentedButton<ShadeGuide>(
                     segments: ShadeGuide.values
-                        .map((g) => ButtonSegment(value: g, label: Text(g.label)))
+                        .map(
+                          (g) => ButtonSegment(value: g, label: Text(g.label)),
+                        )
                         .toList(),
                     selected: {_guide},
                     showSelectedIcon: false,
-                    onSelectionChanged: (s) =>
-                        setState(() => _guide = s.first),
+                    onSelectionChanged: (s) => setState(() => _guide = s.first),
                   ),
                   const SizedBox(height: 16),
                   ToothShadeDiagram(
@@ -291,8 +322,7 @@ class _AddRestorationPageState extends State<AddRestorationPage> {
                     onCervicalChanged: (v) =>
                         setState(() => _shadeCervical = v),
                     onMiddleChanged: (v) => setState(() => _shadeMiddle = v),
-                    onIncisalChanged: (v) =>
-                        setState(() => _shadeIncisal = v),
+                    onIncisalChanged: (v) => setState(() => _shadeIncisal = v),
                   ),
                   const SizedBox(height: 20),
                   const _FieldLabel('لون أساس السن'),

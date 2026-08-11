@@ -7,11 +7,25 @@ import 'package:flutter/material.dart';
 /// Sizes are logical (device-independent) — no `.sp`. The framework applies
 /// the user's `MediaQuery.textScaler` on top automatically, so we never disable
 /// system font scaling (per CLAUDE.md Section C.1).
+///
+/// Deliberately colourless except for the accent/inverse styles below. These
+/// are `const`, so any colour baked in here is fixed at compile time — that is
+/// exactly why every screen using them rendered near-black text on the dark
+/// theme's near-black background. `Text` merges the ambient
+/// `DefaultTextStyle` under the style it is given, so leaving `color` null lets
+/// the themed `textTheme` supply it and the text follows light/dark for free.
+///
+/// Muted text (secondary, hint) therefore needs its tone applied at the call
+/// site — `.copyWith(color: context.glass.onGlassMuted)` — which is what the
+/// doctor/patient/clinic screens already do.
 class AppTextStyles {
   AppTextStyles._();
 
   static const String _family = 'Tajawal';
 
+  /// Accent-coloured: reads on both themes' page backgrounds, so it keeps its
+  /// colour. Prefer `Theme.of(context).colorScheme.primary` where the brand
+  /// tint should shift between themes.
   static const TextStyle font28BoldPrimary = TextStyle(
     fontFamily: _family,
     fontSize: 28,
@@ -23,51 +37,46 @@ class AppTextStyles {
     fontFamily: _family,
     fontSize: 24,
     fontWeight: FontWeightHepler.bold,
-    color: AppColorsManger.textPrimary,
   );
 
   static const TextStyle font20BoldText = TextStyle(
     fontFamily: _family,
     fontSize: 20,
     fontWeight: FontWeightHepler.bold,
-    color: AppColorsManger.textPrimary,
   );
 
   static const TextStyle font18MediumText = TextStyle(
     fontFamily: _family,
     fontSize: 18,
     fontWeight: FontWeightHepler.medium,
-    color: AppColorsManger.textPrimary,
   );
 
   static const TextStyle font16MediumText = TextStyle(
     fontFamily: _family,
     fontSize: 16,
     fontWeight: FontWeightHepler.medium,
-    color: AppColorsManger.textPrimary,
   );
 
   static const TextStyle font16RegularSecondary = TextStyle(
     fontFamily: _family,
     fontSize: 16,
     fontWeight: FontWeightHepler.regular,
-    color: AppColorsManger.textSecondary,
   );
 
   static const TextStyle font14MediumText = TextStyle(
     fontFamily: _family,
     fontSize: 14,
     fontWeight: FontWeightHepler.medium,
-    color: AppColorsManger.textPrimary,
   );
 
   static const TextStyle font14RegularSecondary = TextStyle(
     fontFamily: _family,
     fontSize: 14,
     fontWeight: FontWeightHepler.regular,
-    color: AppColorsManger.textSecondary,
   );
 
+  /// Sits on a filled accent surface (buttons, gradient headers), where white
+  /// is correct on both themes.
   static const TextStyle font14BoldWhite = TextStyle(
     fontFamily: _family,
     fontSize: 14,
@@ -86,6 +95,5 @@ class AppTextStyles {
     fontFamily: _family,
     fontSize: 12,
     fontWeight: FontWeightHepler.regular,
-    color: AppColorsManger.textHint,
   );
 }

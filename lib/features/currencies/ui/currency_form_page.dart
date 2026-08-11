@@ -1,7 +1,9 @@
-import 'package:dental_lab_app/core/theming/colors.dart';
+import 'package:dental_lab_app/core/theming/glass.dart';
 import 'package:dental_lab_app/core/theming/styles.dart';
 import 'package:dental_lab_app/core/widgets/custom_button_widget.dart';
 import 'package:dental_lab_app/core/widgets/custom_text_field_widget.dart';
+import 'package:dental_lab_app/core/widgets/glass/glass_app_bar.dart';
+import 'package:dental_lab_app/core/widgets/glass/glass_scaffold.dart';
 import 'package:flutter/material.dart';
 
 /// Add/edit currency screen — design only for now (no Cubit / API wiring
@@ -47,12 +49,13 @@ class _CurrencyFormPageState extends State<CurrencyFormPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppColorsManger.background,
-      appBar: AppBar(
+    return GlassScaffold(
+      appBar: GlassAppBar(
         title: Text(
           _isEditing ? 'تعديل العملة' : 'إضافة عملة',
-          style: AppTextStyles.font18MediumText,
+          style: AppTextStyles.font18MediumText.copyWith(
+            color: context.glass.onGlass,
+          ),
         ),
       ),
       body: SafeArea(
@@ -75,55 +78,68 @@ class _CurrencyFormPageState extends State<CurrencyFormPage> {
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Text('اسم العملة', style: AppTextStyles.font14MediumText),
+                        Text(
+                          'اسم العملة',
+                          style: AppTextStyles.font14MediumText,
+                        ),
                         const SizedBox(height: 8),
                         AppTextFormField(
                           controller: _nameController,
                           hintText: 'مثال: ليرة سورية',
                           textInputAction: TextInputAction.next,
-                          prefixIcon: const Icon(
+                          prefixIcon: Icon(
                             Icons.attach_money_outlined,
-                            color: AppColorsManger.textSecondary,
+                            color: context.glass.onGlassMuted,
                           ),
-                          validator: (value) => (value == null || value.trim().isEmpty)
+                          validator: (value) =>
+                              (value == null || value.trim().isEmpty)
                               ? 'اسم العملة مطلوب'
                               : null,
                         ),
                         const SizedBox(height: 20),
-                        Text('الرمز الدولي (الكود)', style: AppTextStyles.font14MediumText),
+                        Text(
+                          'الرمز الدولي (الكود)',
+                          style: AppTextStyles.font14MediumText,
+                        ),
                         const SizedBox(height: 8),
                         AppTextFormField(
                           controller: _codeController,
                           hintText: 'مثال: SYP',
                           textInputAction: TextInputAction.next,
-                          prefixIcon: const Icon(
+                          prefixIcon: Icon(
                             Icons.tag_outlined,
-                            color: AppColorsManger.textSecondary,
+                            color: context.glass.onGlassMuted,
                           ),
                           validator: (value) {
-                            if (value == null || value.trim().isEmpty) return 'الكود مطلوب';
-                            return value.trim().length > 10 ? 'الكود 10 أحرف كحد أقصى' : null;
+                            if (value == null || value.trim().isEmpty)
+                              return 'الكود مطلوب';
+                            return value.trim().length > 10
+                                ? 'الكود 10 أحرف كحد أقصى'
+                                : null;
                           },
                         ),
                         const SizedBox(height: 20),
-                        Text('رمز العملة', style: AppTextStyles.font14MediumText),
+                        Text(
+                          'رمز العملة',
+                          style: AppTextStyles.font14MediumText,
+                        ),
                         const SizedBox(height: 8),
                         AppTextFormField(
                           controller: _symbolController,
                           hintText: 'مثال: ل.س (اختياري)',
                           textInputAction: TextInputAction.done,
-                          prefixIcon: const Icon(
+                          prefixIcon: Icon(
                             Icons.currency_exchange_outlined,
-                            color: AppColorsManger.textSecondary,
+                            color: context.glass.onGlassMuted,
                           ),
                           validator: (_) => null,
                         ),
                         const SizedBox(height: 24),
                         CustomButtonWidget(
                           onPressed: _onSavePressed,
-                          buttonText: _isEditing ? 'حفظ التعديلات' : 'إضافة العملة',
-                          textColor: Colors.white,
-                          backgroundColor: AppColorsManger.primary,
+                          buttonText: _isEditing
+                              ? 'حفظ التعديلات'
+                              : 'إضافة العملة',
                         ),
                       ],
                     ),

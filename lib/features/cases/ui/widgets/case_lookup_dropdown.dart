@@ -1,4 +1,5 @@
-import 'package:dental_lab_app/core/theming/colors.dart';
+import 'package:dental_lab_app/core/theming/app_dimensions.dart';
+import 'package:dental_lab_app/core/theming/glass.dart';
 import 'package:dental_lab_app/core/theming/styles.dart';
 import 'package:flutter/material.dart';
 
@@ -87,10 +88,10 @@ class _CaseLookupDropdownState extends State<CaseLookupDropdown> {
       _filtered = text.isEmpty
           ? items
           : items
-              .where(
-                (i) => _labelOf(i).toLowerCase().contains(text.toLowerCase()),
-              )
-              .toList();
+                .where(
+                  (i) => _labelOf(i).toLowerCase().contains(text.toLowerCase()),
+                )
+                .toList();
     });
   }
 
@@ -121,28 +122,41 @@ class _CaseLookupDropdownState extends State<CaseLookupDropdown> {
           focusNode: _focusNode,
           enabled: enabled,
           onChanged: _onChangedText,
+          style: AppTextStyles.font14MediumText.copyWith(
+            color: context.glass.onGlass,
+          ),
           decoration: InputDecoration(
             filled: true,
-            fillColor: AppColorsManger.moreLightGray,
-            prefixIcon: Icon(widget.icon, color: AppColorsManger.textSecondary),
+            fillColor: context.glass.fillColor,
+            prefixIcon: Icon(widget.icon, color: context.glass.onGlassMuted),
             suffixIcon: _controller.text.isNotEmpty
                 ? IconButton(
                     icon: const Icon(Icons.close, size: 18),
                     onPressed: _clear,
                   )
-                : const Icon(
-                    Icons.search,
-                    color: AppColorsManger.textSecondary,
-                  ),
+                : Icon(Icons.search, color: context.glass.onGlassMuted),
             contentPadding: const EdgeInsets.symmetric(
               horizontal: 20,
               vertical: 14,
             ),
             hintText: widget.hintText,
-            hintStyle: AppTextStyles.font14RegularSecondary,
+            hintStyle: AppTextStyles.font14RegularSecondary.copyWith(
+              color: context.glass.onGlassMuted,
+            ),
             border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(16),
-              borderSide: BorderSide.none,
+              borderRadius: BorderRadius.circular(AppRadius.glass),
+              borderSide: BorderSide(color: context.glass.strokeColor),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(AppRadius.glass),
+              borderSide: BorderSide(color: context.glass.strokeColor),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(AppRadius.glass),
+              borderSide: BorderSide(
+                color: Theme.of(context).colorScheme.primary,
+                width: 1.4,
+              ),
             ),
           ),
         ),
@@ -151,9 +165,10 @@ class _CaseLookupDropdownState extends State<CaseLookupDropdown> {
           Container(
             constraints: const BoxConstraints(maxHeight: 220),
             decoration: BoxDecoration(
-              color: AppColorsManger.surface,
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: AppColorsManger.border),
+              gradient: context.glass.surfaceGradient,
+              borderRadius: BorderRadius.circular(AppRadius.glass),
+              border: Border.all(color: context.glass.strokeColor),
+              boxShadow: context.glass.shadows,
             ),
             clipBehavior: Clip.antiAlias,
             child: _filtered.isEmpty
@@ -161,7 +176,9 @@ class _CaseLookupDropdownState extends State<CaseLookupDropdown> {
                     padding: const EdgeInsets.all(16),
                     child: Text(
                       'لا يوجد نتائج',
-                      style: AppTextStyles.font14RegularSecondary,
+                      style: AppTextStyles.font14RegularSecondary.copyWith(
+                        color: context.glass.onGlassMuted,
+                      ),
                     ),
                   )
                 : ListView.builder(
@@ -178,7 +195,9 @@ class _CaseLookupDropdownState extends State<CaseLookupDropdown> {
                             vertical: 12,
                           ),
                           child: DefaultTextStyle(
-                            style: AppTextStyles.font14MediumText,
+                            style: AppTextStyles.font14MediumText.copyWith(
+                              color: context.glass.onGlass,
+                            ),
                             overflow: TextOverflow.ellipsis,
                             maxLines: 1,
                             child: item.child,

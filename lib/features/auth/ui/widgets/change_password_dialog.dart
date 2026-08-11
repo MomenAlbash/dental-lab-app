@@ -1,5 +1,5 @@
 import 'package:dental_lab_app/core/di/dependency_injection.dart';
-import 'package:dental_lab_app/core/theming/colors.dart';
+import 'package:dental_lab_app/core/theming/glass.dart';
 import 'package:dental_lab_app/core/theming/styles.dart';
 import 'package:dental_lab_app/core/widgets/custom_text_field_widget.dart';
 import 'package:dental_lab_app/core/widgets/show_toast_widget.dart';
@@ -55,7 +55,10 @@ class _ChangePasswordDialogState extends State<ChangePasswordDialog> {
       listener: (context, state) {
         switch (state) {
           case ChangePasswordSuccess():
-            ShowToast(message: 'تم تغيير كلمة المرور', state: toastState.success);
+            ShowToast(
+              message: 'تم تغيير كلمة المرور',
+              state: toastState.success,
+            );
             Navigator.of(context).pop();
           case ChangePasswordError(:final message):
             ShowToast(message: message, state: toastState.error);
@@ -67,7 +70,10 @@ class _ChangePasswordDialogState extends State<ChangePasswordDialog> {
         final isSubmitting = state is ChangePasswordSubmitting;
 
         return AlertDialog(
-          title: Text('تغيير كلمة المرور', style: AppTextStyles.font18MediumText),
+          title: Text(
+            'تغيير كلمة المرور',
+            style: AppTextStyles.font18MediumText,
+          ),
           content: Form(
             key: _formKey,
             child: Column(
@@ -78,9 +84,9 @@ class _ChangePasswordDialogState extends State<ChangePasswordDialog> {
                   controller: _currentPasswordController,
                   hintText: 'كلمة المرور الحالية',
                   isObscureText: true,
-                  prefixIcon: const Icon(
+                  prefixIcon: Icon(
                     Icons.lock_outline,
-                    color: AppColorsManger.textSecondary,
+                    color: context.glass.onGlassMuted,
                   ),
                   validator: (value) => (value == null || value.isEmpty)
                       ? 'كلمة المرور الحالية مطلوبة'
@@ -91,12 +97,13 @@ class _ChangePasswordDialogState extends State<ChangePasswordDialog> {
                   controller: _newPasswordController,
                   hintText: 'كلمة المرور الجديدة',
                   isObscureText: true,
-                  prefixIcon: const Icon(
+                  prefixIcon: Icon(
                     Icons.lock_reset_outlined,
-                    color: AppColorsManger.textSecondary,
+                    color: context.glass.onGlassMuted,
                   ),
                   validator: (value) {
-                    if (value == null || value.isEmpty) return 'كلمة المرور الجديدة مطلوبة';
+                    if (value == null || value.isEmpty)
+                      return 'كلمة المرور الجديدة مطلوبة';
                     if (value.length < 4) return 'يجب أن تكون 4 أحرف على الأقل';
                     return null;
                   },
@@ -106,9 +113,9 @@ class _ChangePasswordDialogState extends State<ChangePasswordDialog> {
                   controller: _confirmPasswordController,
                   hintText: 'تأكيد كلمة المرور الجديدة',
                   isObscureText: true,
-                  prefixIcon: const Icon(
+                  prefixIcon: Icon(
                     Icons.lock_reset_outlined,
-                    color: AppColorsManger.textSecondary,
+                    color: context.glass.onGlassMuted,
                   ),
                   validator: (value) => value != _newPasswordController.text
                       ? 'كلمتا المرور غير متطابقتين'
@@ -119,7 +126,9 @@ class _ChangePasswordDialogState extends State<ChangePasswordDialog> {
           ),
           actions: [
             TextButton(
-              onPressed: isSubmitting ? null : () => Navigator.of(context).pop(),
+              onPressed: isSubmitting
+                  ? null
+                  : () => Navigator.of(context).pop(),
               child: const Text('إلغاء'),
             ),
             TextButton(

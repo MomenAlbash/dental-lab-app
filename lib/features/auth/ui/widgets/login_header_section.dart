@@ -1,4 +1,4 @@
-import 'package:dental_lab_app/core/theming/colors.dart';
+import 'package:dental_lab_app/core/theming/glass.dart';
 import 'package:dental_lab_app/core/theming/styles.dart';
 import 'package:flutter/material.dart';
 
@@ -12,14 +12,14 @@ class LoginHeaderSection extends StatelessWidget {
         Container(
           width: 88,
           height: 88,
-          decoration: const BoxDecoration(
-            color: AppColorsManger.primarySurface,
+          decoration: BoxDecoration(
+            color: context.glass.accentSurface,
             shape: BoxShape.circle,
           ),
-          child: const Icon(
+          child: Icon(
             Icons.medical_services_outlined,
             size: 44,
-            color: AppColorsManger.primary,
+            color: Theme.of(context).colorScheme.primary,
           ),
         ),
         const SizedBox(height: 20),
@@ -28,7 +28,9 @@ class LoginHeaderSection extends StatelessWidget {
         Text(
           'سجّل الدخول للمتابعة إلى مخبر الأسنان',
           textAlign: TextAlign.center,
-          style: AppTextStyles.font14RegularSecondary,
+          style: AppTextStyles.font14RegularSecondary.copyWith(
+            color: context.glass.onGlassMuted,
+          ),
         ),
       ],
     );

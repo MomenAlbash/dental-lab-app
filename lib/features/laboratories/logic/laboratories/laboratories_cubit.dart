@@ -3,7 +3,8 @@ import 'package:dental_lab_app/features/laboratories/logic/laboratories/laborato
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 class LaboratoriesCubit extends Cubit<LaboratoriesState> {
-  LaboratoriesCubit(this._laboratoriesRepo) : super(const LaboratoriesInitial());
+  LaboratoriesCubit(this._laboratoriesRepo)
+    : super(const LaboratoriesInitial());
 
   final LaboratoriesRepo _laboratoriesRepo;
 

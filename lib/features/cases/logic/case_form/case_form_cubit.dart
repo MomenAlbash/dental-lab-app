@@ -8,9 +8,7 @@ class CaseFormCubit extends Cubit<CaseFormState> {
 
   final CasesRepo _casesRepo;
 
-  Future<void> createCase(
-    CreateCaseRequestModel createCaseRequestBody,
-  ) async {
+  Future<void> createCase(CreateCaseRequestModel createCaseRequestBody) async {
     emit(const CaseFormSubmitting());
 
     final result = await _casesRepo.createCase(createCaseRequestBody);

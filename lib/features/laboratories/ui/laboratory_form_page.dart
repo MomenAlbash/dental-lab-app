@@ -1,9 +1,12 @@
 import 'package:dental_lab_app/core/di/dependency_injection.dart';
-import 'package:dental_lab_app/core/theming/colors.dart';
+import 'package:dental_lab_app/core/theming/app_dimensions.dart';
+import 'package:dental_lab_app/core/theming/glass.dart';
 import 'package:dental_lab_app/core/theming/styles.dart';
 import 'package:dental_lab_app/core/widgets/custom_button_widget.dart';
 import 'package:dental_lab_app/core/widgets/custom_circle_progress_indiacator_widget.dart';
 import 'package:dental_lab_app/core/widgets/custom_text_field_widget.dart';
+import 'package:dental_lab_app/core/widgets/glass/glass_app_bar.dart';
+import 'package:dental_lab_app/core/widgets/glass/glass_scaffold.dart';
 import 'package:dental_lab_app/core/widgets/show_toast_widget.dart';
 import 'package:dental_lab_app/features/laboratories/data/models/create_laboratory_request_model.dart';
 import 'package:dental_lab_app/features/laboratories/data/models/laboratory_model.dart';
@@ -96,12 +99,13 @@ class _LaboratoryFormViewState extends State<_LaboratoryFormView> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppColorsManger.background,
-      appBar: AppBar(
+    return GlassScaffold(
+      appBar: GlassAppBar(
         title: Text(
           _isEditing ? 'تعديل المخبر' : 'إضافة مخبر',
-          style: AppTextStyles.font18MediumText,
+          style: AppTextStyles.font18MediumText.copyWith(
+            color: context.glass.onGlass,
+          ),
         ),
       ),
       body: SafeArea(
@@ -151,9 +155,9 @@ class _LaboratoryFormViewState extends State<_LaboratoryFormView> {
                               controller: _nameController,
                               hintText: 'أدخل اسم المخبر',
                               textInputAction: TextInputAction.next,
-                              prefixIcon: const Icon(
+                              prefixIcon: Icon(
                                 Icons.science_outlined,
-                                color: AppColorsManger.textSecondary,
+                                color: context.glass.onGlassMuted,
                               ),
                               validator: (value) =>
                                   (value == null || value.trim().isEmpty)
@@ -170,9 +174,9 @@ class _LaboratoryFormViewState extends State<_LaboratoryFormView> {
                               controller: _addressController,
                               hintText: 'أدخل العنوان (اختياري)',
                               textInputAction: TextInputAction.next,
-                              prefixIcon: const Icon(
+                              prefixIcon: Icon(
                                 Icons.location_on_outlined,
-                                color: AppColorsManger.textSecondary,
+                                color: context.glass.onGlassMuted,
                               ),
                               validator: (_) => null,
                             ),
@@ -186,9 +190,9 @@ class _LaboratoryFormViewState extends State<_LaboratoryFormView> {
                               controller: _phoneController,
                               hintText: 'أدخل رقم الهاتف (اختياري)',
                               textInputAction: TextInputAction.done,
-                              prefixIcon: const Icon(
+                              prefixIcon: Icon(
                                 Icons.phone_outlined,
-                                color: AppColorsManger.textSecondary,
+                                color: context.glass.onGlassMuted,
                               ),
                               validator: (_) => null,
                             ),
@@ -196,14 +200,16 @@ class _LaboratoryFormViewState extends State<_LaboratoryFormView> {
                               const SizedBox(height: 20),
                               Container(
                                 padding: const EdgeInsets.symmetric(
-                                  horizontal: 16,
+                                  horizontal: AppSpacing.lg,
                                   vertical: 4,
                                 ),
                                 decoration: BoxDecoration(
-                                  color: AppColorsManger.surface,
-                                  borderRadius: BorderRadius.circular(14),
+                                  gradient: context.glass.surfaceGradient,
+                                  borderRadius: BorderRadius.circular(
+                                    AppRadius.glass,
+                                  ),
                                   border: Border.all(
-                                    color: AppColorsManger.border,
+                                    color: context.glass.strokeColor,
                                   ),
                                 ),
                                 child: Row(
@@ -216,7 +222,9 @@ class _LaboratoryFormViewState extends State<_LaboratoryFormView> {
                                     ),
                                     Switch(
                                       value: _isActive,
-                                      activeThumbColor: AppColorsManger.primary,
+                                      activeThumbColor: Theme.of(
+                                        context,
+                                      ).colorScheme.primary,
                                       onChanged: (value) =>
                                           setState(() => _isActive = value),
                                     ),
@@ -235,8 +243,6 @@ class _LaboratoryFormViewState extends State<_LaboratoryFormView> {
                                 buttonText: _isEditing
                                     ? 'حفظ التعديلات'
                                     : 'إضافة المخبر',
-                                textColor: Colors.white,
-                                backgroundColor: AppColorsManger.primary,
                               ),
                           ],
                         ),

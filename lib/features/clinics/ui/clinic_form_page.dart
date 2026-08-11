@@ -1,7 +1,11 @@
 import 'package:dental_lab_app/core/di/dependency_injection.dart';
-import 'package:dental_lab_app/core/theming/colors.dart';
+import 'package:dental_lab_app/core/theming/glass.dart';
 import 'package:dental_lab_app/core/theming/styles.dart';
+import 'package:dental_lab_app/core/widgets/glass/glass_app_bar.dart';
+import 'package:dental_lab_app/core/widgets/glass/glass_save_bar.dart';
+import 'package:dental_lab_app/core/widgets/glass/glass_scaffold.dart';
 import 'package:dental_lab_app/core/widgets/show_toast_widget.dart';
+import 'package:dental_lab_app/core/widgets/unsaved_changes_guard.dart';
 import 'package:dental_lab_app/features/cities/logic/cities/cities_cubit.dart';
 import 'package:dental_lab_app/features/clinics/data/models/clinic_model.dart';
 import 'package:dental_lab_app/features/clinics/data/models/create_clinic_request_model.dart';
@@ -68,7 +72,19 @@ class _ClinicFormViewState extends State<_ClinicFormView> {
   bool get _isEditing => widget.initialClinic != null;
 
   @override
+  void initState() {
+    super.initState();
+    // The preview mirrors the name and code as they are typed.
+    _nameController.addListener(_onPreviewFieldChanged);
+    _codeController.addListener(_onPreviewFieldChanged);
+  }
+
+  void _onPreviewFieldChanged() => setState(() {});
+
+  @override
   void dispose() {
+    _nameController.removeListener(_onPreviewFieldChanged);
+    _codeController.removeListener(_onPreviewFieldChanged);
     _nameController.dispose();
     _codeController.dispose();
     _phoneController.dispose();
@@ -76,6 +92,19 @@ class _ClinicFormViewState extends State<_ClinicFormView> {
     _addressController.dispose();
     _websiteController.dispose();
     super.dispose();
+  }
+
+  /// Whether anything differs from what the form opened with — asked when the
+  /// user tries to leave, so a discarded edit is never silent.
+  bool get _isDirty {
+    final initial = widget.initialClinic;
+    return isTextDirty(_nameController, initial?.name) ||
+        isTextDirty(_codeController, initial?.code) ||
+        isTextDirty(_phoneController, initial?.phoneNumber) ||
+        isTextDirty(_emailController, initial?.email) ||
+        isTextDirty(_addressController, initial?.address) ||
+        isTextDirty(_websiteController, initial?.websiteUrl) ||
+        _cityId != initial?.cityId;
   }
 
   /// Optional fields are sent as `null` rather than an empty string so the
@@ -120,65 +149,81 @@ class _ClinicFormViewState extends State<_ClinicFormView> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppColorsManger.background,
-      appBar: AppBar(
-        title: Text(
-          _isEditing ? 'تعديل العيادة' : 'إضافة عيادة',
-          style: AppTextStyles.font18MediumText,
+    return UnsavedChangesGuard(
+      isDirty: () => _isDirty,
+      child: GlassScaffold(
+        appBar: GlassAppBar(
+          title: Text(
+            _isEditing ? 'تعديل العيادة' : 'إضافة عيادة',
+            style: AppTextStyles.font18MediumText.copyWith(
+              color: context.glass.onGlass,
+            ),
+          ),
         ),
-      ),
-      body: SafeArea(
-        child: BlocConsumer<ClinicFormCubit, ClinicFormState>(
-          listener: (context, state) {
-            switch (state) {
-              case ClinicFormSuccess():
-                ShowToast(
-                  message: _isEditing ? 'تم حفظ التعديلات' : 'تمت إضافة العيادة',
-                  state: toastState.success,
-                );
-                Navigator.of(context).pop(true);
-              case ClinicFormError(:final message):
-                ShowToast(message: message, state: toastState.error);
-              default:
-                break;
-            }
-          },
-          builder: (context, state) {
-            return LayoutBuilder(
-              builder: (context, constraints) {
-                final isWide = constraints.maxWidth >= 600;
-                final contentWidth = isWide ? 560.0 : constraints.maxWidth;
+        // Save stays reachable without scrolling to the bottom of the form.
+        bottomNavigationBar: BlocBuilder<ClinicFormCubit, ClinicFormState>(
+          builder: (context, state) => GlassSaveBar(
+            isSubmitting: state is ClinicFormSubmitting,
+            label: _isEditing ? 'حفظ التعديلات' : 'إضافة العيادة',
+            onSave: _onSavePressed,
+          ),
+        ),
+        body: SafeArea(
+          child: BlocConsumer<ClinicFormCubit, ClinicFormState>(
+            listener: (context, state) {
+              switch (state) {
+                case ClinicFormSuccess():
+                  ShowToast(
+                    message: _isEditing
+                        ? 'تم حفظ التعديلات'
+                        : 'تمت إضافة العيادة',
+                    state: toastState.success,
+                  );
+                  Navigator.of(context).pop(true);
+                case ClinicFormError(:final message):
+                  ShowToast(message: message, state: toastState.error);
+                default:
+                  break;
+              }
+            },
+            builder: (context, state) {
+              return LayoutBuilder(
+                builder: (context, constraints) {
+                  final isWide = constraints.maxWidth >= 600;
+                  final contentWidth = isWide ? 560.0 : constraints.maxWidth;
 
-                return Center(
-                  child: SingleChildScrollView(
-                    padding: EdgeInsets.symmetric(
-                      horizontal: isWide ? 32 : 20,
-                      vertical: 20,
-                    ),
-                    child: ConstrainedBox(
-                      constraints: BoxConstraints(maxWidth: contentWidth),
-                      child: ClinicFormFields(
-                        formKey: _formKey,
-                        nameController: _nameController,
-                        codeController: _codeController,
-                        addressController: _addressController,
-                        phoneController: _phoneController,
-                        emailController: _emailController,
-                        websiteController: _websiteController,
-                        cityId: _cityId,
-                        onCityChanged: (value) =>
-                            setState(() => _cityId = value),
-                        isSubmitting: state is ClinicFormSubmitting,
-                        isEditing: _isEditing,
-                        onSave: _onSavePressed,
+                  return Center(
+                    child: SingleChildScrollView(
+                      padding: EdgeInsets.fromLTRB(
+                        isWide ? 32 : 20,
+                        20,
+                        isWide ? 32 : 20,
+                        // Clears the pinned action bar so the last field is
+                        // never trapped underneath it.
+                        110,
+                      ),
+                      child: ConstrainedBox(
+                        constraints: BoxConstraints(maxWidth: contentWidth),
+                        child: ClinicFormFields(
+                          formKey: _formKey,
+                          nameController: _nameController,
+                          codeController: _codeController,
+                          addressController: _addressController,
+                          phoneController: _phoneController,
+                          emailController: _emailController,
+                          websiteController: _websiteController,
+                          cityId: _cityId,
+                          onCityChanged: (value) =>
+                              setState(() => _cityId = value),
+                          isEditing: _isEditing,
+                        ),
                       ),
                     ),
-                  ),
-                );
-              },
-            );
-          },
+                  );
+                },
+              );
+            },
+          ),
         ),
       ),
     );

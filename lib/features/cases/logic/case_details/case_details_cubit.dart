@@ -1,4 +1,5 @@
 import 'package:dental_lab_app/features/cases/data/models/case_detail_model.dart';
+import 'package:dental_lab_app/features/cases/data/models/case_status.dart';
 import 'package:dental_lab_app/features/cases/data/repos/cases_repo.dart';
 import 'package:dental_lab_app/features/cases/logic/case_details/case_details_state.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -48,6 +49,32 @@ class CaseDetailsCubit extends Cubit<CaseDetailsState> {
       },
       (_) async {
         emit(const CaseDetailsActionSuccess('تم تغيير المرحلة'));
+        await _refresh();
+      },
+    );
+  }
+
+  /// Sets the case's overall status (the fixed lifecycle) — distinct from
+  /// any restoration's workflow stage.
+  Future<void> setCaseStatus({required CaseStatus status, String? note}) async {
+    final caseDetail = _case;
+    if (caseDetail == null) return;
+
+    emit(CaseDetailsLoaded(caseDetail, isBusy: true));
+
+    final result = await _casesRepo.setCaseStatus(
+      id: caseDetail.id,
+      status: status,
+      note: note,
+    );
+
+    await result.fold(
+      (failure) async {
+        emit(CaseDetailsActionError(failure.errorMessage));
+        emit(CaseDetailsLoaded(caseDetail));
+      },
+      (_) async {
+        emit(const CaseDetailsActionSuccess('تم تحديث حالة الحالة'));
         await _refresh();
       },
     );

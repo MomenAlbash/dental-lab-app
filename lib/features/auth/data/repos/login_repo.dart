@@ -39,6 +39,11 @@ class LoginRepo {
         await CacheHelper.saveData(key: CacheKeys.userId, value: userId);
       }
 
+      await CacheHelper.saveData(
+        key: CacheKeys.isAdmin,
+        value: response.data?.isAdmin ?? false,
+      );
+
       // Scope the session to the laboratory the account belongs to. If the
       // user has access to more than one, the laboratory-selection screen
       // overwrites this afterwards.
@@ -93,6 +98,7 @@ class LoginRepo {
   Future<void> logout() async {
     await CacheHelper.removeData(key: CacheKeys.token);
     await CacheHelper.removeData(key: CacheKeys.userId);
+    await CacheHelper.removeData(key: CacheKeys.isAdmin);
     await CacheHelper.removeData(key: CacheKeys.laboratoryId);
     await CacheHelper.removeData(key: CacheKeys.laboratoryName);
   }

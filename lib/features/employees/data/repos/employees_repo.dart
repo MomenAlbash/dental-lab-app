@@ -3,6 +3,7 @@ import 'dart:developer';
 import 'package:dartz/dartz.dart';
 import 'package:dental_lab_app/core/errors/failures.dart';
 import 'package:dental_lab_app/core/helper/local/cache_keys.dart';
+import 'package:dental_lab_app/core/helper/local/cacheable_fetch.dart';
 import 'package:dental_lab_app/core/helper/local/cached_helper.dart';
 import 'package:dental_lab_app/core/helper/network_helper/api_service.dart';
 import 'package:dental_lab_app/features/employees/data/models/create_employee_request_model.dart';
@@ -25,10 +26,18 @@ class EmployeesRepo {
       return right(employees);
     } on DioException catch (e) {
       log('DioException while fetching employees: ${e.message}');
-      return left(ServerFailure.FromDioExecption(e));
+      return fallbackToCache(
+        cacheKey: CacheKeys.cachedEmployeesList,
+        fromJson: EmployeeModel.fromJson,
+        onFailure: () => ServerFailure.FromDioExecption(e),
+      );
     } catch (e) {
       log('General Exception while fetching employees: ${e.toString()}');
-      return left(ServerFailure.fromException(e));
+      return fallbackToCache(
+        cacheKey: CacheKeys.cachedEmployeesList,
+        fromJson: EmployeeModel.fromJson,
+        onFailure: () => ServerFailure.fromException(e),
+      );
     }
   }
 

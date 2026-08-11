@@ -1,9 +1,13 @@
 import 'package:dental_lab_app/core/di/dependency_injection.dart';
 import 'package:dental_lab_app/core/router/routes.dart';
-import 'package:dental_lab_app/core/theming/colors.dart';
+import 'package:dental_lab_app/core/theming/app_dimensions.dart';
+import 'package:dental_lab_app/core/widgets/adaptive_detail_sections.dart';
+import 'package:dental_lab_app/core/theming/glass.dart';
 import 'package:dental_lab_app/core/theming/styles.dart';
 import 'package:dental_lab_app/core/widgets/custom_circle_progress_indiacator_widget.dart';
 import 'package:dental_lab_app/core/widgets/detail_info_row_widget.dart';
+import 'package:dental_lab_app/core/widgets/glass/glass_app_bar.dart';
+import 'package:dental_lab_app/core/widgets/glass/glass_scaffold.dart';
 import 'package:dental_lab_app/features/laboratories/data/models/laboratory_model.dart';
 import 'package:dental_lab_app/features/laboratories/logic/laboratory_details/laboratory_details_cubit.dart';
 import 'package:dental_lab_app/features/laboratories/logic/laboratory_details/laboratory_details_state.dart';
@@ -39,12 +43,13 @@ class _LaboratoryDetailView extends StatelessWidget {
             ? state.laboratory
             : null;
 
-        return Scaffold(
-          backgroundColor: AppColorsManger.background,
-          appBar: AppBar(
+        return GlassScaffold(
+          appBar: GlassAppBar(
             title: Text(
               'تفاصيل المخبر',
-              style: AppTextStyles.font18MediumText,
+              style: AppTextStyles.font18MediumText.copyWith(
+                color: context.glass.onGlass,
+              ),
             ),
             actions: [
               if (laboratory != null)
@@ -66,16 +71,17 @@ class _LaboratoryDetailView extends StatelessWidget {
           ),
           body: SafeArea(
             child: switch (state) {
-              LaboratoryDetailsLoaded(:final laboratory) => LaboratoryDetailsBody(
-                laboratory: laboratory,
-              ),
+              LaboratoryDetailsLoaded(:final laboratory) =>
+                LaboratoryDetailsBody(laboratory: laboratory),
               LaboratoryDetailsError(:final message) => Center(
                 child: Padding(
                   padding: const EdgeInsets.all(24),
                   child: Text(
                     message,
                     textAlign: TextAlign.center,
-                    style: AppTextStyles.font14RegularSecondary,
+                    style: AppTextStyles.font14RegularSecondary.copyWith(
+                      color: context.glass.onGlassMuted,
+                    ),
                   ),
                 ),
               ),
@@ -105,112 +111,101 @@ class LaboratoryDetailsBody extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final isWide = constraints.maxWidth >= 600;
-        final contentWidth = isWide ? 560.0 : constraints.maxWidth;
-
-        return Center(
-          child: SingleChildScrollView(
-            padding: EdgeInsets.symmetric(
-              horizontal: isWide ? 32 : 20,
-              vertical: 20,
-            ),
-            child: ConstrainedBox(
-              constraints: BoxConstraints(maxWidth: contentWidth),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Center(
-                    child: Column(
-                      children: [
-                        Container(
-                          width: 72,
-                          height: 72,
-                          decoration: const BoxDecoration(
-                            color: AppColorsManger.primarySurface,
-                            shape: BoxShape.circle,
-                          ),
-                          child: const Icon(
-                            Icons.science_outlined,
-                            size: 36,
-                            color: AppColorsManger.primary,
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        Text(
-                          laboratory.name ?? '—',
-                          textAlign: TextAlign.center,
-                          style: AppTextStyles.font20BoldText,
-                        ),
-                        const SizedBox(height: 4),
-                        subtitle ??
-                            _StatusBadge(isActive: laboratory.isActive),
-                      ],
-                    ),
+    return SingleChildScrollView(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const SizedBox(height: 20),
+          Center(
+            child: Column(
+              children: [
+                Container(
+                  width: 72,
+                  height: 72,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    gradient: context.glass.brandGradient,
+                    shape: BoxShape.circle,
                   ),
-                  const SizedBox(height: 24),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: _StatTile(
-                          icon: Icons.people_outline,
-                          label: 'المستخدمين',
-                          value: '${laboratory.userCount}',
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: _StatTile(
-                          icon: Icons.medical_services_outlined,
-                          label: 'الأطباء',
-                          value: '${laboratory.doctorCount}',
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: _StatTile(
-                          icon: Icons.folder_outlined,
-                          label: 'الحالات',
-                          value: '${laboratory.caseCount}',
-                        ),
-                      ),
-                    ],
+                  child: const Icon(
+                    Icons.science_outlined,
+                    size: 32,
+                    color: Colors.white,
                   ),
-                  const SizedBox(height: 24),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    decoration: BoxDecoration(
-                      color: AppColorsManger.surface,
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: AppColorsManger.border),
-                    ),
-                    child: Column(
-                      children: [
-                        DetailInfoRowWidget(
-                          icon: Icons.location_on_outlined,
-                          label: 'العنوان',
-                          value: laboratory.address ?? '',
-                        ),
-                        const Divider(
-                          height: 1,
-                          color: AppColorsManger.divider,
-                        ),
-                        DetailInfoRowWidget(
-                          icon: Icons.phone_outlined,
-                          label: 'رقم الهاتف',
-                          value: laboratory.phoneNumber ?? '',
-                        ),
-                      ],
-                    ),
-                  ),
-                  ?footer,
-                ],
-              ),
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  laboratory.name ?? '—',
+                  textAlign: TextAlign.center,
+                  style: AppTextStyles.font20BoldText,
+                ),
+                const SizedBox(height: 4),
+                subtitle ?? _StatusBadge(isActive: laboratory.isActive),
+              ],
             ),
           ),
-        );
-      },
+          AdaptiveDetailSections(
+            main: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
+                decoration: BoxDecoration(
+                  gradient: context.glass.surfaceGradient,
+                  borderRadius: BorderRadius.circular(AppRadius.glass),
+                  border: Border.all(color: context.glass.strokeColor),
+                  boxShadow: context.glass.shadows,
+                ),
+                child: Column(
+                  children: [
+                    DetailInfoRowWidget(
+                      icon: Icons.location_on_outlined,
+                      label: 'العنوان',
+                      value: laboratory.address ?? '',
+                    ),
+                    Divider(height: 1, color: context.glass.strokeColor),
+                    DetailInfoRowWidget(
+                      icon: Icons.phone_outlined,
+                      label: 'رقم الهاتف',
+                      value: laboratory.phoneNumber ?? '',
+                    ),
+                  ],
+                ),
+              ),
+              ?footer,
+            ],
+            // The three counts read as a scoreboard for the lab, so they sit
+            // together beside the details rather than above them.
+            side: [
+              Row(
+                children: [
+                  Expanded(
+                    child: _StatTile(
+                      icon: Icons.people_outline,
+                      label: 'المستخدمين',
+                      value: '${laboratory.userCount}',
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: _StatTile(
+                      icon: Icons.medical_services_outlined,
+                      label: 'الأطباء',
+                      value: '${laboratory.doctorCount}',
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: _StatTile(
+                      icon: Icons.folder_outlined,
+                      label: 'الحالات',
+                      value: '${laboratory.caseCount}',
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ],
+      ),
     );
   }
 }
@@ -222,7 +217,7 @@ class _StatusBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = isActive ? AppColorsManger.success : AppColorsManger.textHint;
+    final color = isActive ? context.glass.success : context.glass.onGlassMuted;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
       decoration: BoxDecoration(
@@ -253,19 +248,27 @@ class _StatTile extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 8),
       decoration: BoxDecoration(
-        color: AppColorsManger.surface,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColorsManger.border),
+        gradient: context.glass.surfaceGradient,
+        borderRadius: BorderRadius.circular(AppRadius.glass),
+        border: Border.all(color: context.glass.strokeColor),
+        boxShadow: context.glass.shadows,
       ),
       child: Column(
         children: [
-          Icon(icon, color: AppColorsManger.primary),
+          Icon(icon, color: Theme.of(context).colorScheme.primary),
           const SizedBox(height: 8),
-          Text(value, style: AppTextStyles.font20BoldText),
+          Text(
+            value,
+            style: AppTextStyles.font20BoldText.copyWith(
+              color: context.glass.onGlass,
+            ),
+          ),
           const SizedBox(height: 2),
           Text(
             label,
-            style: AppTextStyles.font12RegularHint,
+            style: AppTextStyles.font12RegularHint.copyWith(
+              color: context.glass.onGlassMuted,
+            ),
             textAlign: TextAlign.center,
           ),
         ],

@@ -19,14 +19,19 @@ class CitiesCubit extends Cubit<CitiesState> {
     );
   }
 
-  List<CityModel> get _currentList =>
-      switch (state) { CitiesLoaded(:final cities) => cities, _ => const [] };
+  List<CityModel> get _currentList => switch (state) {
+    CitiesLoaded(:final cities) => cities,
+    _ => const [],
+  };
 
   Future<void> addCity({required String name, String? countryId}) async {
     final cities = _currentList;
     emit(CitiesLoaded(cities, isBusy: true));
 
-    final result = await _citiesRepo.createCity(name: name, countryId: countryId);
+    final result = await _citiesRepo.createCity(
+      name: name,
+      countryId: countryId,
+    );
 
     result.fold((failure) {
       emit(CitiesActionError(failure.errorMessage));
@@ -48,12 +53,18 @@ class CitiesCubit extends Cubit<CitiesState> {
       countryId: countryId,
     );
 
-    result.fold((failure) {
-      emit(CitiesActionError(failure.errorMessage));
-      emit(CitiesLoaded(cities));
-    }, (updated) => emit(CitiesLoaded([
-          for (final c in cities) if (c.id == id) updated else c,
-        ])));
+    result.fold(
+      (failure) {
+        emit(CitiesActionError(failure.errorMessage));
+        emit(CitiesLoaded(cities));
+      },
+      (updated) => emit(
+        CitiesLoaded([
+          for (final c in cities)
+            if (c.id == id) updated else c,
+        ]),
+      ),
+    );
   }
 
   Future<void> removeCity(String id) async {

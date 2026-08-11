@@ -1,4 +1,5 @@
 import 'package:dental_lab_app/core/theming/colors.dart';
+import 'package:dental_lab_app/core/theming/glass.dart';
 import 'package:dental_lab_app/core/theming/styles.dart';
 import 'package:flutter/material.dart';
 
@@ -45,7 +46,12 @@ class ConfirmDialogWidget extends StatelessWidget {
   Widget build(BuildContext context) {
     return AlertDialog(
       title: Text(title, style: AppTextStyles.font18MediumText),
-      content: Text(message, style: AppTextStyles.font14RegularSecondary),
+      content: Text(
+        message,
+        style: AppTextStyles.font14RegularSecondary.copyWith(
+          color: context.glass.onGlassMuted,
+        ),
+      ),
       actions: [
         TextButton(
           onPressed: () => Navigator.of(context).pop(false),
@@ -56,7 +62,9 @@ class ConfirmDialogWidget extends StatelessWidget {
           child: Text(
             confirmText,
             style: AppTextStyles.font14MediumText.copyWith(
-              color: isDestructive ? AppColorsManger.error : AppColorsManger.primary,
+              color: isDestructive
+                  ? AppColorsManger.error
+                  : AppColorsManger.primary,
             ),
           ),
         ),

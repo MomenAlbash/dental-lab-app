@@ -3,6 +3,7 @@ import 'dart:developer';
 import 'package:dartz/dartz.dart';
 import 'package:dental_lab_app/core/errors/failures.dart';
 import 'package:dental_lab_app/core/helper/local/cache_keys.dart';
+import 'package:dental_lab_app/core/helper/local/cacheable_fetch.dart';
 import 'package:dental_lab_app/core/helper/local/cached_helper.dart';
 import 'package:dental_lab_app/core/helper/network_helper/api_service.dart';
 import 'package:dental_lab_app/features/restoration_types/data/models/create_restoration_type_request_model.dart';
@@ -25,10 +26,20 @@ class RestorationTypesRepo {
       return right(types);
     } on DioException catch (e) {
       log('DioException while fetching restoration types: ${e.message}');
-      return left(ServerFailure.FromDioExecption(e));
+      return fallbackToCache(
+        cacheKey: CacheKeys.cachedRestorationTypesList,
+        fromJson: RestorationTypeModel.fromJson,
+        onFailure: () => ServerFailure.FromDioExecption(e),
+      );
     } catch (e) {
-      log('General Exception while fetching restoration types: ${e.toString()}');
-      return left(ServerFailure.fromException(e));
+      log(
+        'General Exception while fetching restoration types: ${e.toString()}',
+      );
+      return fallbackToCache(
+        cacheKey: CacheKeys.cachedRestorationTypesList,
+        fromJson: RestorationTypeModel.fromJson,
+        onFailure: () => ServerFailure.fromException(e),
+      );
     }
   }
 

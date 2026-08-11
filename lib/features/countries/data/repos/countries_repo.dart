@@ -3,6 +3,7 @@ import 'dart:developer';
 import 'package:dartz/dartz.dart';
 import 'package:dental_lab_app/core/errors/failures.dart';
 import 'package:dental_lab_app/core/helper/local/cache_keys.dart';
+import 'package:dental_lab_app/core/helper/local/cacheable_fetch.dart';
 import 'package:dental_lab_app/core/helper/local/cached_helper.dart';
 import 'package:dental_lab_app/core/helper/network_helper/api_service.dart';
 import 'package:dental_lab_app/features/countries/data/models/country_model.dart';
@@ -22,16 +23,27 @@ class CountriesRepo {
       return right(countries);
     } on DioException catch (e) {
       log('DioException while fetching countries: ${e.message}');
-      return left(ServerFailure.FromDioExecption(e));
+      return fallbackToCache(
+        cacheKey: CacheKeys.cachedCountriesList,
+        fromJson: CountryModel.fromJson,
+        onFailure: () => ServerFailure.FromDioExecption(e),
+      );
     } catch (e) {
       log('General Exception while fetching countries: ${e.toString()}');
-      return left(ServerFailure.fromException(e));
+      return fallbackToCache(
+        cacheKey: CacheKeys.cachedCountriesList,
+        fromJson: CountryModel.fromJson,
+        onFailure: () => ServerFailure.fromException(e),
+      );
     }
   }
 
   Future<Either<Failure, CountryModel>> createCountry(String name) async {
     try {
-      final country = await _apiService.createCountry(name: name, token: _token);
+      final country = await _apiService.createCountry(
+        name: name,
+        token: _token,
+      );
 
       log('Created country: ${country.name}');
       return right(country);

@@ -1,9 +1,11 @@
 import 'package:dental_lab_app/core/di/dependency_injection.dart';
 import 'package:dental_lab_app/core/helper/network_helper/media_url.dart';
 import 'package:dental_lab_app/core/router/routes.dart';
-import 'package:dental_lab_app/core/theming/colors.dart';
+import 'package:dental_lab_app/core/theming/glass.dart';
 import 'package:dental_lab_app/core/theming/styles.dart';
 import 'package:dental_lab_app/core/widgets/custom_circle_progress_indiacator_widget.dart';
+import 'package:dental_lab_app/core/widgets/glass/glass_app_bar.dart';
+import 'package:dental_lab_app/core/widgets/glass/glass_scaffold.dart';
 import 'package:dental_lab_app/core/widgets/show_toast_widget.dart';
 import 'package:dental_lab_app/features/employees/logic/employee_details/employee_details_cubit.dart';
 import 'package:dental_lab_app/features/employees/logic/employee_details/employee_details_state.dart';
@@ -86,52 +88,55 @@ class _EmployeeDetailView extends StatelessWidget {
       builder: (context, state) {
         final employee = state is EmployeeDetailsLoaded ? state.employee : null;
 
-        return Scaffold(
-          backgroundColor: AppColorsManger.background,
-          appBar: AppBar(
-            title: Text('تفاصيل الموظف', style: AppTextStyles.font18MediumText),
-            actions: [
-              if (employee != null)
-                IconButton(
-                  onPressed: () async {
-                    await context.push(
-                      Routes.employeeFormScreen,
-                      extra: employee,
+        // No `appBar` here: once loaded, the body supplies its own collapsing
+        // SliverAppBar. A plain glass bar is used only for the loading and
+        // error states, which have no header to collapse.
+        return GlassScaffold(
+          appBar: employee != null
+              ? null
+              : GlassAppBar(
+                  title: Text(
+                    'تفاصيل الموظف',
+                    style: AppTextStyles.font18MediumText.copyWith(
+                      color: context.glass.onGlass,
+                    ),
+                  ),
+                ),
+          body: switch (state) {
+            EmployeeDetailsLoaded(:final employee, :final isBusy) =>
+              EmployeeDetailsBody(
+                employee: employee,
+                isBusy: isBusy,
+                onEdit: () async {
+                  await context.push(
+                    Routes.employeeFormScreen,
+                    extra: employee,
+                  );
+                  if (context.mounted) {
+                    context.read<EmployeeDetailsCubit>().getEmployee(
+                      employee.id,
                     );
-                    if (context.mounted) {
-                      context.read<EmployeeDetailsCubit>().getEmployee(
-                        employee.id,
-                      );
-                    }
-                  },
-                  icon: const Icon(Icons.edit_outlined),
-                ),
-            ],
-          ),
-          body: SafeArea(
-            child: switch (state) {
-              EmployeeDetailsLoaded(:final employee, :final isBusy) =>
-                EmployeeDetailsBody(
-                  employee: employee,
-                  isBusy: isBusy,
-                  onAddFile: () => _pickAndUploadFile(context),
-                  onDeleteFile: (fileId) =>
-                      context.read<EmployeeDetailsCubit>().deleteFile(fileId),
-                  onOpenFile: (file) => _openFile(file.filePath),
-                ),
-              EmployeeDetailsError(:final message) => Center(
-                child: Padding(
-                  padding: const EdgeInsets.all(24),
-                  child: Text(
-                    message,
-                    textAlign: TextAlign.center,
-                    style: AppTextStyles.font14RegularSecondary,
+                  }
+                },
+                onAddFile: () => _pickAndUploadFile(context),
+                onDeleteFile: (fileId) =>
+                    context.read<EmployeeDetailsCubit>().deleteFile(fileId),
+                onOpenFile: (file) => _openFile(file.filePath),
+              ),
+            EmployeeDetailsError(:final message) => Center(
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: Text(
+                  message,
+                  textAlign: TextAlign.center,
+                  style: AppTextStyles.font14RegularSecondary.copyWith(
+                    color: context.glass.onGlassMuted,
                   ),
                 ),
               ),
-              _ => const Center(child: CustomCircleProgressIndiacatorWidget()),
-            },
-          ),
+            ),
+            _ => const Center(child: CustomCircleProgressIndiacatorWidget()),
+          },
         );
       },
     );

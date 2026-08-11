@@ -1,7 +1,9 @@
 import 'package:dental_lab_app/core/di/dependency_injection.dart';
-import 'package:dental_lab_app/core/theming/colors.dart';
+import 'package:dental_lab_app/core/theming/glass.dart';
 import 'package:dental_lab_app/core/theming/styles.dart';
 import 'package:dental_lab_app/core/widgets/custom_text_field_widget.dart';
+import 'package:dental_lab_app/core/widgets/glass/glass_app_bar.dart';
+import 'package:dental_lab_app/core/widgets/glass/glass_scaffold.dart';
 import 'package:dental_lab_app/core/widgets/show_toast_widget.dart';
 import 'package:dental_lab_app/features/restoration_types/data/models/create_restoration_type_request_model.dart';
 import 'package:dental_lab_app/features/restoration_types/data/models/restoration_type_model.dart';
@@ -69,7 +71,8 @@ class _RestorationTypeFormViewState extends State<_RestorationTypeFormView> {
   );
   late final _highDurationController = TextEditingController(
     text:
-        widget.initialRestorationType?.highPriorityDurationMinutes?.toString() ??
+        widget.initialRestorationType?.highPriorityDurationMinutes
+            ?.toString() ??
         '',
   );
   late final _urgentDurationController = TextEditingController(
@@ -234,6 +237,15 @@ class _RestorationTypeFormViewState extends State<_RestorationTypeFormView> {
   void _onSavePressed() {
     if (!(_formKey.currentState?.validate() ?? false)) return;
 
+    final hasStages = _isEditing ? _editStages.isNotEmpty : _stages.isNotEmpty;
+    if (!hasStages) {
+      ShowToast(
+        message: 'يجب إضافة مرحلة واحدة على الأقل',
+        state: toastState.error,
+      );
+      return;
+    }
+
     final cubit = context.read<RestorationTypeFormCubit>();
     final defaultPrice =
         double.tryParse(_defaultPriceController.text.trim()) ?? 0;
@@ -250,9 +262,13 @@ class _RestorationTypeFormViewState extends State<_RestorationTypeFormView> {
           pricingType: _pricingType,
           isActive: _isActive,
           lowPriorityDurationMinutes: _optionalInt(_lowDurationController),
-          normalPriorityDurationMinutes: _optionalInt(_normalDurationController),
+          normalPriorityDurationMinutes: _optionalInt(
+            _normalDurationController,
+          ),
           highPriorityDurationMinutes: _optionalInt(_highDurationController),
-          urgentPriorityDurationMinutes: _optionalInt(_urgentDurationController),
+          urgentPriorityDurationMinutes: _optionalInt(
+            _urgentDurationController,
+          ),
           stages: _editStages,
         ),
       );
@@ -266,9 +282,13 @@ class _RestorationTypeFormViewState extends State<_RestorationTypeFormView> {
           defaultPrice: defaultPrice,
           pricingType: _pricingType,
           lowPriorityDurationMinutes: _optionalInt(_lowDurationController),
-          normalPriorityDurationMinutes: _optionalInt(_normalDurationController),
+          normalPriorityDurationMinutes: _optionalInt(
+            _normalDurationController,
+          ),
           highPriorityDurationMinutes: _optionalInt(_highDurationController),
-          urgentPriorityDurationMinutes: _optionalInt(_urgentDurationController),
+          urgentPriorityDurationMinutes: _optionalInt(
+            _urgentDurationController,
+          ),
           stages: _stages,
         ),
       );
@@ -277,12 +297,13 @@ class _RestorationTypeFormViewState extends State<_RestorationTypeFormView> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppColorsManger.background,
-      appBar: AppBar(
+    return GlassScaffold(
+      appBar: GlassAppBar(
         title: Text(
           _isEditing ? 'تعديل التعويض' : 'إضافة تعويض',
-          style: AppTextStyles.font18MediumText,
+          style: AppTextStyles.font18MediumText.copyWith(
+            color: context.glass.onGlass,
+          ),
         ),
       ),
       body: SafeArea(
@@ -291,7 +312,9 @@ class _RestorationTypeFormViewState extends State<_RestorationTypeFormView> {
             switch (state) {
               case RestorationTypeFormSuccess():
                 ShowToast(
-                  message: _isEditing ? 'تم حفظ التعديلات' : 'تمت إضافة التعويض',
+                  message: _isEditing
+                      ? 'تم حفظ التعديلات'
+                      : 'تمت إضافة التعويض',
                   state: toastState.success,
                 );
                 Navigator.of(context).pop(true);
@@ -390,9 +413,9 @@ class _AddStageDialogState extends State<_AddStageDialog> {
           child: AppTextFormField(
             controller: _nameController,
             hintText: 'اسم المرحلة (مثال: التصميم)',
-            prefixIcon: const Icon(
+            prefixIcon: Icon(
               Icons.timeline_outlined,
-              color: AppColorsManger.textSecondary,
+              color: context.glass.onGlassMuted,
             ),
             validator: (value) => (value == null || value.trim().isEmpty)
                 ? 'اسم المرحلة مطلوب'

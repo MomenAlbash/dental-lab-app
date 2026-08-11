@@ -60,8 +60,7 @@ class PriceTierModel {
               .toList() ??
           const [],
       pricedRestorationCount: json['pricedRestorationCount'] as int? ?? 0,
-      totalRestorationTypeCount:
-          json['totalRestorationTypeCount'] as int? ?? 0,
+      totalRestorationTypeCount: json['totalRestorationTypeCount'] as int? ?? 0,
     );
   }
 }

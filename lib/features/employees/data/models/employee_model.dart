@@ -77,6 +77,22 @@ class EmployeeModel {
 
   String get fullName => '${firstName ?? ''} ${lastName ?? ''}'.trim();
 
+  /// Up to two leading characters of the name, used as the avatar fallback
+  /// when there is no photo.
+  String get initials {
+    final parts = [firstName, lastName]
+        .whereType<String>()
+        .map((part) => part.trim())
+        .where((part) => part.isNotEmpty);
+    if (parts.isEmpty) return '؟';
+    // `runes.first` rather than `part[0]`: indexing returns a UTF-16 code
+    // unit, which would split a surrogate pair.
+    return parts
+        .map((part) => String.fromCharCode(part.runes.first))
+        .take(2)
+        .join();
+  }
+
   String? get cityName => city?.name;
 
   factory EmployeeModel.fromJson(Map<String, dynamic> json) {
@@ -97,7 +113,8 @@ class EmployeeModel {
       address: json['address'] as String?,
       bankName: json['bankName'] as String?,
       bankAccountNumber: json['bankAccountNumber'] as String?,
-      files: (json['files'] as List<dynamic>?)
+      files:
+          (json['files'] as List<dynamic>?)
               ?.map(
                 (e) => EmployeeAttachmentFileModel.fromJson(
                   e as Map<String, dynamic>,

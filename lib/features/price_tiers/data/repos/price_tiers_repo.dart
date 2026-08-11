@@ -3,6 +3,7 @@ import 'dart:developer';
 import 'package:dartz/dartz.dart';
 import 'package:dental_lab_app/core/errors/failures.dart';
 import 'package:dental_lab_app/core/helper/local/cache_keys.dart';
+import 'package:dental_lab_app/core/helper/local/cacheable_fetch.dart';
 import 'package:dental_lab_app/core/helper/local/cached_helper.dart';
 import 'package:dental_lab_app/core/helper/network_helper/api_service.dart';
 import 'package:dental_lab_app/features/price_tiers/data/models/create_price_tier_request_model.dart';
@@ -25,10 +26,18 @@ class PriceTiersRepo {
       return right(tiers);
     } on DioException catch (e) {
       log('DioException while fetching price tiers: ${e.message}');
-      return left(ServerFailure.FromDioExecption(e));
+      return fallbackToCache(
+        cacheKey: CacheKeys.cachedPriceTiersList,
+        fromJson: PriceTierModel.fromJson,
+        onFailure: () => ServerFailure.FromDioExecption(e),
+      );
     } catch (e) {
       log('General Exception while fetching price tiers: ${e.toString()}');
-      return left(ServerFailure.fromException(e));
+      return fallbackToCache(
+        cacheKey: CacheKeys.cachedPriceTiersList,
+        fromJson: PriceTierModel.fromJson,
+        onFailure: () => ServerFailure.fromException(e),
+      );
     }
   }
 

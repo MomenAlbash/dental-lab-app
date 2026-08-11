@@ -1,7 +1,7 @@
 import 'dart:async';
 
 import 'package:dental_lab_app/core/permissions/audio_permission.dart';
-import 'package:dental_lab_app/core/theming/colors.dart';
+import 'package:dental_lab_app/core/theming/glass.dart';
 import 'package:dental_lab_app/core/theming/styles.dart';
 import 'package:dental_lab_app/core/widgets/show_toast_widget.dart';
 import 'package:flutter/material.dart';
@@ -76,18 +76,26 @@ class _VoiceRecorderButtonState extends State<VoiceRecorderButton> {
     if (!_isRecording) {
       return IconButton(
         onPressed: _start,
-        icon: const Icon(Icons.mic_outlined, color: AppColorsManger.primary),
+        icon: Icon(
+          Icons.mic_outlined,
+          color: Theme.of(context).colorScheme.primary,
+        ),
       );
     }
 
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Text(_format(_elapsed), style: AppTextStyles.font12RegularHint),
+        Text(
+          _format(_elapsed),
+          style: AppTextStyles.font12RegularHint.copyWith(
+            color: context.glass.onGlassMuted,
+          ),
+        ),
         const SizedBox(width: 4),
         IconButton(
           onPressed: _stop,
-          icon: const Icon(Icons.stop_circle, color: AppColorsManger.error),
+          icon: Icon(Icons.stop_circle, color: context.glass.error),
         ),
       ],
     );

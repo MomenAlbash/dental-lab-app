@@ -13,14 +13,13 @@ class ShowToastWidget extends StatefulWidget {
 }
 
 class _ShowToastWidgetState extends State<ShowToastWidget> {
-
   @override
   Widget build(BuildContext context) => const SizedBox.shrink();
 }
 
 /// Top-level convenience function (keeps the original signature)
- 
- void ShowToast({required String message, required toastState state}) {
+
+void ShowToast({required String message, required toastState state}) {
   Fluttertoast.showToast(
     msg: message,
     toastLength: Toast.LENGTH_SHORT,

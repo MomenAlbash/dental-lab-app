@@ -1,5 +1,5 @@
 import 'package:audioplayers/audioplayers.dart';
-import 'package:dental_lab_app/core/theming/colors.dart';
+import 'package:dental_lab_app/core/theming/glass.dart';
 import 'package:dental_lab_app/core/theming/styles.dart';
 import 'package:flutter/material.dart';
 
@@ -75,14 +75,16 @@ class _AudioMessagePlayerState extends State<AudioMessagePlayer> {
           onPressed: _toggle,
           icon: Icon(
             isPlaying ? Icons.pause_circle_filled : Icons.play_circle_fill,
-            color: AppColorsManger.primary,
+            color: Theme.of(context).colorScheme.primary,
             size: 32,
           ),
         ),
         const SizedBox(width: 8),
         Text(
           '${_format(_position)} / ${_format(total)}',
-          style: AppTextStyles.font12RegularHint,
+          style: AppTextStyles.font12RegularHint.copyWith(
+            color: context.glass.onGlassMuted,
+          ),
         ),
       ],
     );

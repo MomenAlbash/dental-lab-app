@@ -139,6 +139,18 @@ Section B — Flutter / Dart Specific Rules
 - Respect safe areas on both platforms — wrap screens with `SafeArea`, account for iOS notch/Dynamic Island and Android gesture nav/status bar, regardless of design being unified.
 - Images/icons must be resolution-independent (SVG or multi-density assets) — never ship a single fixed-size raster asset used across all screen densities.
 
+## 1a) Adaptive Layout — tablet is a first-class target
+Tablet is a primary target, not a phone build that happens to run on a bigger screen. A screen that fills a tablet with one centred column is NOT done.
+
+- **Breakpoints live in `AppBreakpoints`** (`core/widgets/adaptive_layout.dart`): `< 600` phone, `600–899` tablet, `>= 900` desktop. Never write a bare `600` / `900` comparison — branch with `AdaptiveLayout`, or with `AdaptiveLayout.formFactorFor(width)` / `AdaptiveLayout.of(context)` when the widget already has a `LayoutBuilder`.
+- **BANNED: `final contentWidth = isWide ? 700.0 : constraints.maxWidth;`** and every variant of capping content and centring it as the *only* response to a wide screen. That pattern was removed from the whole app on purpose — do not reintroduce it. (Capping is still right for forms and body text; see below.)
+- **Lists/grids of cards → `AdaptiveCollection`** (`core/widgets/adaptive_collection.dart`). Never hand-roll a `ListView.builder` for a collection of cards: it already handles the phone list, the tablet grid, pull-to-refresh, padding, the stagger animation, and scaling the grid's row height by the user's text setting. Pass `cardHeight` when the card is taller or shorter than the default 132.
+- **Detail screens → `AdaptiveDetailSections`** (`core/widgets/adaptive_detail_sections.dart`). Split sections by role, not by order: `main` = what the record *is* (info tiles, attachments, the edit form), `side` = what the user can *do* about it (quick actions, pending decisions). On a phone `side` renders first — something waiting on the user comes before what they read.
+- **Navigation is already handled**: any screen built on `GlassScaffold` with a `drawer` gets the pinned navigation column from tablet up for free. Do not add per-screen tablet navigation.
+- **Forms and body text stay capped and centred** (~560dp). A 1000dp-wide text field is worse, not better. This is the one place a max width is the correct adaptive answer.
+- **Anything pinned beside the page is outside the page's `Navigator`.** A widget that may be hosted there (the drawer is) must not call `Navigator.pop()` to dismiss itself — that pops the page. Read the form factor off the *window* (`AdaptiveLayout.of`), not the widget's own constraints, since a 280dp column reports itself as a phone.
+- **Test both shapes.** Widget tests default to an 800dp window, which is a tablet — a test that means the phone layout must set `tester.view.physicalSize` to a phone size explicitly, or it will silently assert against the grid.
+
 ## 2) Permissions
 - All permission requests (camera, location, notifications, photos, etc.) go through a single wrapper in `core/permissions/` — never call platform permission APIs directly from UI or logic.
 - Handle "denied", "permanently denied", and "restricted" (iOS) states explicitly — don't assume a binary granted/denied.

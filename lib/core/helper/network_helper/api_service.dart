@@ -1,7 +1,16 @@
 import 'dart:developer';
 
+import 'package:dental_lab_app/core/helper/local/cache_keys.dart';
+import 'package:dental_lab_app/core/helper/local/cached_helper.dart';
 import 'package:dental_lab_app/core/helper/network_helper/api.dart';
 import 'package:dental_lab_app/features/auth/data/models/login_request_model.dart';
+import 'package:dental_lab_app/features/scanner_availability/data/models/save_scanner_availability_exception_request_model.dart';
+import 'package:dental_lab_app/features/scanner_availability/data/models/save_scanner_availability_rule_request_model.dart';
+import 'package:dental_lab_app/features/scanner_availability/data/models/scanner_availability_exception_model.dart';
+import 'package:dental_lab_app/features/scanner_availability/data/models/scanner_availability_rule_model.dart';
+import 'package:dental_lab_app/features/scanner_availability/data/models/scanner_day_model.dart';
+import 'package:dental_lab_app/features/case_priorities/data/models/case_priority_model.dart';
+import 'package:dental_lab_app/features/case_priorities/data/models/save_case_priority_request_model.dart';
 import 'package:dental_lab_app/features/cases/data/models/case_detail_model.dart';
 import 'package:dental_lab_app/features/cases/data/models/case_file_model.dart';
 import 'package:dental_lab_app/features/cases/data/models/case_list_item_model.dart';
@@ -13,6 +22,7 @@ import 'package:dental_lab_app/features/clinics/data/models/clinic_model.dart';
 import 'package:dental_lab_app/features/countries/data/models/country_model.dart';
 import 'package:dental_lab_app/features/clinics/data/models/create_clinic_request_model.dart';
 import 'package:dental_lab_app/features/clinics/data/models/update_clinic_request_model.dart';
+import 'package:dental_lab_app/features/doctors/data/models/approve_doctor_request_model.dart';
 import 'package:dental_lab_app/features/doctors/data/models/create_doctor_request_model.dart';
 import 'package:dental_lab_app/features/doctors/data/models/doctor_attachment_file_model.dart';
 import 'package:dental_lab_app/features/doctors/data/models/doctor_model.dart';
@@ -81,6 +91,11 @@ class ApiService {
 
     log('Laboratories response data: $responseData');
 
+    await CacheHelper.saveJson(
+      key: CacheKeys.cachedLaboratoriesList,
+      value: responseData,
+    );
+
     return (responseData as List<dynamic>)
         .map((e) => LaboratoryModel.fromJson(e as Map<String, dynamic>))
         .toList();
@@ -102,10 +117,7 @@ class ApiService {
   }) async {
     log('Fetching laboratory by id: $id');
 
-    final responseData = await Api().get(
-      Url: 'Laboratories/$id',
-      token: token,
-    );
+    final responseData = await Api().get(Url: 'Laboratories/$id', token: token);
 
     log('Laboratory by id response data: $responseData');
 
@@ -168,15 +180,17 @@ class ApiService {
 
     log('Clinics response data: $responseData');
 
+    await CacheHelper.saveJson(
+      key: CacheKeys.cachedClinicsList,
+      value: responseData,
+    );
+
     return (responseData as List<dynamic>)
         .map((e) => ClinicModel.fromJson(e as Map<String, dynamic>))
         .toList();
   }
 
-  Future<ClinicModel> getClinicById({
-    required String id,
-    String? token,
-  }) async {
+  Future<ClinicModel> getClinicById({required String id, String? token}) async {
     log('Fetching clinic by id: $id');
 
     final responseData = await Api().get(Url: 'Clinics/$id', token: token);
@@ -194,11 +208,7 @@ class ApiService {
 
     log('Sending Create Clinic request with: $body');
 
-    final response = await Api().post(
-      url: 'Clinics',
-      body: body,
-      token: token,
-    );
+    final response = await Api().post(url: 'Clinics', body: body, token: token);
 
     log('Create Clinic response data: ${response.data}');
 
@@ -242,6 +252,13 @@ class ApiService {
     final responseData = await Api().get(Url: url, token: token);
 
     log('Cities response data: $responseData');
+
+    if (countryId == null) {
+      await CacheHelper.saveJson(
+        key: CacheKeys.cachedCitiesList,
+        value: responseData,
+      );
+    }
 
     return (responseData as List<dynamic>)
         .map((e) => CityModel.fromJson(e as Map<String, dynamic>))
@@ -302,6 +319,11 @@ class ApiService {
 
     log('Countries response data: $responseData');
 
+    await CacheHelper.saveJson(
+      key: CacheKeys.cachedCountriesList,
+      value: responseData,
+    );
+
     return (responseData as List<dynamic>)
         .map((e) => CountryModel.fromJson(e as Map<String, dynamic>))
         .toList();
@@ -359,15 +381,17 @@ class ApiService {
 
     log('Doctors response data: $responseData');
 
+    await CacheHelper.saveJson(
+      key: CacheKeys.cachedDoctorsList,
+      value: responseData,
+    );
+
     return (responseData as List<dynamic>)
         .map((e) => DoctorModel.fromJson(e as Map<String, dynamic>))
         .toList();
   }
 
-  Future<DoctorModel> getDoctorById({
-    required String id,
-    String? token,
-  }) async {
+  Future<DoctorModel> getDoctorById({required String id, String? token}) async {
     log('Fetching doctor by id: $id');
 
     final responseData = await Api().get(Url: 'Doctors/$id', token: token);
@@ -385,11 +409,7 @@ class ApiService {
 
     log('Sending Create Doctor request with: $body');
 
-    final response = await Api().post(
-      url: 'Doctors',
-      body: body,
-      token: token,
-    );
+    final response = await Api().post(url: 'Doctors', body: body, token: token);
 
     log('Create Doctor response data: ${response.data}');
 
@@ -412,6 +432,50 @@ class ApiService {
     );
 
     log('Update Doctor response data: ${response.data}');
+
+    return DoctorModel.fromJson(response.data as Map<String, dynamic>);
+  }
+
+  /// `POST /Doctors/{id}/approve` — accepts a self-registered doctor,
+  /// optionally linking them to a clinic in the same call.
+  Future<DoctorModel> approveDoctor({
+    required String id,
+    required ApproveDoctorRequestModel approveDoctorRequestBody,
+    String? token,
+  }) async {
+    final body = approveDoctorRequestBody.toJson();
+
+    log('Sending Approve Doctor request with: $body');
+
+    final response = await Api().post(
+      url: 'Doctors/$id/approve',
+      body: body,
+      token: token,
+    );
+
+    log('Approve Doctor response data: ${response.data}');
+
+    return DoctorModel.fromJson(response.data as Map<String, dynamic>);
+  }
+
+  /// `POST /Doctors/{id}/reject` — turns a registration down. The API requires
+  /// a reason, which is shown back on the doctor's page.
+  Future<DoctorModel> rejectDoctor({
+    required String id,
+    required RejectDoctorRequestModel rejectDoctorRequestBody,
+    String? token,
+  }) async {
+    final body = rejectDoctorRequestBody.toJson();
+
+    log('Sending Reject Doctor request with: $body');
+
+    final response = await Api().post(
+      url: 'Doctors/$id/reject',
+      body: body,
+      token: token,
+    );
+
+    log('Reject Doctor response data: ${response.data}');
 
     return DoctorModel.fromJson(response.data as Map<String, dynamic>);
   }
@@ -473,6 +537,11 @@ class ApiService {
     final responseData = await Api().get(Url: 'Employees', token: token);
 
     log('Employees response data: $responseData');
+
+    await CacheHelper.saveJson(
+      key: CacheKeys.cachedEmployeesList,
+      value: responseData,
+    );
 
     return (responseData as List<dynamic>)
         .map((e) => EmployeeModel.fromJson(e as Map<String, dynamic>))
@@ -592,6 +661,11 @@ class ApiService {
 
     log('Roles response data: $responseData');
 
+    await CacheHelper.saveJson(
+      key: CacheKeys.cachedRolesList,
+      value: responseData,
+    );
+
     return (responseData as List<dynamic>)
         .map((e) => RoleModel.fromJson(e as Map<String, dynamic>))
         .toList();
@@ -599,12 +673,36 @@ class ApiService {
 
   // ----------------------------------------------------------------- users ---
 
-  Future<List<UserModel>> getUsers({String? token}) async {
+  Future<List<UserModel>> getUsers({
+    String? laboratoryId,
+    String? doctorId,
+    String? employeeId,
+    String? token,
+  }) async {
     log('Fetching users');
 
-    final responseData = await Api().get(Url: 'Users', token: token);
+    final query = <String>[];
+    if (laboratoryId != null && laboratoryId.isNotEmpty) {
+      query.add('laboratoryId=${Uri.encodeQueryComponent(laboratoryId)}');
+    }
+    if (doctorId != null && doctorId.isNotEmpty) {
+      query.add('doctorId=${Uri.encodeQueryComponent(doctorId)}');
+    }
+    if (employeeId != null && employeeId.isNotEmpty) {
+      query.add('employeeId=${Uri.encodeQueryComponent(employeeId)}');
+    }
+
+    final responseData = await Api().get(
+      Url: query.isEmpty ? 'Users' : 'Users?${query.join('&')}',
+      token: token,
+    );
 
     log('Users response data: $responseData');
+
+    await CacheHelper.saveJson(
+      key: CacheKeys.cachedUsersList,
+      value: responseData,
+    );
 
     return (responseData as List<dynamic>)
         .map((e) => UserModel.fromJson(e as Map<String, dynamic>))
@@ -711,12 +809,14 @@ class ApiService {
   }) async {
     log('Fetching restoration types');
 
-    final responseData = await Api().get(
-      Url: 'RestorationTypes',
-      token: token,
-    );
+    final responseData = await Api().get(Url: 'RestorationTypes', token: token);
 
     log('Restoration types response data: $responseData');
+
+    await CacheHelper.saveJson(
+      key: CacheKeys.cachedRestorationTypesList,
+      value: responseData,
+    );
 
     return (responseData as List<dynamic>)
         .map((e) => RestorationTypeModel.fromJson(e as Map<String, dynamic>))
@@ -776,6 +876,269 @@ class ApiService {
     log('Delete RestorationType response data: ${response.data}');
   }
 
+  // ------------------------------------------------------- case priorities ---
+
+  /// [includeInactive] is what the management screen uses — everywhere inside
+  /// cases reads the active set, so a retired priority is never offered.
+  Future<List<CasePriorityModel>> getCasePriorities({
+    bool includeInactive = false,
+    String? token,
+  }) async {
+    log('Fetching case priorities (includeInactive: $includeInactive)');
+
+    final responseData = await Api().get(
+      Url: 'case-priorities?includeInactive=$includeInactive',
+      token: token,
+    );
+
+    log('Case priorities response data: $responseData');
+
+    await CacheHelper.saveJson(
+      key: includeInactive
+          ? CacheKeys.cachedAllCasePrioritiesList
+          : CacheKeys.cachedCasePrioritiesList,
+      value: responseData,
+    );
+
+    return (responseData as List<dynamic>)
+        .map((e) => CasePriorityModel.fromJson(e as Map<String, dynamic>))
+        .toList();
+  }
+
+  Future<CasePriorityModel> createCasePriority({
+    required SaveCasePriorityRequestModel saveRequestBody,
+    String? token,
+  }) async {
+    final body = saveRequestBody.toJson();
+
+    log('Sending Create CasePriority request with: $body');
+
+    final response = await Api().post(
+      url: 'case-priorities',
+      body: body,
+      token: token,
+    );
+
+    log('Create CasePriority response data: ${response.data}');
+
+    return CasePriorityModel.fromJson(response.data as Map<String, dynamic>);
+  }
+
+  Future<CasePriorityModel> updateCasePriority({
+    required String id,
+    required SaveCasePriorityRequestModel saveRequestBody,
+    String? token,
+  }) async {
+    final body = saveRequestBody.toJson();
+
+    log('Sending Update CasePriority request with: $body');
+
+    final response = await Api().put(
+      url: 'case-priorities/$id',
+      body: body,
+      token: token,
+    );
+
+    log('Update CasePriority response data: ${response.data}');
+
+    return CasePriorityModel.fromJson(response.data as Map<String, dynamic>);
+  }
+
+  Future<void> deleteCasePriority({required String id, String? token}) async {
+    log('Deleting case priority: $id');
+
+    final response = await Api().delete(
+      url: 'case-priorities/$id',
+      token: token,
+    );
+
+    log('Delete CasePriority response data: ${response.data}');
+  }
+
+  /// Creates the lab's starting set of priorities. Only meaningful while the
+  /// list is still empty — the API owns what "defaults" means.
+  Future<List<CasePriorityModel>> seedDefaultCasePriorities({
+    String? token,
+  }) async {
+    log('Seeding default case priorities');
+
+    final response = await Api().post(
+      url: 'case-priorities/seed-defaults',
+      body: const <String, dynamic>{},
+      token: token,
+    );
+
+    log('Seed CasePriorities response data: ${response.data}');
+
+    return (response.data as List<dynamic>)
+        .map((e) => CasePriorityModel.fromJson(e as Map<String, dynamic>))
+        .toList();
+  }
+
+  // --------------------------------------------------- scanner availability ---
+
+  Future<List<ScannerAvailabilityRuleModel>> getScannerRules({
+    String? token,
+  }) async {
+    log('Fetching scanner availability rules');
+
+    final responseData = await Api().get(
+      Url: 'scanner-availability/rules',
+      token: token,
+    );
+
+    log('Scanner rules response data: $responseData');
+
+    await CacheHelper.saveJson(
+      key: CacheKeys.cachedScannerRulesList,
+      value: responseData,
+    );
+
+    return (responseData as List<dynamic>)
+        .map(
+          (e) =>
+              ScannerAvailabilityRuleModel.fromJson(e as Map<String, dynamic>),
+        )
+        .toList();
+  }
+
+  Future<ScannerAvailabilityRuleModel> createScannerRule({
+    required SaveScannerAvailabilityRuleRequestModel saveRequestBody,
+    String? token,
+  }) async {
+    final body = saveRequestBody.toJson();
+
+    log('Sending Create ScannerRule request with: $body');
+
+    final response = await Api().post(
+      url: 'scanner-availability/rules',
+      body: body,
+      token: token,
+    );
+
+    log('Create ScannerRule response data: ${response.data}');
+
+    return ScannerAvailabilityRuleModel.fromJson(
+      response.data as Map<String, dynamic>,
+    );
+  }
+
+  Future<ScannerAvailabilityRuleModel> updateScannerRule({
+    required String id,
+    required SaveScannerAvailabilityRuleRequestModel saveRequestBody,
+    String? token,
+  }) async {
+    final body = saveRequestBody.toJson();
+
+    log('Sending Update ScannerRule request with: $body');
+
+    final response = await Api().put(
+      url: 'scanner-availability/rules/$id',
+      body: body,
+      token: token,
+    );
+
+    log('Update ScannerRule response data: ${response.data}');
+
+    return ScannerAvailabilityRuleModel.fromJson(
+      response.data as Map<String, dynamic>,
+    );
+  }
+
+  Future<void> deleteScannerRule({required String id, String? token}) async {
+    log('Deleting scanner rule: $id');
+
+    final response = await Api().delete(
+      url: 'scanner-availability/rules/$id',
+      token: token,
+    );
+
+    log('Delete ScannerRule response data: ${response.data}');
+  }
+
+  /// [from] and [to] are `yyyy-MM-dd`; the window is required, since an
+  /// unbounded list of date overrides is not something the API offers.
+  Future<List<ScannerAvailabilityExceptionModel>> getScannerExceptions({
+    required String from,
+    required String to,
+    String? token,
+  }) async {
+    log('Fetching scanner exceptions from $from to $to');
+
+    final responseData = await Api().get(
+      Url: 'scanner-availability/exceptions?from=$from&to=$to',
+      token: token,
+    );
+
+    log('Scanner exceptions response data: $responseData');
+
+    return (responseData as List<dynamic>)
+        .map(
+          (e) => ScannerAvailabilityExceptionModel.fromJson(
+            e as Map<String, dynamic>,
+          ),
+        )
+        .toList();
+  }
+
+  /// Upserts the exception for its date — the API keys off the date, not an
+  /// id, so this both creates and edits.
+  Future<ScannerAvailabilityExceptionModel> saveScannerException({
+    required SaveScannerAvailabilityExceptionRequestModel saveRequestBody,
+    String? token,
+  }) async {
+    final body = saveRequestBody.toJson();
+
+    log('Sending Save ScannerException request with: $body');
+
+    final response = await Api().put(
+      url: 'scanner-availability/exceptions',
+      body: body,
+      token: token,
+    );
+
+    log('Save ScannerException response data: ${response.data}');
+
+    return ScannerAvailabilityExceptionModel.fromJson(
+      response.data as Map<String, dynamic>,
+    );
+  }
+
+  Future<void> deleteScannerException({
+    required String id,
+    String? token,
+  }) async {
+    log('Deleting scanner exception: $id');
+
+    final response = await Api().delete(
+      url: 'scanner-availability/exceptions/$id',
+      token: token,
+    );
+
+    log('Delete ScannerException response data: ${response.data}');
+  }
+
+  /// The rules and exceptions resolved into concrete days and slots — what the
+  /// doctor is offered. Read-only: the lab changes it by changing the rules.
+  Future<List<ScannerDayModel>> getScannerCalendar({
+    required String from,
+    required String to,
+    String? token,
+  }) async {
+    log('Fetching scanner calendar from $from to $to');
+
+    final responseData = await Api().get(
+      Url: 'scanner-availability/calendar?from=$from&to=$to',
+      token: token,
+    );
+
+    log('Scanner calendar response data: $responseData');
+
+    return (responseData as List<dynamic>)
+        .map((e) => ScannerDayModel.fromJson(e as Map<String, dynamic>))
+        .toList();
+  }
+
   // ----------------------------------------------------------- price tiers ---
 
   Future<List<PriceTierModel>> getPriceTiers({String? token}) async {
@@ -784,6 +1147,11 @@ class ApiService {
     final responseData = await Api().get(Url: 'PriceTiers', token: token);
 
     log('Price tiers response data: $responseData');
+
+    await CacheHelper.saveJson(
+      key: CacheKeys.cachedPriceTiersList,
+      value: responseData,
+    );
 
     return (responseData as List<dynamic>)
         .map((e) => PriceTierModel.fromJson(e as Map<String, dynamic>))
@@ -880,6 +1248,13 @@ class ApiService {
 
     log('Patients response data: $responseData');
 
+    if (query.isEmpty) {
+      await CacheHelper.saveJson(
+        key: CacheKeys.cachedPatientsList,
+        value: responseData,
+      );
+    }
+
     return (responseData as List<dynamic>)
         .map((e) => PatientModel.fromJson(e as Map<String, dynamic>))
         .toList();
@@ -906,7 +1281,11 @@ class ApiService {
 
     log('Sending Create Patient request with: $body');
 
-    final response = await Api().post(url: 'Patients', body: body, token: token);
+    final response = await Api().post(
+      url: 'Patients',
+      body: body,
+      token: token,
+    );
 
     log('Create Patient response data: ${response.data}');
 
@@ -939,7 +1318,9 @@ class ApiService {
     String? search,
     String? doctorId,
     String? clinicId,
-    int? priority,
+    String? patientId,
+    String? priorityId,
+    int? caseStatus,
     String? dueDateFrom,
     String? dueDateTo,
     String? token,
@@ -950,7 +1331,9 @@ class ApiService {
     if (search != null && search.isNotEmpty) params['Search'] = search;
     if (doctorId != null) params['DoctorId'] = doctorId;
     if (clinicId != null) params['ClinicId'] = clinicId;
-    if (priority != null) params['Priority'] = '$priority';
+    if (patientId != null) params['PatientId'] = patientId;
+    if (priorityId != null) params['PriorityId'] = priorityId;
+    if (caseStatus != null) params['CaseStatus'] = '$caseStatus';
     if (dueDateFrom != null) params['DueDateFrom'] = dueDateFrom;
     if (dueDateTo != null) params['DueDateTo'] = dueDateTo;
 
@@ -966,6 +1349,18 @@ class ApiService {
     final items = responseData is Map<String, dynamic>
         ? (responseData['items'] as List<dynamic>? ?? const [])
         : (responseData as List<dynamic>);
+
+    final isUnfiltered =
+        search == null &&
+        doctorId == null &&
+        clinicId == null &&
+        patientId == null &&
+        priorityId == null &&
+        dueDateFrom == null &&
+        dueDateTo == null;
+    if (isUnfiltered) {
+      await CacheHelper.saveJson(key: CacheKeys.cachedCasesList, value: items);
+    }
 
     return items
         .map((e) => CaseListItemModel.fromJson(e as Map<String, dynamic>))
@@ -1026,6 +1421,25 @@ class ApiService {
     log('Set Restoration stage response data: ${response.data}');
   }
 
+  Future<CaseDetailModel> setCaseStatus({
+    required String id,
+    required int caseStatus,
+    String? note,
+    String? token,
+  }) async {
+    log('Setting status $caseStatus for case $id');
+
+    final response = await Api().put(
+      url: 'Cases/$id/status',
+      body: {'caseStatus': caseStatus, 'note': note},
+      token: token,
+    );
+
+    log('Set Case status response data: ${response.data}');
+
+    return CaseDetailModel.fromJson(response.data as Map<String, dynamic>);
+  }
+
   Future<CaseFileModel> uploadCaseFile({
     required String id,
     required String filePath,
@@ -1056,7 +1470,10 @@ class ApiService {
   }) async {
     log('Fetching messages for case: $id');
 
-    final responseData = await Api().get(Url: 'Cases/$id/messages', token: token);
+    final responseData = await Api().get(
+      Url: 'Cases/$id/messages',
+      token: token,
+    );
 
     log('Case messages response data: $responseData');
 
@@ -1090,6 +1507,23 @@ class ApiService {
     log('Send Case message response data: ${response.data}');
 
     return CaseMessageModel.fromJson(response.data as Map<String, dynamic>);
+  }
+
+  /// `DELETE /Cases/{id}/messages/{messageId}` — the API allows this for an
+  /// admin or the message's own sender, and rejects anyone else.
+  Future<void> deleteCaseMessage({
+    required String id,
+    required String messageId,
+    String? token,
+  }) async {
+    log('Deleting message $messageId for case: $id');
+
+    final response = await Api().delete(
+      url: 'Cases/$id/messages/$messageId',
+      token: token,
+    );
+
+    log('Delete Case message response data: ${response.data}');
   }
 
   Future<void> deleteCaseFile({

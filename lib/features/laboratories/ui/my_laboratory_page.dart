@@ -1,9 +1,12 @@
 import 'package:dental_lab_app/core/di/dependency_injection.dart';
 import 'package:dental_lab_app/core/router/routes.dart';
-import 'package:dental_lab_app/core/theming/colors.dart';
+import 'package:dental_lab_app/core/theming/app_dimensions.dart';
+import 'package:dental_lab_app/core/theming/glass.dart';
 import 'package:dental_lab_app/core/theming/styles.dart';
 import 'package:dental_lab_app/core/widgets/app_drawer_widget.dart';
 import 'package:dental_lab_app/core/widgets/custom_circle_progress_indiacator_widget.dart';
+import 'package:dental_lab_app/core/widgets/glass/glass_app_bar.dart';
+import 'package:dental_lab_app/core/widgets/glass/glass_scaffold.dart';
 import 'package:dental_lab_app/features/laboratories/logic/laboratory_details/laboratory_details_cubit.dart';
 import 'package:dental_lab_app/features/laboratories/logic/laboratory_details/laboratory_details_state.dart';
 import 'package:dental_lab_app/features/laboratories/ui/laboratory_detail_page.dart';
@@ -38,13 +41,17 @@ class _MyLaboratoryView extends StatelessWidget {
             ? state.laboratory
             : null;
 
-        return Scaffold(
-          backgroundColor: AppColorsManger.background,
+        return GlassScaffold(
           drawer: const AppDrawerWidget(
             currentRoute: Routes.myLaboratoryScreen,
           ),
-          appBar: AppBar(
-            title: Text('مختبري', style: AppTextStyles.font18MediumText),
+          appBar: GlassAppBar(
+            title: Text(
+              'مختبري',
+              style: AppTextStyles.font18MediumText.copyWith(
+                color: context.glass.onGlass,
+              ),
+            ),
             actions: [
               if (laboratory != null)
                 IconButton(
@@ -78,7 +85,9 @@ class _MyLaboratoryView extends StatelessWidget {
                   child: Text(
                     message,
                     textAlign: TextAlign.center,
-                    style: AppTextStyles.font14RegularSecondary,
+                    style: AppTextStyles.font14RegularSecondary.copyWith(
+                      color: context.glass.onGlassMuted,
+                    ),
                   ),
                 ),
               ),
@@ -101,15 +110,18 @@ class _SwitchLaboratoryFooter extends StatelessWidget {
       children: [
         const SizedBox(height: 20),
         Container(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.all(AppSpacing.lg),
           decoration: BoxDecoration(
-            color: AppColorsManger.primarySurface,
-            borderRadius: BorderRadius.circular(16),
+            color: context.glass.accentSurface,
+            borderRadius: BorderRadius.circular(AppRadius.glass),
           ),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Icon(Icons.info_outline, color: AppColorsManger.primary),
+              Icon(
+                Icons.info_outline,
+                color: Theme.of(context).colorScheme.primary,
+              ),
               const SizedBox(width: 12),
               Expanded(
                 child: Text(

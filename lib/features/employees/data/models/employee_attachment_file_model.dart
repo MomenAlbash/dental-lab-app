@@ -3,11 +3,7 @@ class EmployeeAttachmentFileModel {
   final String? fileName;
   final String? filePath;
 
-  EmployeeAttachmentFileModel({
-    required this.id,
-    this.fileName,
-    this.filePath,
-  });
+  EmployeeAttachmentFileModel({required this.id, this.fileName, this.filePath});
 
   factory EmployeeAttachmentFileModel.fromJson(Map<String, dynamic> json) {
     return EmployeeAttachmentFileModel(

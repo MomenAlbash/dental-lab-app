@@ -1,4 +1,4 @@
-import 'package:dental_lab_app/core/theming/colors.dart';
+import 'package:dental_lab_app/core/theming/glass.dart';
 import 'package:dental_lab_app/core/theming/styles.dart';
 import 'package:dental_lab_app/features/cases/ui/widgets/shade_guide.dart';
 import 'package:flutter/material.dart';
@@ -34,11 +34,8 @@ class ToothShadeDiagram extends StatelessWidget {
   ) async {
     final picked = await showModalBottomSheet<String?>(
       context: context,
-      builder: (context) => _ShadePickerSheet(
-        title: zoneLabel,
-        guide: guide,
-        current: current,
-      ),
+      builder: (context) =>
+          _ShadePickerSheet(title: zoneLabel, guide: guide, current: current),
     );
     if (picked != null) onChanged(picked.isEmpty ? null : picked);
   }
@@ -55,7 +52,7 @@ class ToothShadeDiagram extends StatelessWidget {
               child: _ShadeZone(
                 label: 'العنقي',
                 value: cervical,
-                color: AppColorsManger.moreLightGray,
+                color: context.glass.mutedSurface,
                 onTap: () =>
                     _pickShade(context, 'العنقي', cervical, onCervicalChanged),
               ),
@@ -65,7 +62,7 @@ class ToothShadeDiagram extends StatelessWidget {
               child: _ShadeZone(
                 label: 'الوسط',
                 value: middle,
-                color: AppColorsManger.morelighterGray,
+                color: context.glass.mutedSurface,
                 onTap: () =>
                     _pickShade(context, 'الوسط', middle, onMiddleChanged),
               ),
@@ -75,7 +72,7 @@ class ToothShadeDiagram extends StatelessWidget {
               child: _ShadeZone(
                 label: 'القاطع',
                 value: incisal,
-                color: AppColorsManger.lightGray,
+                color: context.glass.mutedSurface,
                 onTap: () =>
                     _pickShade(context, 'القاطع', incisal, onIncisalChanged),
               ),
@@ -111,13 +108,18 @@ class _ShadeZone extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text(label, style: AppTextStyles.font14RegularSecondary),
+            Text(
+              label,
+              style: AppTextStyles.font14RegularSecondary.copyWith(
+                color: context.glass.onGlassMuted,
+              ),
+            ),
             if (value != null && value!.isNotEmpty) ...[
               const SizedBox(height: 2),
               Text(
                 value!,
                 style: AppTextStyles.font16MediumText.copyWith(
-                  color: AppColorsManger.primary,
+                  color: Theme.of(context).colorScheme.primary,
                 ),
               ),
             ],

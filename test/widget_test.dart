@@ -6,16 +6,16 @@ import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   Widget wrap() => MaterialApp(
-        theme: AppTheme.light,
-        locale: const Locale('ar'),
-        supportedLocales: const [Locale('ar'), Locale('en')],
-        localizationsDelegates: const [
-          GlobalMaterialLocalizations.delegate,
-          GlobalWidgetsLocalizations.delegate,
-          GlobalCupertinoLocalizations.delegate,
-        ],
-        home: const LoginPage(),
-      );
+    theme: AppTheme.light,
+    locale: const Locale('ar'),
+    supportedLocales: const [Locale('ar'), Locale('en')],
+    localizationsDelegates: const [
+      GlobalMaterialLocalizations.delegate,
+      GlobalWidgetsLocalizations.delegate,
+      GlobalCupertinoLocalizations.delegate,
+    ],
+    home: const LoginPage(),
+  );
 
   testWidgets('Login renders without overflow at 360dp width', (tester) async {
     // Small-phone breakpoint (~360dp width) per CLAUDE.md Section C.6.
@@ -32,8 +32,9 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('Login shows validation errors when submitted empty',
-      (tester) async {
+  testWidgets('Login shows validation errors when submitted empty', (
+    tester,
+  ) async {
     await tester.pumpWidget(wrap());
     await tester.pumpAndSettle();
 

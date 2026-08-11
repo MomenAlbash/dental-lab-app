@@ -12,6 +12,9 @@ class CountryModel {
   CountryModel({required this.id, this.name});
 
   factory CountryModel.fromJson(Map<String, dynamic> json) {
-    return CountryModel(id: json['id'] as String, name: json['name'] as String?);
+    return CountryModel(
+      id: json['id'] as String,
+      name: json['name'] as String?,
+    );
   }
 }

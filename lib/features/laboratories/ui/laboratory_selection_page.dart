@@ -1,8 +1,11 @@
 import 'package:dental_lab_app/core/di/dependency_injection.dart';
 import 'package:dental_lab_app/core/router/routes.dart';
-import 'package:dental_lab_app/core/theming/colors.dart';
+import 'package:dental_lab_app/core/theming/app_dimensions.dart';
+import 'package:dental_lab_app/core/theming/glass.dart';
 import 'package:dental_lab_app/core/theming/styles.dart';
 import 'package:dental_lab_app/core/widgets/custom_circle_progress_indiacator_widget.dart';
+import 'package:dental_lab_app/core/widgets/glass/glass_app_bar.dart';
+import 'package:dental_lab_app/core/widgets/glass/glass_scaffold.dart';
 import 'package:dental_lab_app/core/widgets/show_toast_widget.dart';
 import 'package:dental_lab_app/features/laboratories/data/models/laboratory_model.dart';
 import 'package:dental_lab_app/features/laboratories/logic/laboratory_selection/laboratory_selection_cubit.dart';
@@ -43,15 +46,17 @@ class _LaboratorySelectionView extends StatelessWidget {
       builder: (context, state) {
         final showsPicker = state is LaboratorySelectionLoaded;
 
-        return Scaffold(
-          backgroundColor: AppColorsManger.background,
+        return GlassScaffold(
           appBar: showsPicker
-              ? AppBar(
+              ? GlassAppBar(
                   title: Text(
                     'اختيار المخبر',
-                    style: AppTextStyles.font18MediumText,
+                    style: AppTextStyles.font18MediumText.copyWith(
+                      color: context.glass.onGlass,
+                    ),
                   ),
-                  automaticallyImplyLeading: false,
+                  centerTitle: true,
+                  leading: const SizedBox.shrink(),
                 )
               : null,
           body: SafeArea(
@@ -70,7 +75,9 @@ class _LaboratorySelectionView extends StatelessWidget {
                   child: Text(
                     message,
                     textAlign: TextAlign.center,
-                    style: AppTextStyles.font14RegularSecondary,
+                    style: AppTextStyles.font14RegularSecondary.copyWith(
+                      color: context.glass.onGlassMuted,
+                    ),
                   ),
                 ),
               ),
@@ -111,7 +118,9 @@ class _LaboratoryList extends StatelessWidget {
                   ),
                   child: Text(
                     'اختر المخبر الذي تريد العمل عليه',
-                    style: AppTextStyles.font14RegularSecondary,
+                    style: AppTextStyles.font14RegularSecondary.copyWith(
+                      color: context.glass.onGlassMuted,
+                    ),
                   ),
                 ),
                 Expanded(
@@ -155,62 +164,79 @@ class _LaboratoryCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final glass = context.glass;
+    final accent = Theme.of(context).colorScheme.primary;
+    final radius = BorderRadius.circular(AppRadius.glass);
+
     return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      decoration: BoxDecoration(
-        color: isSelected
-            ? AppColorsManger.primarySurface
-            : AppColorsManger.surface,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: isSelected ? AppColorsManger.primary : AppColorsManger.border,
-        ),
-      ),
-      clipBehavior: Clip.antiAlias,
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: onTap,
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Row(
-              children: [
-                Container(
-                  width: 44,
-                  height: 44,
-                  decoration: const BoxDecoration(
-                    color: AppColorsManger.primarySurface,
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(
-                    Icons.science_outlined,
-                    color: AppColorsManger.primary,
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        laboratory.name ?? '—',
-                        style: AppTextStyles.font16MediumText,
+      margin: const EdgeInsets.only(bottom: AppSpacing.md),
+      decoration: BoxDecoration(borderRadius: radius, boxShadow: glass.shadows),
+      child: ClipRRect(
+        borderRadius: radius,
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            color: isSelected ? accent.withValues(alpha: 0.12) : null,
+            gradient: isSelected ? null : glass.surfaceGradient,
+            border: Border.all(
+              color: isSelected ? accent : glass.strokeColor,
+              width: isSelected ? 1.5 : 1,
+            ),
+            borderRadius: radius,
+          ),
+          child: Material(
+            color: Colors.transparent,
+            child: InkWell(
+              onTap: onTap,
+              child: Padding(
+                padding: const EdgeInsets.all(AppSpacing.md),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 46,
+                      height: 46,
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        gradient: glass.brandGradient,
                       ),
-                      const SizedBox(height: 4),
-                      Text(
-                        (laboratory.address?.isEmpty ?? true)
-                            ? 'بدون عنوان'
-                            : laboratory.address!,
-                        style: AppTextStyles.font12RegularHint,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
+                      child: const Icon(
+                        Icons.science_outlined,
+                        color: Colors.white,
+                        size: 20,
                       ),
-                    ],
-                  ),
+                    ),
+                    const SizedBox(width: AppSpacing.md),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            laboratory.name ?? '—',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: AppTextStyles.font16MediumText.copyWith(
+                              color: glass.onGlass,
+                            ),
+                          ),
+                          const SizedBox(height: 3),
+                          Text(
+                            (laboratory.address?.isEmpty ?? true)
+                                ? 'بدون عنوان'
+                                : laboratory.address!,
+                            style: AppTextStyles.font12RegularHint.copyWith(
+                              color: glass.onGlassMuted,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ],
+                      ),
+                    ),
+                    if (isSelected) Icon(Icons.check_circle, color: accent),
+                  ],
                 ),
-                if (isSelected)
-                  const Icon(Icons.check_circle, color: AppColorsManger.primary),
-              ],
+              ),
             ),
           ),
         ),

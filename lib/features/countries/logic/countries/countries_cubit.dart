@@ -19,8 +19,10 @@ class CountriesCubit extends Cubit<CountriesState> {
     );
   }
 
-  List<CountryModel> get _currentList =>
-      switch (state) { CountriesLoaded(:final countries) => countries, _ => const [] };
+  List<CountryModel> get _currentList => switch (state) {
+    CountriesLoaded(:final countries) => countries,
+    _ => const [],
+  };
 
   Future<void> addCountry(String name) async {
     final countries = _currentList;
@@ -40,12 +42,18 @@ class CountriesCubit extends Cubit<CountriesState> {
 
     final result = await _countriesRepo.updateCountry(id: id, name: name);
 
-    result.fold((failure) {
-      emit(CountriesActionError(failure.errorMessage));
-      emit(CountriesLoaded(countries));
-    }, (updated) => emit(CountriesLoaded([
-          for (final c in countries) if (c.id == id) updated else c,
-        ])));
+    result.fold(
+      (failure) {
+        emit(CountriesActionError(failure.errorMessage));
+        emit(CountriesLoaded(countries));
+      },
+      (updated) => emit(
+        CountriesLoaded([
+          for (final c in countries)
+            if (c.id == id) updated else c,
+        ]),
+      ),
+    );
   }
 
   Future<void> removeCountry(String id) async {
@@ -54,9 +62,12 @@ class CountriesCubit extends Cubit<CountriesState> {
 
     final result = await _countriesRepo.deleteCountry(id);
 
-    result.fold((failure) {
-      emit(CountriesActionError(failure.errorMessage));
-      emit(CountriesLoaded(countries));
-    }, (_) => emit(CountriesLoaded(countries.where((c) => c.id != id).toList())));
+    result.fold(
+      (failure) {
+        emit(CountriesActionError(failure.errorMessage));
+        emit(CountriesLoaded(countries));
+      },
+      (_) => emit(CountriesLoaded(countries.where((c) => c.id != id).toList())),
+    );
   }
 }

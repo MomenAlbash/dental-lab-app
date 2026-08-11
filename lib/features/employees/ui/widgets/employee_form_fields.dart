@@ -1,4 +1,4 @@
-import 'package:dental_lab_app/core/theming/colors.dart';
+import 'package:dental_lab_app/core/theming/glass.dart';
 import 'package:dental_lab_app/core/theming/styles.dart';
 import 'package:dental_lab_app/core/widgets/custom_button_widget.dart';
 import 'package:dental_lab_app/core/widgets/custom_circle_progress_indiacator_widget.dart';
@@ -66,9 +66,9 @@ class EmployeeFormFields extends StatelessWidget {
             controller: firstNameController,
             hintText: 'أدخل الاسم الأول',
             textInputAction: TextInputAction.next,
-            prefixIcon: const Icon(
+            prefixIcon: Icon(
               Icons.person_outline,
-              color: AppColorsManger.textSecondary,
+              color: context.glass.onGlassMuted,
             ),
             validator: (value) => (value == null || value.trim().isEmpty)
                 ? 'الاسم الأول مطلوب'
@@ -80,9 +80,9 @@ class EmployeeFormFields extends StatelessWidget {
             controller: lastNameController,
             hintText: 'أدخل الاسم الأخير',
             textInputAction: TextInputAction.next,
-            prefixIcon: const Icon(
+            prefixIcon: Icon(
               Icons.person_outline,
-              color: AppColorsManger.textSecondary,
+              color: context.glass.onGlassMuted,
             ),
             validator: (value) => (value == null || value.trim().isEmpty)
                 ? 'الاسم الأخير مطلوب'
@@ -94,9 +94,9 @@ class EmployeeFormFields extends StatelessWidget {
             controller: nationalNumberController,
             hintText: 'أدخل الرقم الوطني (اختياري)',
             textInputAction: TextInputAction.next,
-            prefixIcon: const Icon(
+            prefixIcon: Icon(
               Icons.badge_outlined,
-              color: AppColorsManger.textSecondary,
+              color: context.glass.onGlassMuted,
             ),
             validator: (_) => null,
           ),
@@ -106,9 +106,9 @@ class EmployeeFormFields extends StatelessWidget {
             controller: codeController,
             hintText: 'أدخل رمز الموظف (اختياري)',
             textInputAction: TextInputAction.next,
-            prefixIcon: const Icon(
+            prefixIcon: Icon(
               Icons.numbers_outlined,
-              color: AppColorsManger.textSecondary,
+              color: context.glass.onGlassMuted,
             ),
             validator: (_) => null,
           ),
@@ -118,9 +118,9 @@ class EmployeeFormFields extends StatelessWidget {
             controller: phoneController,
             hintText: 'أدخل رقم الهاتف (اختياري)',
             textInputAction: TextInputAction.next,
-            prefixIcon: const Icon(
+            prefixIcon: Icon(
               Icons.phone_outlined,
-              color: AppColorsManger.textSecondary,
+              color: context.glass.onGlassMuted,
             ),
             validator: (_) => null,
           ),
@@ -130,9 +130,9 @@ class EmployeeFormFields extends StatelessWidget {
             controller: addressController,
             hintText: 'أدخل العنوان (اختياري)',
             textInputAction: TextInputAction.next,
-            prefixIcon: const Icon(
+            prefixIcon: Icon(
               Icons.location_on_outlined,
-              color: AppColorsManger.textSecondary,
+              color: context.glass.onGlassMuted,
             ),
             validator: (_) => null,
           ),
@@ -142,9 +142,9 @@ class EmployeeFormFields extends StatelessWidget {
             controller: bankNameController,
             hintText: 'أدخل اسم البنك (اختياري)',
             textInputAction: TextInputAction.next,
-            prefixIcon: const Icon(
+            prefixIcon: Icon(
               Icons.account_balance_outlined,
-              color: AppColorsManger.textSecondary,
+              color: context.glass.onGlassMuted,
             ),
             validator: (_) => null,
           ),
@@ -154,9 +154,9 @@ class EmployeeFormFields extends StatelessWidget {
             controller: bankAccountController,
             hintText: 'أدخل رقم الحساب البنكي (اختياري)',
             textInputAction: TextInputAction.done,
-            prefixIcon: const Icon(
+            prefixIcon: Icon(
               Icons.credit_card_outlined,
-              color: AppColorsManger.textSecondary,
+              color: context.glass.onGlassMuted,
             ),
             validator: (_) => null,
           ),
@@ -188,8 +188,6 @@ class EmployeeFormFields extends StatelessWidget {
             CustomButtonWidget(
               onPressed: onSave,
               buttonText: isEditing ? 'حفظ التعديلات' : 'إضافة الموظف',
-              textColor: Colors.white,
-              backgroundColor: AppColorsManger.primary,
             ),
         ],
       ),
@@ -232,12 +230,12 @@ class _PickerField extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
         decoration: BoxDecoration(
-          color: AppColorsManger.moreLightGray,
+          color: context.glass.mutedSurface,
           borderRadius: BorderRadius.circular(16),
         ),
         child: Row(
           children: [
-            Icon(icon, color: AppColorsManger.textSecondary),
+            Icon(icon, color: context.glass.onGlassMuted),
             const SizedBox(width: 12),
             Text(
               value ?? hintText,
@@ -267,16 +265,16 @@ class _CityDropdown extends StatelessWidget {
         return DropdownButtonFormField<String>(
           initialValue: value,
           isExpanded: true,
-          icon: const Icon(
+          icon: Icon(
             Icons.keyboard_arrow_down,
-            color: AppColorsManger.textSecondary,
+            color: context.glass.onGlassMuted,
           ),
           decoration: InputDecoration(
             filled: true,
-            fillColor: AppColorsManger.moreLightGray,
-            prefixIcon: const Icon(
+            fillColor: context.glass.mutedSurface,
+            prefixIcon: Icon(
               Icons.location_city_outlined,
-              color: AppColorsManger.textSecondary,
+              color: context.glass.onGlassMuted,
             ),
             contentPadding: const EdgeInsets.symmetric(
               horizontal: 20,
@@ -291,7 +289,9 @@ class _CityDropdown extends StatelessWidget {
             state is CitiesLoading
                 ? 'جارٍ تحميل المدن...'
                 : 'اختر المدينة (اختياري)',
-            style: AppTextStyles.font14RegularSecondary,
+            style: AppTextStyles.font14RegularSecondary.copyWith(
+              color: context.glass.onGlassMuted,
+            ),
           ),
           items: (cities ?? [])
               .map(

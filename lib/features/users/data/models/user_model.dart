@@ -69,6 +69,29 @@ class UserModel {
   String get linkedName =>
       type.isDoctor ? (doctor?.fullName ?? '') : (employee?.fullName ?? '');
 
+  /// Photo of the linked employee/doctor record, depending on [type]. A user
+  /// account has no photo of its own — it borrows the one from whichever
+  /// record it's bound to.
+  String? get imagePath =>
+      type.isDoctor ? doctor?.imagePath : employee?.imagePath;
+
+  /// Up to two leading characters of [linkedName], used as the avatar
+  /// fallback when there is no photo.
+  String get initials {
+    final name = linkedName.trim();
+    if (name.isEmpty) {
+      final u = username?.trim() ?? '';
+      return u.isEmpty ? '؟' : u[0].toUpperCase();
+    }
+    final parts = name.split(RegExp(r'\s+')).where((part) => part.isNotEmpty);
+    // `runes.first` rather than `part[0]`: indexing returns a UTF-16 code
+    // unit, which would split a surrogate pair.
+    return parts
+        .map((part) => String.fromCharCode(part.runes.first))
+        .take(2)
+        .join();
+  }
+
   factory UserModel.fromJson(Map<String, dynamic> json) {
     return UserModel(
       id: json['id'] as String,

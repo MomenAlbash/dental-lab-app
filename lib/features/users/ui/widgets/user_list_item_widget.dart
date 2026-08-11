@@ -1,7 +1,10 @@
-import 'package:dental_lab_app/core/theming/colors.dart';
+import 'package:dental_lab_app/core/theming/app_dimensions.dart';
+import 'package:dental_lab_app/core/theming/glass.dart';
 import 'package:dental_lab_app/core/theming/styles.dart';
 import 'package:flutter/material.dart';
 
+/// A user row — matches the doctor/employee/role card: an accent rail, an
+/// icon avatar, then username/role and status badges.
 class UserListItemWidget extends StatelessWidget {
   const UserListItemWidget({
     super.key,
@@ -24,76 +27,127 @@ class UserListItemWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final glass = context.glass;
+    final radius = BorderRadius.circular(AppRadius.glass);
+    final railColor = isActive
+        ? Theme.of(context).colorScheme.primary
+        : glass.onGlassMuted;
+
     return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      decoration: BoxDecoration(
-        color: AppColorsManger.surface,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColorsManger.border),
-      ),
-      clipBehavior: Clip.antiAlias,
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: onTap,
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Row(
-              children: [
-                Container(
-                  width: 44,
-                  height: 44,
-                  decoration: const BoxDecoration(
-                    color: AppColorsManger.primarySurface,
-                    shape: BoxShape.circle,
-                  ),
-                  child: Icon(
-                    isDoctorType ? Icons.medical_services_outlined : Icons.badge_outlined,
-                    color: AppColorsManger.primary,
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(username, style: AppTextStyles.font16MediumText),
-                      const SizedBox(height: 4),
-                      Text(
-                        roleName.isEmpty ? 'بدون دور' : roleName,
-                        style: AppTextStyles.font12RegularHint,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      const SizedBox(height: 6),
-                      Row(
-                        children: [
-                          _Badge(
-                            label: isDoctorType ? 'طبيب' : 'موظف',
-                            color: AppColorsManger.info,
-                          ),
-                          const SizedBox(width: 6),
-                          _Badge(
-                            label: isActive ? 'مفعّل' : 'موقوف',
-                            color: isActive ? AppColorsManger.success : AppColorsManger.textHint,
-                          ),
-                          if (isAdmin) ...[
-                            const SizedBox(width: 6),
-                            const _Badge(label: 'مدير', color: AppColorsManger.warning),
+      margin: const EdgeInsets.only(bottom: AppSpacing.md),
+      decoration: BoxDecoration(borderRadius: radius, boxShadow: glass.shadows),
+      child: ClipRRect(
+        borderRadius: radius,
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            gradient: glass.surfaceGradient,
+            border: Border.all(color: glass.strokeColor),
+            borderRadius: radius,
+          ),
+          child: Material(
+            color: Colors.transparent,
+            child: InkWell(
+              onTap: onTap,
+              child: IntrinsicHeight(
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Container(width: 4, color: railColor),
+                    Expanded(
+                      child: Padding(
+                        padding: const EdgeInsets.all(AppSpacing.md),
+                        child: Row(
+                          children: [
+                            _Avatar(isDoctorType: isDoctorType),
+                            const SizedBox(width: AppSpacing.md),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text(
+                                    username,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: AppTextStyles.font16MediumText
+                                        .copyWith(color: glass.onGlass),
+                                  ),
+                                  const SizedBox(height: 3),
+                                  Text(
+                                    roleName.isEmpty ? 'بدون دور' : roleName,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: AppTextStyles.font12RegularHint
+                                        .copyWith(color: glass.onGlassMuted),
+                                  ),
+                                  const SizedBox(height: AppSpacing.sm),
+                                  Wrap(
+                                    spacing: 6,
+                                    runSpacing: 6,
+                                    children: [
+                                      _Badge(
+                                        label: isDoctorType ? 'طبيب' : 'موظف',
+                                        color: glass.info,
+                                      ),
+                                      _Badge(
+                                        label: isActive ? 'مفعّل' : 'موقوف',
+                                        color: isActive
+                                            ? glass.success
+                                            : glass.onGlassMuted,
+                                      ),
+                                      if (isAdmin)
+                                        _Badge(
+                                          label: 'مدير',
+                                          color: glass.warning,
+                                        ),
+                                    ],
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(width: AppSpacing.xs),
+                            IconButton(
+                              tooltip: 'حذف',
+                              onPressed: onDelete,
+                              icon: Icon(
+                                Icons.delete_outline,
+                                color: glass.error,
+                              ),
+                            ),
                           ],
-                        ],
+                        ),
                       ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
-                IconButton(
-                  onPressed: onDelete,
-                  icon: const Icon(Icons.delete_outline, color: AppColorsManger.error),
-                ),
-              ],
+              ),
             ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _Avatar extends StatelessWidget {
+  const _Avatar({required this.isDoctorType});
+
+  final bool isDoctorType;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 46,
+      height: 46,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        gradient: context.glass.brandGradient,
+      ),
+      child: Icon(
+        isDoctorType ? Icons.medical_services_outlined : Icons.badge_outlined,
+        color: Colors.white,
+        size: 20,
       ),
     );
   }
@@ -111,7 +165,7 @@ class _Badge extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(AppRadius.full),
       ),
       child: Text(
         label,

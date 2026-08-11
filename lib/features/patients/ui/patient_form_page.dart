@@ -1,21 +1,20 @@
 import 'package:dental_lab_app/core/di/dependency_injection.dart';
-import 'package:dental_lab_app/core/router/routes.dart';
-import 'package:dental_lab_app/core/theming/colors.dart';
+import 'package:dental_lab_app/core/theming/glass.dart';
 import 'package:dental_lab_app/core/theming/styles.dart';
-import 'package:dental_lab_app/core/widgets/custom_button_widget.dart';
-import 'package:dental_lab_app/core/widgets/custom_text_field_widget.dart';
+import 'package:dental_lab_app/core/widgets/glass/glass_app_bar.dart';
+import 'package:dental_lab_app/core/widgets/glass/glass_save_bar.dart';
+import 'package:dental_lab_app/core/widgets/glass/glass_scaffold.dart';
 import 'package:dental_lab_app/core/widgets/show_toast_widget.dart';
-import 'package:dental_lab_app/features/cases/ui/widgets/case_lookup_dropdown.dart';
-import 'package:dental_lab_app/features/doctors/data/models/doctor_model.dart';
+import 'package:dental_lab_app/core/widgets/unsaved_changes_guard.dart';
 import 'package:dental_lab_app/features/doctors/logic/doctors/doctors_cubit.dart';
 import 'package:dental_lab_app/features/doctors/logic/doctors/doctors_state.dart';
 import 'package:dental_lab_app/features/patients/data/models/create_patient_request_model.dart';
 import 'package:dental_lab_app/features/patients/data/models/patient_gender.dart';
 import 'package:dental_lab_app/features/patients/logic/patient_form/patient_form_cubit.dart';
 import 'package:dental_lab_app/features/patients/logic/patient_form/patient_form_state.dart';
+import 'package:dental_lab_app/features/patients/ui/widgets/patient_form_fields.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:go_router/go_router.dart';
 
 /// Add-patient screen (`POST /api/clinic/Patients`). Only `doctorId` and
 /// `firstName` are required by the API.
@@ -49,12 +48,23 @@ class _PatientFormViewState extends State<_PatientFormView> {
   final _notesController = TextEditingController();
 
   String? _doctorId;
-  String? _clinicId;
   PatientGender _gender = PatientGender.male;
   DateTime? _dateOfBirth;
 
   @override
+  void initState() {
+    super.initState();
+    // The preview mirrors the name as it is typed.
+    _firstNameController.addListener(_onNameChanged);
+    _lastNameController.addListener(_onNameChanged);
+  }
+
+  void _onNameChanged() => setState(() {});
+
+  @override
   void dispose() {
+    _firstNameController.removeListener(_onNameChanged);
+    _lastNameController.removeListener(_onNameChanged);
     _firstNameController.dispose();
     _lastNameController.dispose();
     _phoneController.dispose();
@@ -86,17 +96,41 @@ class _PatientFormViewState extends State<_PatientFormView> {
     if (picked != null) setState(() => _dateOfBirth = picked);
   }
 
+  /// Resolved fresh at save time rather than cached in state: the clinic
+  /// always follows whichever doctor is currently selected.
+  String? _clinicIdFor(String doctorId) {
+    final doctorsState = context.read<DoctorsCubit>().state;
+    if (doctorsState is! DoctorsLoaded) return null;
+    for (final doctor in doctorsState.doctors) {
+      if (doctor.id == doctorId) return doctor.clinicId;
+    }
+    return null;
+  }
+
+  /// Whether anything has been entered — asked when the user tries to leave,
+  /// so a discarded entry is never silent. Create-only, so everything is
+  /// compared against the empty defaults the form opens with.
+  bool get _isDirty =>
+      isTextDirty(_firstNameController) ||
+      isTextDirty(_lastNameController) ||
+      isTextDirty(_phoneController) ||
+      isTextDirty(_notesController) ||
+      _doctorId != null ||
+      _gender != PatientGender.male ||
+      _dateOfBirth != null;
+
   void _onSavePressed() {
     if (!(_formKey.currentState?.validate() ?? false)) return;
-    if (_doctorId == null) {
+    final doctorId = _doctorId;
+    if (doctorId == null) {
       ShowToast(message: 'الرجاء اختيار الطبيب', state: toastState.error);
       return;
     }
 
     context.read<PatientFormCubit>().createPatient(
       CreatePatientRequestModel(
-        doctorId: _doctorId!,
-        clinicId: _clinicId,
+        doctorId: doctorId,
+        clinicId: _clinicIdFor(doctorId),
         firstName: _firstNameController.text.trim(),
         lastName: _optional(_lastNameController),
         gender: _gender.apiValue,
@@ -109,346 +143,96 @@ class _PatientFormViewState extends State<_PatientFormView> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppColorsManger.background,
-      appBar: AppBar(
-        title: Text('إضافة مريض', style: AppTextStyles.font18MediumText),
-      ),
-      body: SafeArea(
-        child: BlocConsumer<PatientFormCubit, PatientFormState>(
-          listener: (context, state) {
-            switch (state) {
-              case PatientFormSuccess():
-                ShowToast(message: 'تمت إضافة المريض', state: toastState.success);
-                Navigator.of(context).pop(true);
-              case PatientFormError(:final message):
-                ShowToast(message: message, state: toastState.error);
-              default:
-                break;
-            }
-          },
-          builder: (context, state) {
-            final isSubmitting = state is PatientFormSubmitting;
+    return UnsavedChangesGuard(
+      isDirty: () => _isDirty,
+      child: GlassScaffold(
+        appBar: GlassAppBar(
+          title: Text(
+            'إضافة مريض',
+            style: AppTextStyles.font18MediumText.copyWith(
+              color: context.glass.onGlass,
+            ),
+          ),
+        ),
+        bottomNavigationBar: BlocBuilder<PatientFormCubit, PatientFormState>(
+          builder: (context, state) => GlassSaveBar(
+            isSubmitting: state is PatientFormSubmitting,
+            label: 'إضافة المريض',
+            onSave: _onSavePressed,
+          ),
+        ),
+        body: SafeArea(
+          child: BlocConsumer<PatientFormCubit, PatientFormState>(
+            listener: (context, state) {
+              switch (state) {
+                case PatientFormSuccess():
+                  ShowToast(
+                    message: 'تمت إضافة المريض',
+                    state: toastState.success,
+                  );
+                  Navigator.of(context).pop(true);
+                case PatientFormError(:final message):
+                  ShowToast(message: message, state: toastState.error);
+                default:
+                  break;
+              }
+            },
+            builder: (context, state) {
+              return LayoutBuilder(
+                builder: (context, constraints) {
+                  final isWide = constraints.maxWidth >= 600;
+                  final contentWidth = isWide ? 560.0 : constraints.maxWidth;
 
-            return LayoutBuilder(
-              builder: (context, constraints) {
-                final isWide = constraints.maxWidth >= 600;
-                final contentWidth = isWide ? 560.0 : constraints.maxWidth;
-
-                return Center(
-                  child: SingleChildScrollView(
-                    padding: EdgeInsets.symmetric(
-                      horizontal: isWide ? 32 : 20,
-                      vertical: 20,
-                    ),
-                    child: ConstrainedBox(
-                      constraints: BoxConstraints(maxWidth: contentWidth),
-                      child: Form(
-                        key: _formKey,
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const _Label('الطبيب'),
-                            BlocBuilder<DoctorsCubit, DoctorsState>(
-                              builder: (context, state) {
-                                final doctors =
-                                    state is DoctorsLoaded ? state.doctors : null;
-
-                                if (doctors != null && doctors.isEmpty) {
-                                  return _NoDoctorsNotice(
-                                    onAddDoctor: () async {
-                                      final added = await context.push<bool>(
-                                        Routes.doctorFormScreen,
-                                      );
-                                      if (added == true && context.mounted) {
-                                        context.read<DoctorsCubit>().getDoctors();
-                                      }
-                                    },
-                                  );
+                  return Center(
+                    child: SingleChildScrollView(
+                      padding: EdgeInsets.fromLTRB(
+                        isWide ? 32 : 20,
+                        20,
+                        isWide ? 32 : 20,
+                        // Clears the pinned save bar.
+                        110,
+                      ),
+                      child: ConstrainedBox(
+                        constraints: BoxConstraints(maxWidth: contentWidth),
+                        child: BlocBuilder<DoctorsCubit, DoctorsState>(
+                          builder: (context, doctorsState) {
+                            String? clinicName;
+                            if (doctorsState is DoctorsLoaded &&
+                                _doctorId != null) {
+                              for (final doctor in doctorsState.doctors) {
+                                if (doctor.id == _doctorId) {
+                                  clinicName = doctor.clinicName;
+                                  break;
                                 }
+                              }
+                            }
 
-                                return CaseLookupDropdown(
-                                  value: _doctorId,
-                                  icon: Icons.medical_services_outlined,
-                                  hintText: state is DoctorsLoading
-                                      ? 'جارٍ تحميل الأطباء...'
-                                      : 'اختر الطبيب',
-                                  items: doctors
-                                      ?.map(
-                                        (d) => DropdownMenuItem(
-                                          value: d.id,
-                                          child: Text(d.fullName),
-                                        ),
-                                      )
-                                      .toList(),
-                                  onChanged: (value) => setState(() {
-                                    _doctorId = value;
-                                    _clinicId = null;
-                                    if (value != null && doctors != null) {
-                                      for (final d in doctors) {
-                                        if (d.id == value) {
-                                          _clinicId = d.clinicId;
-                                          break;
-                                        }
-                                      }
-                                    }
-                                  }),
-                                );
-                              },
-                            ),
-                            const SizedBox(height: 16),
-                            const _Label('العيادة'),
-                            BlocBuilder<DoctorsCubit, DoctorsState>(
-                              builder: (context, state) {
-                                final doctors =
-                                    state is DoctorsLoaded ? state.doctors : null;
-                                DoctorModel? selectedDoctor;
-                                if (doctors != null && _doctorId != null) {
-                                  for (final d in doctors) {
-                                    if (d.id == _doctorId) {
-                                      selectedDoctor = d;
-                                      break;
-                                    }
-                                  }
-                                }
-
-                                final String hintText;
-                                if (_doctorId == null) {
-                                  hintText = 'اختر الطبيب أولاً';
-                                } else if (selectedDoctor?.clinicName == null) {
-                                  hintText = 'الطبيب غير مرتبط بعيادة';
-                                } else {
-                                  hintText = '';
-                                }
-
-                                return _ReadOnlyField(
-                                  icon: Icons.local_hospital_outlined,
-                                  text: selectedDoctor?.clinicName ?? hintText,
-                                  isPlaceholder: selectedDoctor?.clinicName == null,
-                                );
-                              },
-                            ),
-                            const SizedBox(height: 16),
-                            const _Label('الاسم الأول'),
-                            AppTextFormField(
-                              controller: _firstNameController,
-                              hintText: 'أدخل الاسم الأول',
-                              textInputAction: TextInputAction.next,
-                              prefixIcon: const Icon(
-                                Icons.person_outline,
-                                color: AppColorsManger.textSecondary,
-                              ),
-                              validator: (value) =>
-                                  (value == null || value.trim().isEmpty)
-                                  ? 'الاسم الأول مطلوب'
-                                  : null,
-                            ),
-                            const SizedBox(height: 16),
-                            const _Label('الاسم الأخير'),
-                            AppTextFormField(
-                              controller: _lastNameController,
-                              hintText: 'أدخل الاسم الأخير (اختياري)',
-                              textInputAction: TextInputAction.next,
-                              prefixIcon: const Icon(
-                                Icons.person_outline,
-                                color: AppColorsManger.textSecondary,
-                              ),
-                              validator: (_) => null,
-                            ),
-                            const SizedBox(height: 16),
-                            const _Label('الجنس'),
-                            SegmentedButton<PatientGender>(
-                              segments: PatientGender.values
-                                  .map(
-                                    (g) => ButtonSegment(
-                                      value: g,
-                                      label: Text(g.arabicLabel),
-                                    ),
-                                  )
-                                  .toList(),
-                              selected: {_gender},
-                              showSelectedIcon: false,
-                              onSelectionChanged: (s) =>
-                                  setState(() => _gender = s.first),
-                            ),
-                            const SizedBox(height: 16),
-                            const _Label('تاريخ الميلاد'),
-                            InkWell(
-                              onTap: _pickDateOfBirth,
-                              borderRadius: BorderRadius.circular(16),
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 20,
-                                  vertical: 18,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: AppColorsManger.moreLightGray,
-                                  borderRadius: BorderRadius.circular(16),
-                                ),
-                                child: Row(
-                                  children: [
-                                    const Icon(
-                                      Icons.cake_outlined,
-                                      color: AppColorsManger.textSecondary,
-                                    ),
-                                    const SizedBox(width: 12),
-                                    Text(
-                                      _formatDate(_dateOfBirth) ??
-                                          'اختر تاريخ الميلاد (اختياري)',
-                                      style: _dateOfBirth == null
-                                          ? AppTextStyles.font14RegularSecondary
-                                          : AppTextStyles.font14MediumText,
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                            const SizedBox(height: 16),
-                            const _Label('رقم الهاتف'),
-                            AppTextFormField(
-                              controller: _phoneController,
-                              hintText: 'أدخل رقم الهاتف (اختياري)',
-                              textInputAction: TextInputAction.next,
-                              prefixIcon: const Icon(
-                                Icons.phone_outlined,
-                                color: AppColorsManger.textSecondary,
-                              ),
-                              validator: (_) => null,
-                            ),
-                            const SizedBox(height: 16),
-                            const _Label('ملاحظات'),
-                            AppTextFormField(
-                              controller: _notesController,
-                              hintText: 'ملاحظات (اختياري)',
-                              textInputAction: TextInputAction.done,
-                              prefixIcon: const Icon(
-                                Icons.notes_outlined,
-                                color: AppColorsManger.textSecondary,
-                              ),
-                              validator: (_) => null,
-                            ),
-                            const SizedBox(height: 24),
-                            if (isSubmitting)
-                              const Center(child: CircularProgressIndicator())
-                            else
-                              CustomButtonWidget(
-                                onPressed: _onSavePressed,
-                                buttonText: 'إضافة المريض',
-                                textColor: Colors.white,
-                                backgroundColor: AppColorsManger.primary,
-                              ),
-                          ],
+                            return PatientFormFields(
+                              formKey: _formKey,
+                              firstNameController: _firstNameController,
+                              lastNameController: _lastNameController,
+                              phoneController: _phoneController,
+                              notesController: _notesController,
+                              gender: _gender,
+                              onGenderChanged: (value) =>
+                                  setState(() => _gender = value),
+                              dateOfBirth: _formatDate(_dateOfBirth),
+                              onPickDate: _pickDateOfBirth,
+                              doctorId: _doctorId,
+                              onDoctorChanged: (value) =>
+                                  setState(() => _doctorId = value),
+                              clinicName: clinicName,
+                            );
+                          },
                         ),
                       ),
                     ),
-                  ),
-                );
-              },
-            );
-          },
+                  );
+                },
+              );
+            },
+          ),
         ),
-      ),
-    );
-  }
-}
-
-/// Non-interactive field — used for the clinic once it's derived from the
-/// selected doctor, since there's nothing left for the user to pick.
-class _ReadOnlyField extends StatelessWidget {
-  const _ReadOnlyField({
-    required this.icon,
-    required this.text,
-    this.isPlaceholder = false,
-  });
-
-  final IconData icon;
-  final String text;
-  final bool isPlaceholder;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
-      decoration: BoxDecoration(
-        color: AppColorsManger.moreLightGray,
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Row(
-        children: [
-          Icon(icon, color: AppColorsManger.textSecondary),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Text(
-              text,
-              style: isPlaceholder
-                  ? AppTextStyles.font14RegularSecondary
-                  : AppTextStyles.font14MediumText,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-/// Shown instead of the doctor dropdown when the lab has no doctors yet —
-/// picking one is required, so this is a dead end without a way out.
-class _NoDoctorsNotice extends StatelessWidget {
-  const _NoDoctorsNotice({required this.onAddDoctor});
-
-  final VoidCallback onAddDoctor;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: AppColorsManger.moreLightGray,
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              const Icon(
-                Icons.info_outline,
-                color: AppColorsManger.textSecondary,
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  'ما في أطباء مسجّلين بعد — لازم تضيف طبيب أولاً',
-                  style: AppTextStyles.font14RegularSecondary,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          OutlinedButton.icon(
-            onPressed: onAddDoctor,
-            icon: const Icon(Icons.add),
-            label: const Text('إضافة طبيب'),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _Label extends StatelessWidget {
-  const _Label(this.text);
-
-  final String text;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: Align(
-        alignment: AlignmentDirectional.centerStart,
-        child: Text(text, style: AppTextStyles.font14MediumText),
       ),
     );
   }

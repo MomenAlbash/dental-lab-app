@@ -35,12 +35,37 @@ class CaseMessagesCubit extends Cubit<CaseMessagesState> {
       filePath: filePath,
     );
 
+    result.fold((failure) {
+      emit(CaseMessagesActionError(failure.errorMessage));
+      emit(CaseMessagesLoaded(messages));
+    }, (sent) => emit(CaseMessagesLoaded([...messages, sent])));
+  }
+
+  /// Deletes one message. The API only permits this for an admin or the
+  /// sender, so a rejection here is surfaced as a toast and the list is left
+  /// untouched.
+  Future<void> deleteMessage(String messageId) async {
+    final current = state;
+    final messages = current is CaseMessagesLoaded
+        ? current.messages
+        : const <CaseMessageModel>[];
+
+    final result = await _casesRepo.deleteMessage(
+      id: _caseId,
+      messageId: messageId,
+    );
+
     result.fold(
       (failure) {
         emit(CaseMessagesActionError(failure.errorMessage));
         emit(CaseMessagesLoaded(messages));
       },
-      (sent) => emit(CaseMessagesLoaded([...messages, sent])),
+      (_) {
+        emit(const CaseMessageDeleted());
+        emit(
+          CaseMessagesLoaded(messages.where((m) => m.id != messageId).toList()),
+        );
+      },
     );
   }
 }

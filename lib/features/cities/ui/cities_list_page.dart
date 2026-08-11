@@ -1,13 +1,20 @@
 import 'package:dental_lab_app/core/di/dependency_injection.dart';
 import 'package:dental_lab_app/core/router/routes.dart';
-import 'package:dental_lab_app/core/theming/colors.dart';
+import 'package:dental_lab_app/core/theming/app_dimensions.dart';
+import 'package:dental_lab_app/core/widgets/adaptive_collection.dart';
+import 'package:dental_lab_app/core/theming/app_motion.dart';
+import 'package:dental_lab_app/core/theming/glass.dart';
 import 'package:dental_lab_app/core/theming/styles.dart';
 import 'package:dental_lab_app/core/widgets/app_drawer_widget.dart';
 import 'package:dental_lab_app/core/widgets/confirm_dialog_widget.dart';
 import 'package:dental_lab_app/core/widgets/custom_circle_progress_indiacator_widget.dart';
 import 'package:dental_lab_app/core/widgets/custom_text_field_widget.dart';
+import 'package:dental_lab_app/core/widgets/glass/glass_add_button.dart';
+import 'package:dental_lab_app/core/widgets/glass/glass_app_bar.dart';
+import 'package:dental_lab_app/core/widgets/glass/glass_scaffold.dart';
 import 'package:dental_lab_app/core/widgets/show_toast_widget.dart';
 import 'package:dental_lab_app/features/cases/ui/widgets/case_lookup_dropdown.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 import 'package:dental_lab_app/features/cities/data/models/city_model.dart';
 import 'package:dental_lab_app/features/cities/logic/cities/cities_cubit.dart';
 import 'package:dental_lab_app/features/cities/logic/cities/cities_state.dart';
@@ -75,15 +82,26 @@ class _CitiesListView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppColorsManger.background,
+    final glass = context.glass;
+
+    return GlassScaffold(
       drawer: const AppDrawerWidget(currentRoute: Routes.citiesListScreen),
-      appBar: AppBar(title: Text('المدن', style: AppTextStyles.font18MediumText)),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () => _openForm(context),
-        backgroundColor: AppColorsManger.primary,
-        child: const Icon(Icons.add, color: Colors.white),
+      appBar: GlassAppBar(
+        title: Text(
+          'المدن',
+          style: AppTextStyles.font18MediumText.copyWith(color: glass.onGlass),
+        ),
       ),
+      floatingActionButton:
+          GlassAddButton(
+            label: 'إضافة مدينة',
+            isExtended: true,
+            onPressed: () => _openForm(context),
+          ).animate().scale(
+            duration: AppMotion.base,
+            curve: AppMotion.emphasized,
+            begin: const Offset(0.6, 0.6),
+          ),
       body: SafeArea(
         child: BlocConsumer<CitiesCubit, CitiesState>(
           listenWhen: (previous, current) => current is CitiesActionError,
@@ -94,47 +112,29 @@ class _CitiesListView extends StatelessWidget {
           },
           builder: (context, state) {
             return switch (state) {
-              CitiesLoaded(:final cities) => cities.isEmpty
-                  ? Center(
-                      child: Text(
-                        'لا يوجد مدن بعد',
-                        style: AppTextStyles.font14RegularSecondary,
+              CitiesLoaded(:final cities) =>
+                cities.isEmpty
+                    ? _EmptyState()
+                    : AdaptiveCollection<CityModel>(
+                        items: cities,
+                        // A city row is a single line of text with two icon
+                        // buttons — much shorter than the app's usual card.
+                        cardHeight: 84,
+                        itemBuilder: (context, city, _) => _CityListItem(
+                          city: city,
+                          onEdit: () => _openForm(context, city: city),
+                          onDelete: () => _confirmDelete(context, city),
+                        ),
                       ),
-                    )
-                  : LayoutBuilder(
-                      builder: (context, constraints) {
-                        final isWide = constraints.maxWidth >= 600;
-                        final contentWidth = isWide ? 700.0 : constraints.maxWidth;
-
-                        return Center(
-                          child: ConstrainedBox(
-                            constraints: BoxConstraints(maxWidth: contentWidth),
-                            child: ListView.builder(
-                              padding: EdgeInsets.symmetric(
-                                horizontal: isWide ? 32 : 16,
-                                vertical: 16,
-                              ),
-                              itemCount: cities.length,
-                              itemBuilder: (context, index) {
-                                final city = cities[index];
-                                return _CityListItem(
-                                  city: city,
-                                  onEdit: () => _openForm(context, city: city),
-                                  onDelete: () => _confirmDelete(context, city),
-                                );
-                              },
-                            ),
-                          ),
-                        );
-                      },
-                    ),
               CitiesError(:final message) => Center(
                 child: Padding(
                   padding: const EdgeInsets.all(24),
                   child: Text(
                     message,
                     textAlign: TextAlign.center,
-                    style: AppTextStyles.font14RegularSecondary,
+                    style: AppTextStyles.font14RegularSecondary.copyWith(
+                      color: glass.onGlassMuted,
+                    ),
                   ),
                 ),
               ),
@@ -144,6 +144,61 @@ class _CitiesListView extends StatelessWidget {
         ),
       ),
     );
+  }
+}
+
+class _EmptyState extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    final glass = context.glass;
+
+    return Center(
+          child: Padding(
+            padding: const EdgeInsets.all(AppSpacing.xl),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 96,
+                  height: 96,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    gradient: glass.surfaceGradient,
+                    border: Border.all(color: glass.strokeColor),
+                  ),
+                  child: Icon(
+                    Icons.location_city_outlined,
+                    size: 40,
+                    color: glass.onGlassMuted,
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.lg),
+                Text(
+                  'لا يوجد مدن بعد',
+                  textAlign: TextAlign.center,
+                  style: AppTextStyles.font16MediumText.copyWith(
+                    color: glass.onGlass,
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.sm),
+                Text(
+                  'أضف أول مدينة بالضغط على زر الإضافة',
+                  textAlign: TextAlign.center,
+                  style: AppTextStyles.font14RegularSecondary.copyWith(
+                    color: glass.onGlassMuted,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        )
+        .animate()
+        .fadeIn(duration: AppMotion.base)
+        .scale(
+          begin: const Offset(0.95, 0.95),
+          duration: AppMotion.base,
+          curve: AppMotion.enter,
+        );
   }
 }
 
@@ -160,48 +215,94 @@ class _CityListItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final glass = context.glass;
+    final radius = BorderRadius.circular(AppRadius.glass);
+    final accent = Theme.of(context).colorScheme.primary;
+
     return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-      decoration: BoxDecoration(
-        color: AppColorsManger.surface,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColorsManger.border),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 40,
-            height: 40,
-            decoration: const BoxDecoration(
-              color: AppColorsManger.primarySurface,
-              shape: BoxShape.circle,
-            ),
-            child: const Icon(Icons.location_city_outlined, color: AppColorsManger.primary),
+      margin: const EdgeInsets.only(bottom: AppSpacing.md),
+      decoration: BoxDecoration(borderRadius: radius, boxShadow: glass.shadows),
+      child: ClipRRect(
+        borderRadius: radius,
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            gradient: glass.surfaceGradient,
+            border: Border.all(color: glass.strokeColor),
+            borderRadius: radius,
           ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+          child: IntrinsicHeight(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Text(city.name ?? '—', style: AppTextStyles.font16MediumText),
-                if (city.country?.name != null)
-                  Text(
-                    city.country!.name!,
-                    style: AppTextStyles.font12RegularHint,
+                Container(width: 4, color: accent),
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.all(AppSpacing.md),
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 44,
+                          height: 44,
+                          alignment: Alignment.center,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            gradient: glass.brandGradient,
+                          ),
+                          child: const Icon(
+                            Icons.location_city_outlined,
+                            color: Colors.white,
+                            size: 20,
+                          ),
+                        ),
+                        const SizedBox(width: AppSpacing.md),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                city.name ?? '—',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: AppTextStyles.font16MediumText.copyWith(
+                                  color: glass.onGlass,
+                                ),
+                              ),
+                              if (city.country?.name != null) ...[
+                                const SizedBox(height: 3),
+                                Text(
+                                  city.country!.name!,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: AppTextStyles.font12RegularHint
+                                      .copyWith(color: glass.onGlassMuted),
+                                ),
+                              ],
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: AppSpacing.xs),
+                        IconButton(
+                          tooltip: 'تعديل',
+                          onPressed: onEdit,
+                          icon: Icon(
+                            Icons.edit_outlined,
+                            color: glass.onGlassMuted,
+                          ),
+                        ),
+                        IconButton(
+                          tooltip: 'حذف',
+                          onPressed: onDelete,
+                          icon: Icon(Icons.delete_outline, color: glass.error),
+                        ),
+                      ],
+                    ),
                   ),
+                ),
               ],
             ),
           ),
-          IconButton(
-            onPressed: onEdit,
-            icon: const Icon(Icons.edit_outlined, color: AppColorsManger.textSecondary),
-          ),
-          IconButton(
-            onPressed: onDelete,
-            icon: const Icon(Icons.delete_outline, color: AppColorsManger.error),
-          ),
-        ],
+        ),
       ),
     );
   }
@@ -218,7 +319,9 @@ class _CityFormDialog extends StatefulWidget {
 
 class _CityFormDialogState extends State<_CityFormDialog> {
   final _formKey = GlobalKey<FormState>();
-  late final _nameController = TextEditingController(text: widget.initialCity?.name ?? '');
+  late final _nameController = TextEditingController(
+    text: widget.initialCity?.name ?? '',
+  );
   late String? _countryId = widget.initialCity?.countryId;
 
   bool get _isEditing => widget.initialCity != null;
@@ -231,7 +334,9 @@ class _CityFormDialogState extends State<_CityFormDialog> {
 
   void _onConfirm() {
     if (!(_formKey.currentState?.validate() ?? false)) return;
-    Navigator.of(context).pop((name: _nameController.text.trim(), countryId: _countryId));
+    Navigator.of(
+      context,
+    ).pop((name: _nameController.text.trim(), countryId: _countryId));
   }
 
   @override
@@ -241,45 +346,57 @@ class _CityFormDialogState extends State<_CityFormDialog> {
         _isEditing ? 'تعديل المدينة' : 'إضافة مدينة',
         style: AppTextStyles.font18MediumText,
       ),
-      content: Form(
-        key: _formKey,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            AppTextFormField(
-              controller: _nameController,
-              hintText: 'اسم المدينة',
-              prefixIcon: const Icon(
-                Icons.location_city_outlined,
-                color: AppColorsManger.textSecondary,
-              ),
-              validator: (value) =>
-                  (value == null || value.trim().isEmpty) ? 'اسم المدينة مطلوب' : null,
+      // A bounded width is required because AlertDialog measures its content's
+      // intrinsic width, which the lookup dropdown's lazy list can't provide;
+      // the height cap + scroll keeps it from overflowing once the country
+      // suggestion list expands with the keyboard up.
+      content: SizedBox(
+        width: MediaQuery.sizeOf(context).width * 0.8,
+        child: SingleChildScrollView(
+          child: Form(
+            key: _formKey,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                AppTextFormField(
+                  controller: _nameController,
+                  hintText: 'اسم المدينة',
+                  prefixIcon: Icon(
+                    Icons.location_city_outlined,
+                    color: context.glass.onGlassMuted,
+                  ),
+                  validator: (value) => (value == null || value.trim().isEmpty)
+                      ? 'اسم المدينة مطلوب'
+                      : null,
+                ),
+                const SizedBox(height: 12),
+                BlocBuilder<CountriesCubit, CountriesState>(
+                  builder: (context, state) {
+                    final countries = state is CountriesLoaded
+                        ? state.countries
+                        : null;
+                    return CaseLookupDropdown(
+                      value: _countryId,
+                      icon: Icons.public_outlined,
+                      hintText: state is CountriesLoading
+                          ? 'جارٍ تحميل الدول...'
+                          : 'اختر الدولة (اختياري)',
+                      items: countries
+                          ?.map(
+                            (c) => DropdownMenuItem(
+                              value: c.id,
+                              child: Text(c.name ?? '—'),
+                            ),
+                          )
+                          .toList(),
+                      onChanged: (value) => setState(() => _countryId = value),
+                    );
+                  },
+                ),
+              ],
             ),
-            const SizedBox(height: 12),
-            BlocBuilder<CountriesCubit, CountriesState>(
-              builder: (context, state) {
-                final countries = state is CountriesLoaded ? state.countries : null;
-                return CaseLookupDropdown(
-                  value: _countryId,
-                  icon: Icons.public_outlined,
-                  hintText: state is CountriesLoading
-                      ? 'جارٍ تحميل الدول...'
-                      : 'اختر الدولة (اختياري)',
-                  items: countries
-                      ?.map(
-                        (c) => DropdownMenuItem(
-                          value: c.id,
-                          child: Text(c.name ?? '—'),
-                        ),
-                      )
-                      .toList(),
-                  onChanged: (value) => setState(() => _countryId = value),
-                );
-              },
-            ),
-          ],
+          ),
         ),
       ),
       actions: [

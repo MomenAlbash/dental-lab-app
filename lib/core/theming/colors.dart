@@ -36,6 +36,13 @@ class AppColorsManger {
   static const Color error = Color(0xFFDC2626);
   static const Color info = Color(0xFF2F80ED);
 
+  // ---- Glass backdrop (page background gradient stops) ----
+  /// Warm off-white the light backdrop starts from, just tinted enough that
+  /// translucent surfaces painted on top actually read as glass.
+  static const Color backdropTop = Color(0xFFFFF8F1);
+  static const Color backdropMid = Color(0xFFFDEFE2);
+  static const Color backdropBottom = Color(0xFFFFFFFF);
+
   // ---- Backward-compatible aliases (used by existing core widgets) ----
   @Deprecated('Use primary')
   static const Color mainColor = primary;
@@ -62,6 +69,8 @@ class AppColorsDark {
   static const Color input = Color(0x24FFFFFF); // white 14%
 
   static const Color primary = Color(0xFFFF9142);
+  static const Color primaryLight = Color(0xFFFFB273);
+  static const Color primaryDark = Color(0xFFE6791F);
   static const Color primaryForeground = Color(0xFF241100);
   static const Color secondary = Color(0xFF342C27);
 
@@ -71,4 +80,9 @@ class AppColorsDark {
   static const Color success = Color(0xFF34D399);
   static const Color warning = Color(0xFFFACC15);
   static const Color error = Color(0xFFF87171);
+
+  // ---- Glass backdrop (page background gradient stops) ----
+  static const Color backdropTop = Color(0xFF171412);
+  static const Color backdropMid = Color(0xFF241F1C);
+  static const Color backdropBottom = Color(0xFF1C1714);
 }

@@ -1,7 +1,10 @@
-import 'package:dental_lab_app/core/theming/colors.dart';
+import 'package:dental_lab_app/core/theming/app_dimensions.dart';
+import 'package:dental_lab_app/core/theming/glass.dart';
 import 'package:dental_lab_app/core/theming/styles.dart';
 import 'package:flutter/material.dart';
 
+/// A restoration-type row — matches the doctor/employee/role card: an
+/// accent rail, an icon avatar, then name/price/badges.
 class RestorationTypeListItemWidget extends StatelessWidget {
   const RestorationTypeListItemWidget({
     super.key,
@@ -22,64 +25,111 @@ class RestorationTypeListItemWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final glass = context.glass;
+    final radius = BorderRadius.circular(AppRadius.glass);
+    final railColor = isActive
+        ? Theme.of(context).colorScheme.primary
+        : glass.onGlassMuted;
+
     return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: AppColorsManger.surface,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColorsManger.border),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 44,
-            height: 44,
-            decoration: const BoxDecoration(
-              color: AppColorsManger.primarySurface,
-              shape: BoxShape.circle,
-            ),
-            child: const Icon(Icons.category_outlined, color: AppColorsManger.primary),
+      margin: const EdgeInsets.only(bottom: AppSpacing.md),
+      decoration: BoxDecoration(borderRadius: radius, boxShadow: glass.shadows),
+      child: ClipRRect(
+        borderRadius: radius,
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            gradient: glass.surfaceGradient,
+            border: Border.all(color: glass.strokeColor),
+            borderRadius: radius,
           ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+          child: IntrinsicHeight(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Text(name, style: AppTextStyles.font16MediumText),
-                const SizedBox(height: 4),
-                Text(
-                  '${defaultPrice.toStringAsFixed(0)} ل.س',
-                  style: AppTextStyles.font13MediumPrimary,
-                ),
-                const SizedBox(height: 4),
-                Row(
-                  children: [
-                    _Badge(
-                      label: isActive ? 'مفعّل' : 'موقوف',
-                      color: isActive ? AppColorsManger.success : AppColorsManger.textHint,
+                Container(width: 4, color: railColor),
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.all(AppSpacing.md),
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 44,
+                          height: 44,
+                          alignment: Alignment.center,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            gradient: glass.brandGradient,
+                          ),
+                          child: const Icon(
+                            Icons.category_outlined,
+                            color: Colors.white,
+                            size: 20,
+                          ),
+                        ),
+                        const SizedBox(width: AppSpacing.md),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                name,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: AppTextStyles.font16MediumText.copyWith(
+                                  color: glass.onGlass,
+                                ),
+                              ),
+                              const SizedBox(height: 3),
+                              Text(
+                                '${defaultPrice.toStringAsFixed(0)} ل.س',
+                                style: AppTextStyles.font13MediumPrimary,
+                              ),
+                              const SizedBox(height: AppSpacing.sm),
+                              Wrap(
+                                spacing: 6,
+                                runSpacing: 6,
+                                children: [
+                                  _Badge(
+                                    label: isActive ? 'مفعّل' : 'موقوف',
+                                    color: isActive
+                                        ? glass.success
+                                        : glass.onGlassMuted,
+                                  ),
+                                  if (stagesCount > 0)
+                                    _Badge(
+                                      label: '$stagesCount مراحل',
+                                      color: glass.info,
+                                    ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: AppSpacing.xs),
+                        IconButton(
+                          tooltip: 'تعديل',
+                          onPressed: onEdit,
+                          visualDensity: VisualDensity.compact,
+                          icon: Icon(
+                            Icons.edit_outlined,
+                            color: glass.onGlassMuted,
+                          ),
+                        ),
+                        IconButton(
+                          tooltip: 'حذف',
+                          onPressed: onDelete,
+                          visualDensity: VisualDensity.compact,
+                          icon: Icon(Icons.delete_outline, color: glass.error),
+                        ),
+                      ],
                     ),
-                    if (stagesCount > 0) ...[
-                      const SizedBox(width: 6),
-                      _Badge(
-                        label: '$stagesCount مراحل',
-                        color: AppColorsManger.info,
-                      ),
-                    ],
-                  ],
+                  ),
                 ),
               ],
             ),
           ),
-          IconButton(
-            onPressed: onEdit,
-            icon: const Icon(Icons.edit_outlined, color: AppColorsManger.textSecondary),
-          ),
-          IconButton(
-            onPressed: onDelete,
-            icon: const Icon(Icons.delete_outline, color: AppColorsManger.error),
-          ),
-        ],
+        ),
       ),
     );
   }
@@ -97,7 +147,7 @@ class _Badge extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(AppRadius.full),
       ),
       child: Text(
         label,

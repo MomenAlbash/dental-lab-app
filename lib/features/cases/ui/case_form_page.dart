@@ -1,8 +1,13 @@
 import 'package:dental_lab_app/core/di/dependency_injection.dart';
-import 'package:dental_lab_app/core/theming/colors.dart';
+import 'package:dental_lab_app/core/theming/glass.dart';
 import 'package:dental_lab_app/core/theming/styles.dart';
+import 'package:dental_lab_app/core/widgets/glass/glass_app_bar.dart';
+import 'package:dental_lab_app/core/widgets/glass/glass_scaffold.dart';
 import 'package:dental_lab_app/core/widgets/show_toast_widget.dart';
-import 'package:dental_lab_app/features/cases/data/models/case_priority.dart';
+import 'package:dental_lab_app/core/widgets/unsaved_changes_guard.dart';
+import 'package:dental_lab_app/features/case_priorities/data/models/case_priority_model.dart';
+import 'package:dental_lab_app/features/case_priorities/logic/case_priorities/case_priorities_cubit.dart';
+import 'package:dental_lab_app/features/case_priorities/logic/case_priorities/case_priorities_state.dart';
 import 'package:dental_lab_app/features/cases/data/models/case_restoration_request_model.dart';
 import 'package:dental_lab_app/features/cases/data/models/create_case_request_model.dart';
 import 'package:dental_lab_app/features/cases/data/models/tooth_mark_model.dart';
@@ -63,12 +68,10 @@ class RestorationEntry {
 }
 
 /// Create-case screen, laid out as a wizard because of the amount of data.
-/// When embedded in the cases shell, [onCreated] is called on success instead
-/// of popping the route.
+/// A standalone route like every other feature's form — it pops with `true`
+/// on success so the list behind it can refresh.
 class CaseFormPage extends StatelessWidget {
-  const CaseFormPage({super.key, this.onCreated});
-
-  final VoidCallback? onCreated;
+  const CaseFormPage({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -78,19 +81,21 @@ class CaseFormPage extends StatelessWidget {
         BlocProvider(create: (_) => getIt<DoctorsCubit>()..getDoctors()),
         BlocProvider(create: (_) => getIt<PatientsCubit>()..getPatients()),
         BlocProvider(
-          create: (_) =>
-              getIt<RestorationTypesCubit>()..getRestorationTypes(),
+          create: (_) => getIt<RestorationTypesCubit>()..getRestorationTypes(),
+        ),
+        // Active priorities only: a retired one must not be selectable for
+        // new work, even though it stays on the cases already filed under it.
+        BlocProvider(
+          create: (_) => getIt<CasePrioritiesCubit>()..getCasePriorities(),
         ),
       ],
-      child: _CaseFormView(onCreated: onCreated),
+      child: const _CaseFormView(),
     );
   }
 }
 
 class _CaseFormView extends StatefulWidget {
-  const _CaseFormView({this.onCreated});
-
-  final VoidCallback? onCreated;
+  const _CaseFormView();
 
   @override
   State<_CaseFormView> createState() => _CaseFormViewState();
@@ -106,7 +111,16 @@ class _CaseFormViewState extends State<_CaseFormView> {
   PatientModel? _selectedPatient;
   String? _doctorId;
   String? _clinicId;
-  CasePriority _priority = CasePriority.normal;
+
+  /// The whole row, not just its id, so the review step can show its label
+  /// without a second lookup.
+  CasePriorityModel? _priority;
+
+  /// Whether the user has touched the priority field. Once they have, a late
+  /// arriving priorities list must not overwrite their choice with the lab's
+  /// default.
+  bool _priorityTouched = false;
+
   DateTime? _dueDate;
   DateTime? _receivedAt;
 
@@ -121,21 +135,22 @@ class _CaseFormViewState extends State<_CaseFormView> {
 
   String? _isoDate(DateTime? date) => date?.toIso8601String();
 
-  void _reset() {
-    setState(() {
-      _currentStep = 0;
-      _patientId = null;
-      _selectedPatient = null;
-      _referenceController.clear();
-      _notesController.clear();
-      _doctorId = null;
-      _clinicId = null;
-      _priority = CasePriority.normal;
-      _dueDate = null;
-      _receivedAt = null;
-      _restorations.clear();
-    });
-  }
+  /// Whether anything has been entered — asked when the user tries to leave.
+  /// Losing this form is the most expensive of all: [_restorations] is built
+  /// up one entry at a time through a sub-dialog.
+  ///
+  /// [_currentStep] is deliberately excluded: paging through the wizard is not
+  /// an edit. `_clinicId` moves only with `_doctorId`, and `_selectedPatient`
+  /// only with `_patientId`, so neither adds anything here.
+  bool get _isDirty =>
+      isTextDirty(_referenceController) ||
+      isTextDirty(_notesController) ||
+      _patientId != null ||
+      _doctorId != null ||
+      _priorityTouched ||
+      _dueDate != null ||
+      _receivedAt != null ||
+      _restorations.isNotEmpty;
 
   void _onSubmit() {
     if (_patientId == null) {
@@ -149,7 +164,10 @@ class _CaseFormViewState extends State<_CaseFormView> {
       return;
     }
     if (_restorations.isEmpty) {
-      ShowToast(message: 'أضف تعويضاً واحداً على الأقل', state: toastState.error);
+      ShowToast(
+        message: 'أضف تعويضاً واحداً على الأقل',
+        state: toastState.error,
+      );
       setState(() => _currentStep = 1);
       return;
     }
@@ -162,7 +180,7 @@ class _CaseFormViewState extends State<_CaseFormView> {
         referenceNumber: _referenceController.text.trim().isEmpty
             ? null
             : _referenceController.text.trim(),
-        priority: _priority.apiValue,
+        priorityId: _priority?.id,
         notes: _notesController.text.trim().isEmpty
             ? null
             : _notesController.text.trim(),
@@ -173,15 +191,6 @@ class _CaseFormViewState extends State<_CaseFormView> {
     );
   }
 
-  void _onSuccess() {
-    if (widget.onCreated != null) {
-      _reset();
-      widget.onCreated!();
-    } else {
-      Navigator.of(context).pop(true);
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     final content = BlocConsumer<CaseFormCubit, CaseFormState>(
@@ -189,7 +198,7 @@ class _CaseFormViewState extends State<_CaseFormView> {
         switch (state) {
           case CaseFormSuccess():
             ShowToast(message: 'تمت إضافة الحالة', state: toastState.success);
-            _onSuccess();
+            Navigator.of(context).pop(true);
           case CaseFormError(:final message):
             ShowToast(message: message, state: toastState.error);
           default:
@@ -202,15 +211,38 @@ class _CaseFormViewState extends State<_CaseFormView> {
       },
     );
 
-    // Standalone route gets its own Scaffold; embedded in the shell it doesn't.
-    if (widget.onCreated != null) return content;
+    // The priorities list arrives after the first frame, so the lab's default
+    // row is applied here rather than in initState — and only while the user
+    // has not picked one themselves.
+    final body = BlocListener<CasePrioritiesCubit, CasePrioritiesState>(
+      listener: (context, state) {
+        if (state is! CasePrioritiesLoaded || _priorityTouched) return;
+        for (final priority in state.priorities) {
+          if (priority.isDefault) {
+            setState(() => _priority = priority);
+            return;
+          }
+        }
+      },
+      child: content,
+    );
 
-    return Scaffold(
-      backgroundColor: AppColorsManger.background,
-      appBar: AppBar(
-        title: Text('إضافة حالة', style: AppTextStyles.font18MediumText),
+    // The guard sits above the wizard and never consults _currentStep, so back
+    // asks once and leaves the whole wizard — it does not walk back through
+    // the steps. Stepping back is the body's "السابق" button.
+    return UnsavedChangesGuard(
+      isDirty: () => _isDirty,
+      child: GlassScaffold(
+        appBar: GlassAppBar(
+          title: Text(
+            'إضافة حالة',
+            style: AppTextStyles.font18MediumText.copyWith(
+              color: context.glass.onGlass,
+            ),
+          ),
+        ),
+        body: SafeArea(child: body),
       ),
-      body: SafeArea(child: content),
     );
   }
 
@@ -276,7 +308,10 @@ class _CaseFormViewState extends State<_CaseFormView> {
           _clinicId = clinicId;
         }),
         priority: _priority,
-        onPriorityChanged: (v) => setState(() => _priority = v),
+        onPriorityChanged: (v) => setState(() {
+          _priority = v;
+          _priorityTouched = true;
+        }),
         dueDate: _dueDate,
         onPickDueDate: _pickDueDate,
         receivedAt: _receivedAt,
@@ -289,7 +324,7 @@ class _CaseFormViewState extends State<_CaseFormView> {
       ),
       _ => CaseReviewStep(
         patientName: _selectedPatient?.fullName ?? '',
-        priority: _priority,
+        priorityName: _priority?.displayName ?? '',
         restorations: _restorations,
       ),
     };
@@ -312,12 +347,16 @@ class _CaseFormViewState extends State<_CaseFormView> {
                   Expanded(
                     child: Text(
                       _stepTitles[_currentStep],
-                      style: AppTextStyles.font16MediumText,
+                      style: AppTextStyles.font16MediumText.copyWith(
+                        color: context.glass.onGlass,
+                      ),
                     ),
                   ),
                   Text(
                     'الخطوة ${_currentStep + 1} من $_totalSteps',
-                    style: AppTextStyles.font12RegularHint,
+                    style: AppTextStyles.font12RegularHint.copyWith(
+                      color: context.glass.onGlassMuted,
+                    ),
                   ),
                 ],
               ),
@@ -327,8 +366,8 @@ class _CaseFormViewState extends State<_CaseFormView> {
                 child: LinearProgressIndicator(
                   value: (_currentStep + 1) / _totalSteps,
                   minHeight: 6,
-                  backgroundColor: AppColorsManger.moreLightGray,
-                  color: AppColorsManger.primary,
+                  backgroundColor: context.glass.mutedSurface,
+                  color: Theme.of(context).colorScheme.primary,
                 ),
               ),
             ],
@@ -369,7 +408,7 @@ class _CaseFormViewState extends State<_CaseFormView> {
                         ? null
                         : (isLast ? _onSubmit : _onNext),
                     style: FilledButton.styleFrom(
-                      backgroundColor: AppColorsManger.primary,
+                      backgroundColor: Theme.of(context).colorScheme.primary,
                     ),
                     child: isSubmitting
                         ? const SizedBox(
