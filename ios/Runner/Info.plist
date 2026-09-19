@@ -2,6 +2,12 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>يحتاج التطبيق الوصول إلى الصور لإرفاق صور الحالات</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>يحتاج التطبيق حفظ الصور في مكتبة الصور</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>يستخدم التطبيق الموقع لتحديد موقع العيادة</string>
 	<key>CADisableMinimumFrameDurationOnPhone</key>
 	<true/>
 	<key>CFBundleDevelopmentRegion</key>
