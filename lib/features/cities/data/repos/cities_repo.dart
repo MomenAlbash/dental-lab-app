@@ -28,11 +28,11 @@ class CitiesRepo {
       return right(cities);
     } on DioException catch (e) {
       log('DioException while fetching cities: ${e.message}');
-      if (countryId != null) return left(ServerFailure.FromDioExecption(e));
+      if (countryId != null) return left(ServerFailure.fromDioException(e));
       return fallbackToCache(
         cacheKey: CacheKeys.cachedCitiesList,
         fromJson: CityModel.fromJson,
-        onFailure: () => ServerFailure.FromDioExecption(e),
+        onFailure: () => ServerFailure.fromDioException(e),
       );
     } catch (e) {
       log('General Exception while fetching cities: ${e.toString()}');
@@ -60,7 +60,7 @@ class CitiesRepo {
       return right(city);
     } on DioException catch (e) {
       log('DioException while creating city: ${e.message}');
-      return left(ServerFailure.FromDioExecption(e));
+      return left(ServerFailure.fromDioException(e));
     } catch (e) {
       log('General Exception while creating city: ${e.toString()}');
       return left(ServerFailure.fromException(e));
@@ -84,7 +84,7 @@ class CitiesRepo {
       return right(city);
     } on DioException catch (e) {
       log('DioException while updating city: ${e.message}');
-      return left(ServerFailure.FromDioExecption(e));
+      return left(ServerFailure.fromDioException(e));
     } catch (e) {
       log('General Exception while updating city: ${e.toString()}');
       return left(ServerFailure.fromException(e));
@@ -99,7 +99,7 @@ class CitiesRepo {
       return right(null);
     } on DioException catch (e) {
       log('DioException while deleting city: ${e.message}');
-      return left(ServerFailure.FromDioExecption(e));
+      return left(ServerFailure.fromDioException(e));
     } catch (e) {
       log('General Exception while deleting city: ${e.toString()}');
       return left(ServerFailure.fromException(e));

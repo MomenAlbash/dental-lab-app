@@ -310,10 +310,10 @@ class _CallChip extends StatelessWidget {
         mode: LaunchMode.externalApplication,
       );
       if (!launched) {
-        ShowToast(message: 'تعذّر بدء الاتصال', state: toastState.error);
+        showToast(message: 'تعذّر بدء الاتصال', state: ToastState.error);
       }
     } catch (_) {
-      ShowToast(message: 'تعذّر بدء الاتصال', state: toastState.error);
+      showToast(message: 'تعذّر بدء الاتصال', state: ToastState.error);
     }
   }
 

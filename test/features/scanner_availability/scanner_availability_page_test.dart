@@ -17,7 +17,7 @@ import 'package:mocktail/mocktail.dart';
 
 class _MockRepo extends Mock implements ScannerAvailabilityRepo {}
 
-late _MockRepo repo;
+late _MockRepo _repo;
 
 Widget _wrap() => MaterialApp(
   theme: AppTheme.light,
@@ -43,9 +43,9 @@ Future<void> _pumpAt(WidgetTester tester, Size size) async {
 
 void main() {
   setUp(() async {
-    repo = _MockRepo();
+    _repo = _MockRepo();
 
-    when(() => repo.getRules()).thenAnswer(
+    when(() => _repo.getRules()).thenAnswer(
       (_) async => right([
         ScannerAvailabilityRuleModel(
           id: 'r1',
@@ -57,7 +57,7 @@ void main() {
       ]),
     );
     when(
-      () => repo.getExceptions(
+      () => _repo.getExceptions(
         from: any(named: 'from'),
         to: any(named: 'to'),
       ),
@@ -72,7 +72,7 @@ void main() {
       ]),
     );
     when(
-      () => repo.getCalendar(
+      () => _repo.getCalendar(
         from: any(named: 'from'),
         to: any(named: 'to'),
       ),
@@ -89,12 +89,12 @@ void main() {
     );
 
     await getIt.reset();
-    getIt.registerFactory<ScannerRulesCubit>(() => ScannerRulesCubit(repo));
+    getIt.registerFactory<ScannerRulesCubit>(() => ScannerRulesCubit(_repo));
     getIt.registerFactory<ScannerExceptionsCubit>(
-      () => ScannerExceptionsCubit(repo),
+      () => ScannerExceptionsCubit(_repo),
     );
     getIt.registerFactory<ScannerCalendarCubit>(
-      () => ScannerCalendarCubit(repo),
+      () => ScannerCalendarCubit(_repo),
     );
   });
 
@@ -137,7 +137,7 @@ void main() {
 
   testWidgets('an empty rules list explains the consequence', (tester) async {
     when(
-      () => repo.getRules(),
+      () => _repo.getRules(),
     ).thenAnswer((_) async => right(<ScannerAvailabilityRuleModel>[]));
 
     await _pumpAt(tester, const Size(400, 900));
@@ -152,7 +152,7 @@ void main() {
     tester,
   ) async {
     when(
-      () => repo.getRules(),
+      () => _repo.getRules(),
     ).thenAnswer((_) async => left(ServerFailure('لا يوجد اتصال')));
 
     await _pumpAt(tester, const Size(400, 900));

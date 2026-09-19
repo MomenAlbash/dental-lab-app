@@ -31,14 +31,7 @@ void main() {
 
   testWidgets('shows a placeholder before a name is entered', (tester) async {
     await tester.pumpWidget(
-      wrap(
-        const ClinicFormPreview(
-          name: '',
-          code: '',
-          cityId: null,
-          isEditing: false,
-        ),
-      ),
+      wrap(const ClinicFormPreview(name: '', cityId: null, isEditing: false)),
     );
     await tester.pumpAndSettle();
 
@@ -47,12 +40,11 @@ void main() {
     expect(find.text('?'), findsOneWidget);
   });
 
-  testWidgets('reflects the typed name, its initials and code', (tester) async {
+  testWidgets('reflects the typed name and its initials', (tester) async {
     await tester.pumpWidget(
       wrap(
         const ClinicFormPreview(
           name: 'عيادة النور',
-          code: 'CL-001',
           cityId: null,
           isEditing: false,
         ),
@@ -62,7 +54,6 @@ void main() {
 
     expect(find.text('عيادة النور'), findsOneWidget);
     expect(find.text('عا'), findsOneWidget);
-    expect(find.text('CL-001'), findsOneWidget);
   });
 
   testWidgets('resolves the selected city name', (tester) async {
@@ -70,7 +61,6 @@ void main() {
       wrap(
         const ClinicFormPreview(
           name: 'عيادة الأمل',
-          code: '',
           cityId: 'c-1',
           isEditing: false,
         ),
@@ -87,7 +77,6 @@ void main() {
       wrap(
         const ClinicFormPreview(
           name: 'عيادة النور',
-          code: '',
           cityId: null,
           isEditing: true,
         ),
@@ -110,7 +99,6 @@ void main() {
         child: wrap(
           const ClinicFormPreview(
             name: 'عيادة النور للأسنان والتجميل المتقدم',
-            code: 'CL-00123456',
             cityId: null,
             isEditing: false,
           ),

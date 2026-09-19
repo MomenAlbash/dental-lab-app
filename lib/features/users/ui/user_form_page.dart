@@ -50,6 +50,7 @@ class _UserFormViewState extends State<_UserFormView> {
   final _emailController = TextEditingController();
 
   UserType _type = UserType.employee;
+  bool _isRepresentative = false;
   bool _isAdmin = false;
   bool _obscurePassword = true;
   String? _roleId;
@@ -75,9 +76,9 @@ class _UserFormViewState extends State<_UserFormView> {
     final isEmployee = _type == UserType.employee;
     final linkedId = isEmployee ? _employeeId : _doctorId;
     if (linkedId == null) {
-      ShowToast(
+      showToast(
         message: isEmployee ? 'الرجاء اختيار الموظف' : 'الرجاء اختيار الطبيب',
-        state: toastState.error,
+        state: ToastState.error,
       );
       return;
     }
@@ -89,6 +90,7 @@ class _UserFormViewState extends State<_UserFormView> {
         password: _passwordController.text,
         email: _optional(_emailController),
         isAdmin: _isAdmin,
+        isRepresentative: isEmployee && _isRepresentative,
         roleId: _roleId,
         employeeId: isEmployee ? _employeeId : null,
         doctorId: isEmployee ? null : _doctorId,
@@ -112,13 +114,13 @@ class _UserFormViewState extends State<_UserFormView> {
           listener: (context, state) {
             switch (state) {
               case UserFormSuccess():
-                ShowToast(
+                showToast(
                   message: 'تمت إضافة المستخدم',
-                  state: toastState.success,
+                  state: ToastState.success,
                 );
                 Navigator.of(context).pop(true);
               case UserFormError(:final message):
-                ShowToast(message: message, state: toastState.error);
+                showToast(message: message, state: ToastState.error);
               default:
                 break;
             }
@@ -144,6 +146,7 @@ class _UserFormViewState extends State<_UserFormView> {
                           _type = value;
                           _employeeId = null;
                           _doctorId = null;
+                          _isRepresentative = false;
                         }),
                         employeeId: _employeeId,
                         onEmployeeChanged: (value) =>
@@ -151,6 +154,9 @@ class _UserFormViewState extends State<_UserFormView> {
                         doctorId: _doctorId,
                         onDoctorChanged: (value) =>
                             setState(() => _doctorId = value),
+                        isRepresentative: _isRepresentative,
+                        onRepresentativeChanged: (value) =>
+                            setState(() => _isRepresentative = value),
                         usernameController: _usernameController,
                         passwordController: _passwordController,
                         emailController: _emailController,

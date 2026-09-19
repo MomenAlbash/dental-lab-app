@@ -5,10 +5,16 @@ import 'package:dental_lab_app/core/theming/styles.dart';
 import 'package:dental_lab_app/core/widgets/glass/glass_bottom_sheet.dart';
 import 'package:dental_lab_app/features/case_priorities/logic/case_priorities/case_priorities_cubit.dart';
 import 'package:dental_lab_app/features/case_priorities/logic/case_priorities/case_priorities_state.dart';
+import 'package:dental_lab_app/features/case_stages/logic/case_stages/case_stages_cubit.dart';
+import 'package:dental_lab_app/features/case_stages/logic/case_stages/case_stages_state.dart';
 import 'package:dental_lab_app/features/cases/data/models/case_filters_model.dart';
-import 'package:dental_lab_app/features/cases/data/models/case_status.dart';
 import 'package:dental_lab_app/features/cases/logic/cases/cases_cubit.dart';
 import 'package:dental_lab_app/features/cases/ui/widgets/case_lookup_dropdown.dart';
+import 'package:dental_lab_app/core/auth/session.dart';
+import 'package:dental_lab_app/features/cities/logic/cities/cities_cubit.dart';
+import 'package:dental_lab_app/features/cities/logic/cities/cities_state.dart';
+import 'package:dental_lab_app/features/laboratories/logic/laboratories/laboratories_cubit.dart';
+import 'package:dental_lab_app/features/laboratories/logic/laboratories/laboratories_state.dart';
 import 'package:dental_lab_app/features/clinics/logic/clinics/clinics_cubit.dart';
 import 'package:dental_lab_app/features/clinics/logic/clinics/clinics_state.dart';
 import 'package:dental_lab_app/features/doctors/logic/doctors/doctors_cubit.dart';
@@ -20,8 +26,8 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 /// Opens the filters sheet and applies the result to the [CasesCubit] found
 /// above [context]. The sheet's own lookups (doctor, clinic, patient,
-/// priority) get fresh cubit instances since a modal-sheet route isn't a
-/// descendant of the page's provider tree.
+/// priority, stage) get fresh cubit instances since a modal-sheet route isn't
+/// a descendant of the page's provider tree.
 Future<void> openCaseFiltersSheet(BuildContext context) async {
   final casesCubit = context.read<CasesCubit>();
 
@@ -39,6 +45,15 @@ Future<void> openCaseFiltersSheet(BuildContext context) async {
         BlocProvider(
           create: (_) => getIt<CasePrioritiesCubit>()..getCasePriorities(),
         ),
+        BlocProvider(create: (_) => getIt<CaseStagesCubit>()..getCaseStages()),
+        BlocProvider(create: (_) => getIt<CitiesCubit>()..getCities()),
+        // Only fetched for a user who may actually browse across branches;
+        // for everyone else the server pins the list to the header's lab, so
+        // the control is not offered and the request would be wasted.
+        if (getIt<SessionCubit>().state.canBrowseAllLaboratories)
+          BlocProvider(
+            create: (_) => getIt<LaboratoriesCubit>()..getLaboratories(),
+          ),
       ],
       child: CaseFiltersSheet(initial: casesCubit.filters),
     ),
@@ -71,9 +86,22 @@ class _CaseFiltersSheetState extends State<CaseFiltersSheet> {
 
   late String? _priorityId = widget.initial.priorityId;
   late String? _priorityName = widget.initial.priorityName;
-  late CaseStatus? _caseStatus = widget.initial.caseStatus;
-  late DateTime? _dueDateFrom = widget.initial.dueDateFrom;
-  late DateTime? _dueDateTo = widget.initial.dueDateTo;
+
+  /// Several stages at once: the API takes `StageIds` repeatedly, and "still
+  /// in review" is usually more than one of the lab's stages.
+  late Set<String> _stageIds = {...widget.initial.stageIds};
+
+  /// Several labs at once — browsing branches side by side is the point of
+  /// the filter. Empty means "just the active one".
+  late Set<String> _laboratoryIds = {...widget.initial.laboratoryIds};
+
+  /// Cities are narrowed client-side, so the names ride along to be shown
+  /// back in the sheet without another lookup.
+  late Set<String> _cityIds = {...widget.initial.cityIds};
+  late Set<String> _cityNames = {...widget.initial.cityNames};
+
+  late DateTime? _receivedFrom = widget.initial.receivedFrom;
+  late DateTime? _receivedTo = widget.initial.receivedTo;
 
   void _clearAll() {
     setState(() {
@@ -83,15 +111,24 @@ class _CaseFiltersSheetState extends State<CaseFiltersSheet> {
       _patientName = null;
       _priorityId = null;
       _priorityName = null;
-      _caseStatus = null;
-      _dueDateFrom = null;
-      _dueDateTo = null;
+      _stageIds = {};
+      _laboratoryIds = {};
+      _cityIds = {};
+      _cityNames = {};
+      _receivedFrom = null;
+      _receivedTo = null;
+    });
+  }
+
+  void _toggleStage(String id) {
+    setState(() {
+      if (!_stageIds.remove(id)) _stageIds.add(id);
     });
   }
 
   Future<void> _pickDate({required bool isFrom}) async {
     final now = DateTime.now();
-    final initial = (isFrom ? _dueDateFrom : _dueDateTo) ?? now;
+    final initial = (isFrom ? _receivedFrom : _receivedTo) ?? now;
     final picked = await showDatePicker(
       context: context,
       initialDate: initial,
@@ -101,9 +138,9 @@ class _CaseFiltersSheetState extends State<CaseFiltersSheet> {
     if (picked == null) return;
     setState(() {
       if (isFrom) {
-        _dueDateFrom = picked;
+        _receivedFrom = picked;
       } else {
-        _dueDateTo = picked;
+        _receivedTo = picked;
       }
     });
   }
@@ -117,9 +154,12 @@ class _CaseFiltersSheetState extends State<CaseFiltersSheet> {
         patientName: _patientName,
         priorityId: _priorityId,
         priorityName: _priorityName,
-        caseStatus: _caseStatus,
-        dueDateFrom: _dueDateFrom,
-        dueDateTo: _dueDateTo,
+        stageIds: _stageIds,
+        laboratoryIds: _laboratoryIds,
+        cityIds: _cityIds,
+        cityNames: _cityNames,
+        receivedFrom: _receivedFrom,
+        receivedTo: _receivedTo,
       ),
     );
   }
@@ -208,26 +248,138 @@ class _CaseFiltersSheetState extends State<CaseFiltersSheet> {
                           },
                         ),
                         const SizedBox(height: 20),
-                        const _Label('حالة الحالة'),
-                        Wrap(
-                          spacing: 8,
-                          runSpacing: 8,
-                          children: [
-                            ChoiceChip(
-                              label: const Text('الكل'),
-                              selected: _caseStatus == null,
-                              onSelected: (_) =>
-                                  setState(() => _caseStatus = null),
-                            ),
-                            for (final s in CaseStatus.values)
-                              ChoiceChip(
-                                label: Text(s.arabicLabel),
-                                selected: _caseStatus == s,
-                                onSelected: (_) =>
-                                    setState(() => _caseStatus = s),
-                              ),
-                          ],
+                        const _Label('المرحلة'),
+                        // The lab's own stages, grouped under the doctor-facing
+                        // category they belong to. Multi-select: "still in
+                        // review" is usually several stages, and the API takes
+                        // StageIds repeatedly.
+                        BlocBuilder<CaseStagesCubit, CaseStagesState>(
+                          builder: (context, state) {
+                            if (state is CaseStagesError) {
+                              return Text(
+                                state.message,
+                                style: AppTextStyles.font12RegularHint.copyWith(
+                                  color: context.glass.onGlassMuted,
+                                ),
+                              );
+                            }
+                            if (state is! CaseStagesLoaded) {
+                              return Text(
+                                'جارٍ تحميل المراحل...',
+                                style: AppTextStyles.font12RegularHint.copyWith(
+                                  color: context.glass.onGlassMuted,
+                                ),
+                              );
+                            }
+                            if (state.stages.isEmpty) {
+                              return Text(
+                                'لم يعرّف المخبر مراحل بعد',
+                                style: AppTextStyles.font12RegularHint.copyWith(
+                                  color: context.glass.onGlassMuted,
+                                ),
+                              );
+                            }
+
+                            // Flat, not grouped: the API carries no
+                            // doctor-facing category on a case stage any more
+                            // (the field was retired), so every stage sits in
+                            // the lab's own catalogue order instead.
+                            return Wrap(
+                              spacing: 8,
+                              runSpacing: 8,
+                              children: [
+                                for (final stage in state.stages)
+                                  FilterChip(
+                                    // The catalogue already counts the cases
+                                    // per stage, so the chip says how much it
+                                    // would return.
+                                    label: Text(
+                                      stage.caseCount > 0
+                                          ? '${stage.displayName} (${stage.caseCount})'
+                                          : stage.displayName,
+                                    ),
+                                    selected: _stageIds.contains(stage.id),
+                                    onSelected: (_) => _toggleStage(stage.id),
+                                  ),
+                              ],
+                            );
+                          },
                         ),
+                        // Only for a user the server will actually honour it
+                        // for — see `canBrowseAllLaboratories`.
+                        if (getIt<SessionCubit>()
+                            .state
+                            .canBrowseAllLaboratories) ...[
+                          const SizedBox(height: 20),
+                          const _Label('المخبر'),
+                          BlocBuilder<LaboratoriesCubit, LaboratoriesState>(
+                            builder: (context, state) {
+                              if (state is! LaboratoriesLoaded) {
+                                return const SizedBox.shrink();
+                              }
+                              return Wrap(
+                                spacing: 8,
+                                runSpacing: 8,
+                                children: [
+                                  for (final lab in state.laboratories)
+                                    FilterChip(
+                                      label: Text(lab.name ?? '—'),
+                                      selected: _laboratoryIds.contains(lab.id),
+                                      onSelected: (_) => setState(() {
+                                        if (!_laboratoryIds.remove(lab.id)) {
+                                          _laboratoryIds.add(lab.id);
+                                        }
+                                      }),
+                                    ),
+                                ],
+                              );
+                            },
+                          ),
+                        ],
+
+                        const SizedBox(height: 20),
+                        const _Label('المدينة'),
+                        // Said outright: this one narrows the rows already
+                        // fetched, because `GET /Cases` takes no city
+                        // parameter. A user who expects it to search the whole
+                        // table would otherwise read a short list as "there
+                        // are no more".
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 8),
+                          child: Text(
+                            'يُطبَّق على النتائج المعروضة فقط',
+                            style: AppTextStyles.font12RegularHint.copyWith(
+                              color: context.glass.onGlassMuted,
+                            ),
+                          ),
+                        ),
+                        BlocBuilder<CitiesCubit, CitiesState>(
+                          builder: (context, state) {
+                            if (state is! CitiesLoaded) {
+                              return const SizedBox.shrink();
+                            }
+                            return Wrap(
+                              spacing: 8,
+                              runSpacing: 8,
+                              children: [
+                                for (final city in state.cities)
+                                  FilterChip(
+                                    label: Text(city.name ?? '—'),
+                                    selected: _cityIds.contains(city.id),
+                                    onSelected: (_) => setState(() {
+                                      if (_cityIds.remove(city.id)) {
+                                        _cityNames.remove(city.name ?? '');
+                                      } else {
+                                        _cityIds.add(city.id);
+                                        _cityNames.add(city.name ?? '');
+                                      }
+                                    }),
+                                  ),
+                              ],
+                            );
+                          },
+                        ),
+
                         const SizedBox(height: 20),
                         const _Label('الطبيب'),
                         BlocBuilder<DoctorsCubit, DoctorsState>(
@@ -318,12 +470,12 @@ class _CaseFiltersSheetState extends State<CaseFiltersSheet> {
                           },
                         ),
                         const SizedBox(height: 20),
-                        const _Label('تاريخ التسليم'),
+                        const _Label('تاريخ الاستلام'),
                         Row(
                           children: [
                             Expanded(
                               child: _DateChip(
-                                value: _dueDateFrom,
+                                value: _receivedFrom,
                                 hintText: 'من',
                                 onTap: () => _pickDate(isFrom: true),
                               ),
@@ -331,7 +483,7 @@ class _CaseFiltersSheetState extends State<CaseFiltersSheet> {
                             const SizedBox(width: 12),
                             Expanded(
                               child: _DateChip(
-                                value: _dueDateTo,
+                                value: _receivedTo,
                                 hintText: 'إلى',
                                 onTap: () => _pickDate(isFrom: false),
                               ),

@@ -55,13 +55,13 @@ class _ChangePasswordDialogState extends State<ChangePasswordDialog> {
       listener: (context, state) {
         switch (state) {
           case ChangePasswordSuccess():
-            ShowToast(
+            showToast(
               message: 'تم تغيير كلمة المرور',
-              state: toastState.success,
+              state: ToastState.success,
             );
             Navigator.of(context).pop();
           case ChangePasswordError(:final message):
-            ShowToast(message: message, state: toastState.error);
+            showToast(message: message, state: ToastState.error);
           default:
             break;
         }
@@ -102,8 +102,9 @@ class _ChangePasswordDialogState extends State<ChangePasswordDialog> {
                     color: context.glass.onGlassMuted,
                   ),
                   validator: (value) {
-                    if (value == null || value.isEmpty)
+                    if (value == null || value.isEmpty) {
                       return 'كلمة المرور الجديدة مطلوبة';
+                    }
                     if (value.length < 4) return 'يجب أن تكون 4 أحرف على الأقل';
                     return null;
                   },

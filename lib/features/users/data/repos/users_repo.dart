@@ -6,8 +6,10 @@ import 'package:dental_lab_app/core/helper/local/cache_keys.dart';
 import 'package:dental_lab_app/core/helper/local/cacheable_fetch.dart';
 import 'package:dental_lab_app/core/helper/local/cached_helper.dart';
 import 'package:dental_lab_app/core/helper/network_helper/api_service.dart';
+import 'package:dental_lab_app/core/helper/network_helper/people_api.dart';
 import 'package:dental_lab_app/features/users/data/models/create_user_request_model.dart';
 import 'package:dental_lab_app/features/users/data/models/update_user_request_model.dart';
+import 'package:dental_lab_app/features/users/data/models/user_doctor_scope_model.dart';
 import 'package:dental_lab_app/features/users/data/models/user_filters_model.dart';
 import 'package:dental_lab_app/features/users/data/models/user_model.dart';
 import 'package:dio/dio.dart';
@@ -42,7 +44,7 @@ class UsersRepo {
       return fallbackToCache(
         cacheKey: CacheKeys.cachedUsersList,
         fromJson: UserModel.fromJson,
-        onFailure: () => ServerFailure.FromDioExecption(e),
+        onFailure: () => ServerFailure.fromDioException(e),
       );
     } catch (e) {
       log('General Exception while fetching users: ${e.toString()}');
@@ -62,7 +64,7 @@ class UsersRepo {
       return right(user);
     } on DioException catch (e) {
       log('DioException while fetching user: ${e.message}');
-      return left(ServerFailure.FromDioExecption(e));
+      return left(ServerFailure.fromDioException(e));
     } catch (e) {
       log('General Exception while fetching user: ${e.toString()}');
       return left(ServerFailure.fromException(e));
@@ -94,7 +96,7 @@ class UsersRepo {
       return right(user);
     } on DioException catch (e) {
       log('DioException while creating user: ${e.message}');
-      return left(ServerFailure.FromDioExecption(e));
+      return left(ServerFailure.fromDioException(e));
     } catch (e) {
       log('General Exception while creating user: ${e.toString()}');
       return left(ServerFailure.fromException(e));
@@ -116,7 +118,7 @@ class UsersRepo {
       return right(user);
     } on DioException catch (e) {
       log('DioException while updating user: ${e.message}');
-      return left(ServerFailure.FromDioExecption(e));
+      return left(ServerFailure.fromDioException(e));
     } catch (e) {
       log('General Exception while updating user: ${e.toString()}');
       return left(ServerFailure.fromException(e));
@@ -131,7 +133,7 @@ class UsersRepo {
       return right(null);
     } on DioException catch (e) {
       log('DioException while deleting user: ${e.message}');
-      return left(ServerFailure.FromDioExecption(e));
+      return left(ServerFailure.fromDioException(e));
     } catch (e) {
       log('General Exception while deleting user: ${e.toString()}');
       return left(ServerFailure.fromException(e));
@@ -153,7 +155,7 @@ class UsersRepo {
       return right(null);
     } on DioException catch (e) {
       log('DioException while toggling user active: ${e.message}');
-      return left(ServerFailure.FromDioExecption(e));
+      return left(ServerFailure.fromDioException(e));
     } catch (e) {
       log('General Exception while toggling user active: ${e.toString()}');
       return left(ServerFailure.fromException(e));
@@ -175,10 +177,56 @@ class UsersRepo {
       return right(null);
     } on DioException catch (e) {
       log('DioException while resetting password: ${e.message}');
-      return left(ServerFailure.FromDioExecption(e));
+      return left(ServerFailure.fromDioException(e));
     } catch (e) {
       log('General Exception while resetting password: ${e.toString()}');
       return left(ServerFailure.fromException(e));
     }
   }
+}
+
+/// Doctor scope — which doctors a login may see.
+///
+/// **An empty list means unrestricted**, in both directions: reading one back
+/// says "sees every doctor", and sending one lifts the restriction. That is
+/// the only way to put a narrowed user back to seeing everybody.
+extension UserDoctorScopeRepo on UsersRepo {
+  Future<Either<Failure, T>> _guard<T>(
+    String what,
+    Future<T> Function() request,
+  ) async {
+    try {
+      return right(await request());
+    } on DioException catch (e) {
+      log('DioException while $what: ${e.message}');
+      return left(ServerFailure.fromDioException(e));
+    } catch (e) {
+      log('General Exception while $what: $e');
+      return left(ServerFailure.fromException(e));
+    }
+  }
+
+  Future<Either<Failure, List<String>>> getDoctorScope(String userId) => _guard(
+    'fetching a user\'s doctor scope',
+    () => _apiService.getUserDoctorScope(userId: userId, token: _token),
+  );
+
+  /// The complete set, not a delta.
+  Future<Either<Failure, void>> setDoctorScope({
+    required String userId,
+    required List<String> doctorIds,
+  }) => _guard(
+    'setting a user\'s doctor scope',
+    () => _apiService.setUserDoctorScope(
+      userId: userId,
+      doctorIds: doctorIds,
+      token: _token,
+    ),
+  );
+
+  Future<Either<Failure, List<UserDoctorScopeSummaryModel>>>
+  getDoctorScopeSummary() => _guard(
+    'fetching the doctor scope summary',
+    () => _apiService.getDoctorScopeSummary(token: _token),
+  );
 }

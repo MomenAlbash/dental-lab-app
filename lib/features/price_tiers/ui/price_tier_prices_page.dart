@@ -74,9 +74,9 @@ class _PriceTierPricesViewState extends State<_PriceTierPricesView> {
           listener: (context, state) {
             switch (state) {
               case PriceTierPricesActionSuccess(:final message):
-                ShowToast(message: message, state: toastState.success);
+                showToast(message: message, state: ToastState.success);
               case PriceTierPricesActionError(:final message):
-                ShowToast(message: message, state: toastState.error);
+                showToast(message: message, state: ToastState.error);
               default:
                 break;
             }

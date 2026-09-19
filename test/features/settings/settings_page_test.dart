@@ -1,3 +1,4 @@
+import 'package:dental_lab_app/core/di/dependency_injection.dart';
 import 'package:dental_lab_app/core/router/routes.dart';
 import 'package:dental_lab_app/core/helper/local/cached_helper.dart';
 import 'package:dental_lab_app/core/theming/app_theme.dart';
@@ -11,6 +12,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../helpers/back_navigation.dart';
+import '../../helpers/session.dart';
 
 void main() {
   late GoRouter router;
@@ -18,6 +20,7 @@ void main() {
   setUp(() async {
     SharedPreferences.setMockInitialValues({});
     await CacheHelper.init();
+    registerTestSession();
 
     router = GoRouter(
       initialLocation: Routes.settingsScreen,
@@ -34,6 +37,8 @@ void main() {
       ],
     );
   });
+
+  tearDown(() => getIt.reset());
 
   /// Mirrors how `main.dart` wires the app: the chosen scale is applied in
   /// `MaterialApp.builder`. Without that here the test would exercise the

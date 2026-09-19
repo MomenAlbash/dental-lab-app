@@ -17,4 +17,27 @@ class RolesCubit extends Cubit<RolesState> {
       (roles) => emit(RolesLoaded(roles)),
     );
   }
+
+  /// Removes the role optimistically — the confirm dialog already asked
+  /// once, so the row should not also sit there mid-delete. Rolled back
+  /// (with a toast, via [RolesActionError]) if the server call fails.
+  Future<void> deleteRole(String id) async {
+    final state = this.state;
+    if (state is! RolesLoaded) return;
+
+    final previous = state.roles;
+    emit(
+      RolesLoaded([
+        for (final r in previous)
+          if (r.id != id) r,
+      ]),
+    );
+
+    final result = await _rolesRepo.deleteRole(id);
+
+    result.fold((failure) {
+      emit(RolesLoaded(previous));
+      emit(RolesActionError(failure.errorMessage));
+    }, (_) {});
+  }
 }

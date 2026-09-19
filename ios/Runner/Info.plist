@@ -26,8 +26,14 @@
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>NSCameraUsageDescription</key>
+	<string>يحتاج التطبيق إلى الكاميرا لمسح باركود الحالة أو التعويض.</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>يحتاج التطبيق إلى الميكروفون لتسجيل الرسائل الصوتية في محادثة الحالة.</string>
+	<key>NSBluetoothAlwaysUsageDescription</key>
+	<string>يحتاج التطبيق إلى البلوتوث للاتصال بطابعة الملصقات وطباعة بيانات الحالة.</string>
+	<key>NSBluetoothPeripheralUsageDescription</key>
+	<string>يحتاج التطبيق إلى البلوتوث للاتصال بطابعة الملصقات وطباعة بيانات الحالة.</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>

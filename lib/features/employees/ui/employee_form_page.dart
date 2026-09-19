@@ -176,14 +176,17 @@ class _EmployeeFormViewState extends State<_EmployeeFormView> {
         child: BlocConsumer<EmployeeFormCubit, EmployeeFormState>(
           listener: (context, state) {
             switch (state) {
-              case EmployeeFormSuccess():
-                ShowToast(
+              case EmployeeFormSuccess(:final employee):
+                showToast(
                   message: _isEditing ? 'تم حفظ التعديلات' : 'تمت إضافة الموظف',
-                  state: toastState.success,
+                  state: ToastState.success,
                 );
-                Navigator.of(context).pop(true);
+                // The saved employee is handed back, not just a "yes": a
+                // caller that opened this screen from an employee field needs
+                // the record itself so it can select it.
+                Navigator.of(context).pop(employee);
               case EmployeeFormError(:final message):
-                ShowToast(message: message, state: toastState.error);
+                showToast(message: message, state: ToastState.error);
               default:
                 break;
             }

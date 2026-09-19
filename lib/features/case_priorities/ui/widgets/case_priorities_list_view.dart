@@ -13,11 +13,15 @@ class CasePrioritiesListView extends StatelessWidget {
     super.key,
     required this.priorities,
     required this.onDelete,
+    required this.onAssign,
     this.scrollController,
   });
 
   final List<CasePriorityModel> priorities;
   final ValueChanged<CasePriorityModel> onDelete;
+
+  /// Opens the per-doctor allowance flow for one priority.
+  final ValueChanged<CasePriorityModel> onAssign;
 
   /// Owned by the page, which watches it to collapse the add button.
   final ScrollController? scrollController;
@@ -40,6 +44,7 @@ class CasePrioritiesListView extends StatelessWidget {
             );
           }
         },
+        onAssign: () => onAssign(priority),
         onDelete: () => onDelete(priority),
       ),
     );

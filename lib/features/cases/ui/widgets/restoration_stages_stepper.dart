@@ -193,7 +193,13 @@ class _StageTile extends StatelessWidget {
                           label: 'المرحلة الحالية',
                           color: Theme.of(context).colorScheme.primary,
                         ),
-                      ] else if (stage.isFinal) ...[
+                        // "Last" is `isLast` — this widget already has the
+                        // whole route in hand. `CaseWorkflowStageModel.isFinal`
+                        // is not a real field any more (no such column on the
+                        // live DTO; "last" is a fact about the whole route,
+                        // not something stored on one stage row) and always
+                        // parses as false.
+                      ] else if (isLast) ...[
                         const SizedBox(width: 6),
                         _Badge(
                           label: 'الأخيرة',

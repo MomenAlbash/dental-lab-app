@@ -12,16 +12,16 @@ ClinicModel _clinic({
   String? phone = '0112223344',
   String? email = 'alnoor@example.com',
   String? address = 'المزة، دمشق',
-  String? code = 'CL-001',
+  String? zoneNameAr = 'المزة',
 }) {
   return ClinicModel(
     id: 'cl-1',
     name: 'عيادة النور',
-    code: code,
     phoneNumber: phone,
     email: email,
     address: address,
-    websiteUrl: 'https://alnoor.example.com',
+    zoneNameAr: zoneNameAr,
+    doctorCount: 3,
     city: CityModel(id: 'c1', name: 'دمشق'),
   );
 }
@@ -71,7 +71,7 @@ void main() {
     expect(find.text('عيادة النور'), findsOneWidget);
     // These legitimately appear twice — once in the header chip, once in the
     // info tile below (mirrors the doctor/patient headers' own precedent).
-    expect(find.text('CL-001'), findsNWidgets(2));
+    expect(find.text('المزة'), findsNWidgets(2));
     expect(find.text('دمشق'), findsNWidgets(2));
   });
 
@@ -112,7 +112,9 @@ void main() {
     expect(find.text('الموقع'), findsOneWidget);
 
     expect(find.text('المزة، دمشق'), findsOneWidget);
-    expect(find.text('https://alnoor.example.com'), findsOneWidget);
+    // The info tile that used to show a website now shows how many doctors
+    // are attached to the clinic.
+    expect(find.text('3'), findsOneWidget);
   });
 
   testWidgets('falls back to initials when there is no logo', (tester) async {

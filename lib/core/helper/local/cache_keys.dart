@@ -22,6 +22,10 @@ class CacheKeys {
   /// Display name of [laboratoryId], so the UI can show it without a refetch.
   static const String laboratoryName = 'laboratoryName';
 
+  /// The signed-in user's permission grants, cached so a cold start draws the
+  /// correct navigation before `/ClinicAuth/me` answers.
+  static const String permissions = 'permissions';
+
   /// The user's manual theme choice: `'light'`, `'dark'`, or `'system'`.
   static const String themeMode = 'themeMode';
 
@@ -50,10 +54,17 @@ class CacheKeys {
   /// The weekly scanner rules. The exceptions and the calendar are both
   /// date-ranged, so a stale copy of either would be worse than none.
   static const String cachedScannerRulesList = 'cache_scanner_rules_list';
+
+  /// The laboratory's case-workflow catalogue. Case *plans* are per-case and
+  /// change constantly, so only the catalogue is cached.
+  static const String cachedCaseStagesList = 'cache_case_stages_list';
   static const String cachedUsersList = 'cache_users_list';
   static const String cachedEmployeesList = 'cache_employees_list';
   static const String cachedRolesList = 'cache_roles_list';
   static const String cachedCountriesList = 'cache_countries_list';
   static const String cachedCitiesList = 'cache_cities_list';
   static const String cachedLaboratoriesList = 'cache_laboratories_list';
+
+  /// The full (not unread-only) notifications list.
+  static const String cachedNotificationsList = 'cache_notifications_list';
 }

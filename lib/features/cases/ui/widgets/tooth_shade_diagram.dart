@@ -84,6 +84,53 @@ class ToothShadeDiagram extends StatelessWidget {
   }
 }
 
+/// One shade for the whole tooth — the "عام" (general) mode, next to
+/// [ToothShadeDiagram]'s "مخصص" (custom) three-zone split. The same
+/// silhouette, undivided, so the two modes read as one feature rather than
+/// two different pickers.
+///
+/// Picking a value here is meant to fill [ToothShadeDiagram]'s three zones
+/// with the same shade — the API has no separate "uniform" field, only the
+/// three zone ones, so a single tooth colour is still sent as all three
+/// being equal.
+class UniformToothShade extends StatelessWidget {
+  const UniformToothShade({
+    super.key,
+    required this.guide,
+    required this.value,
+    required this.onChanged,
+  });
+
+  final ShadeGuide guide;
+  final String? value;
+  final ValueChanged<String?> onChanged;
+
+  Future<void> _pick(BuildContext context) async {
+    final picked = await showModalBottomSheet<String?>(
+      context: context,
+      builder: (context) =>
+          _ShadePickerSheet(title: 'السن', guide: guide, current: value),
+    );
+    if (picked != null) onChanged(picked.isEmpty ? null : picked);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 220,
+      child: ClipPath(
+        clipper: _ToothClipper(),
+        child: _ShadeZone(
+          label: 'لون السن',
+          value: value,
+          color: context.glass.mutedSurface,
+          onTap: () => _pick(context),
+        ),
+      ),
+    );
+  }
+}
+
 class _ShadeZone extends StatelessWidget {
   const _ShadeZone({
     required this.label,

@@ -9,16 +9,22 @@ import 'package:flutter/material.dart';
 /// Mirrors the doctor/patient detail headers' mechanics (a gradient panel that
 /// parallaxes into a compact toolbar row) but carries what identifies an
 /// organisation rather than a person: an initials mark instead of a gender
-/// icon, and the clinic code as the pill instead of an active/paused status.
+/// icon, and the clinic's zone as the pill instead of an active/paused status.
 class ClinicSliverHeader extends StatelessWidget {
   const ClinicSliverHeader({
     super.key,
     required this.clinic,
     required this.onEdit,
+    this.onChangeLogo,
   });
 
   final ClinicModel clinic;
   final VoidCallback onEdit;
+
+  /// Null without permission to edit the clinic — the action is left off
+  /// rather than shown disabled, since an inert button on an organisation's
+  /// own header reads as a fault rather than as a restriction.
+  final VoidCallback? onChangeLogo;
 
   // Taller than the patient header's 236: two chips (code + city) can sit
   // side by side or wrap, and at large text scales the wrapped row needs more
@@ -41,6 +47,12 @@ class ClinicSliverHeader extends StatelessWidget {
         ),
       ),
       actions: [
+        if (onChangeLogo != null)
+          IconButton(
+            tooltip: 'تغيير الشعار',
+            onPressed: onChangeLogo,
+            icon: const Icon(Icons.add_a_photo_outlined),
+          ),
         IconButton(
           tooltip: 'تعديل',
           onPressed: onEdit,
@@ -173,8 +185,8 @@ class _CompactIdentity extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final subtitle = clinic.code?.trim().isNotEmpty ?? false
-        ? clinic.code!.trim()
+    final subtitle = clinic.zoneDisplayName.isNotEmpty
+        ? clinic.zoneDisplayName
         : clinic.cityName?.trim();
 
     return Row(
@@ -267,8 +279,8 @@ class _Avatar extends StatelessWidget {
   }
 }
 
-/// The clinic code and, when present, the city — replaces the doctor header's
-/// active/paused pill since a clinic has no such status.
+/// The clinic's zone and, when present, its city — replaces the doctor
+/// header's active/paused pill since a clinic has no such status.
 class _IdentityChips extends StatelessWidget {
   const _IdentityChips({required this.clinic});
 
@@ -276,7 +288,7 @@ class _IdentityChips extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final code = clinic.code?.trim();
+    final zoneName = clinic.zoneDisplayName;
     final cityName = clinic.cityName?.trim();
 
     return Wrap(
@@ -284,8 +296,8 @@ class _IdentityChips extends StatelessWidget {
       spacing: 6,
       runSpacing: 6,
       children: [
-        if (code != null && code.isNotEmpty)
-          _Chip(icon: Icons.tag_outlined, label: code),
+        if (zoneName.isNotEmpty)
+          _Chip(icon: Icons.map_outlined, label: zoneName),
         if (cityName != null && cityName.isNotEmpty)
           _Chip(icon: Icons.location_city_outlined, label: cityName),
       ],

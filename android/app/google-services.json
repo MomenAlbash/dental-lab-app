@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "239397036221",
+    "project_id": "dental-lab-project-489f2",
+    "storage_bucket": "dental-lab-project-489f2.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:239397036221:android:3c13933f766dd7c4e657d4",
+        "android_client_info": {
+          "package_name": "com.momenalbash.dentallab"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCB80-KCC2byxg3YX6_Velkm-BWKseLTFk"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

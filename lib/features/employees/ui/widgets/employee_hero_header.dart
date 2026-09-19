@@ -13,10 +13,14 @@ class EmployeeSliverHeader extends StatelessWidget {
     super.key,
     required this.employee,
     required this.onEdit,
+    required this.onOpenAnswers,
   });
 
   final EmployeeModel employee;
   final VoidCallback onEdit;
+
+  /// Opens the laboratory's own custom questions for this employee.
+  final VoidCallback onOpenAnswers;
 
   static const double expandedHeight = 240;
 
@@ -36,6 +40,11 @@ class EmployeeSliverHeader extends StatelessWidget {
         ),
       ),
       actions: [
+        IconButton(
+          tooltip: 'أسئلة إضافية',
+          onPressed: onOpenAnswers,
+          icon: const Icon(Icons.quiz_outlined),
+        ),
         IconButton(
           tooltip: 'تعديل',
           onPressed: onEdit,

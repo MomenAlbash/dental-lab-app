@@ -7,7 +7,10 @@ import 'package:dental_lab_app/features/case_priorities/data/models/case_priorit
 import 'package:dental_lab_app/features/case_priorities/data/repos/case_priorities_repo.dart';
 import 'package:dental_lab_app/features/case_priorities/logic/case_priorities/case_priorities_cubit.dart';
 import 'package:dental_lab_app/features/cases/data/repos/cases_repo.dart';
+import 'package:dental_lab_app/features/case_stages/data/repos/case_stages_repo.dart';
+import 'package:dental_lab_app/features/case_workflow_stages/data/repos/workflow_stages_repo.dart';
 import 'package:dental_lab_app/features/cases/logic/case_form/case_form_cubit.dart';
+import 'package:dental_lab_app/features/cases/logic/optional_stages/optional_stages_cubit.dart';
 import 'package:dental_lab_app/features/cases/ui/case_form_page.dart';
 import 'package:dental_lab_app/features/doctors/data/models/doctor_model.dart';
 import 'package:dental_lab_app/features/doctors/data/repos/doctors_repo.dart';
@@ -35,6 +38,10 @@ class _MockPatientsRepo extends Mock implements PatientsRepo {}
 class _MockRestorationTypesRepo extends Mock implements RestorationTypesRepo {}
 
 class _MockCasePrioritiesRepo extends Mock implements CasePrioritiesRepo {}
+
+class _MockCaseStagesRepo extends Mock implements CaseStagesRepo {}
+
+class _MockWorkflowStagesRepo extends Mock implements WorkflowStagesRepo {}
 
 void main() {
   const dialogTitle = 'تجاهل التعديلات؟';
@@ -82,6 +89,11 @@ void main() {
     getIt.registerFactory<PatientsCubit>(() => PatientsCubit(patientsRepo));
     getIt.registerFactory<RestorationTypesCubit>(
       () => RestorationTypesCubit(typesRepo),
+    );
+    // The optional-stages step reaches for it as soon as the wizard builds.
+    getIt.registerFactory<OptionalStagesCubit>(
+      () =>
+          OptionalStagesCubit(_MockCaseStagesRepo(), _MockWorkflowStagesRepo()),
     );
   });
 

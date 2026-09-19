@@ -1,26 +1,44 @@
 import 'package:dental_lab_app/features/cases/data/models/case_filters_model.dart';
-import 'package:dental_lab_app/features/cases/data/models/case_status.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  group('CaseFiltersModel caseStatus', () {
-    test('counts as an active filter', () {
-      const filters = CaseFiltersModel(caseStatus: CaseStatus.rejected);
+  group('CaseFiltersModel stages', () {
+    test('an empty set is not an active filter', () {
+      // The trap: stageIds defaults to `const {}`, which is non-null. Counting
+      // it by null would make every filter set look active and light up the
+      // filter button on a list nobody has filtered.
+      const filters = CaseFiltersModel();
+
+      expect(filters.activeCount, 0);
+      expect(filters.isEmpty, isTrue);
+    });
+
+    test('any number of stages counts as one active filter', () {
+      const filters = CaseFiltersModel(stageIds: {'s1', 's2', 's3'});
 
       expect(filters.activeCount, 1);
       expect(filters.isEmpty, isFalse);
     });
 
-    test('copyWith carries the status forward when not overridden', () {
-      const filters = CaseFiltersModel(caseStatus: CaseStatus.inProgress);
+    test('copyWith carries the stages forward when not overridden', () {
+      const filters = CaseFiltersModel(stageIds: {'s1'});
 
-      expect(filters.copyWith().caseStatus, CaseStatus.inProgress);
+      expect(filters.copyWith().stageIds, {'s1'});
     });
 
-    test('copyWith clears the status only when asked', () {
-      const filters = CaseFiltersModel(caseStatus: CaseStatus.inProgress);
+    test('copyWith clears the stages only when asked', () {
+      const filters = CaseFiltersModel(stageIds: {'s1'});
 
-      expect(filters.copyWith(clearCaseStatus: true).caseStatus, isNull);
+      expect(filters.copyWith(clearStages: true).stageIds, isEmpty);
+    });
+  });
+
+  group('CaseFiltersModel received window', () {
+    test('each bound counts on its own', () {
+      final filters = CaseFiltersModel(receivedFrom: DateTime(2026, 3, 1));
+
+      expect(filters.activeCount, 1);
+      expect(filters.copyWith(clearReceivedFrom: true).receivedFrom, isNull);
     });
   });
 

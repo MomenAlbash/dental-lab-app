@@ -96,7 +96,7 @@ class _CountriesListView extends StatelessWidget {
           listenWhen: (previous, current) => current is CountriesActionError,
           listener: (context, state) {
             if (state case CountriesActionError(:final message)) {
-              ShowToast(message: message, state: toastState.error);
+              showToast(message: message, state: ToastState.error);
             }
           },
           builder: (context, state) {

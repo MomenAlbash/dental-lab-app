@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Android 9 (API 28) and newer block plain HTTP by default, and a release
+    build is where that first bites: the same code that worked in debug starts
+    failing to load images with no error the user can see.
+
+    The API itself is HTTPS, so the default stays secure — cleartext is refused
+    everywhere. The one exception is the API's own host, because stored media
+    paths (`imagePath`, `filePath`) come back from the server as absolute URLs
+    and the app passes them through untouched; if any of them is written with
+    `http://`, a blanket ban silently blanks every avatar and attachment.
+
+    Scoped to the one host on purpose. `usesCleartextTraffic="true"` on the
+    application would buy the same fix by turning the protection off for
+    everything the app ever talks to.
+-->
+<network-security-config>
+    <domain-config cleartextTrafficPermitted="true">
+        <domain includeSubdomains="true">dental-lap-api.premiumasp.net</domain>
+        <domain includeSubdomains="true">dental-lab.runasp.net</domain>
+    </domain-config>
+</network-security-config>

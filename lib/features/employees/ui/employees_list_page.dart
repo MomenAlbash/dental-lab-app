@@ -134,9 +134,9 @@ class _EmployeesListViewState extends State<_EmployeesListView> {
           listener: (context, state) {
             switch (state) {
               case EmployeeDeleted():
-                ShowToast(message: 'تم حذف الموظف', state: toastState.success);
+                showToast(message: 'تم حذف الموظف', state: ToastState.success);
               case EmployeeDeleteError(:final message):
-                ShowToast(message: message, state: toastState.error);
+                showToast(message: message, state: ToastState.error);
               default:
                 break;
             }

@@ -70,6 +70,9 @@ class AdaptiveCollection<T> extends StatelessWidget {
           padding: EdgeInsets.only(
             left: AppSpacing.lg,
             right: AppSpacing.lg,
+            // Without this the first card sits flush against the app bar and
+            // the list reads as if it has slipped under the chrome.
+            top: AppSpacing.md,
             bottom: bottomPadding,
           ),
           itemCount: items.length,
@@ -84,6 +87,7 @@ class AdaptiveCollection<T> extends StatelessWidget {
           padding: EdgeInsets.only(
             left: AppSpacing.xl,
             right: AppSpacing.xl,
+            top: AppSpacing.md,
             bottom: bottomPadding,
           ),
           gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(

@@ -148,20 +148,20 @@ class _ScannerAvailabilityViewState extends State<_ScannerAvailabilityView>
               listener: (context, state) {
                 switch (state) {
                   case ScannerRuleSaved():
-                    ShowToast(
+                    showToast(
                       message: 'تم حفظ الموعد الأسبوعي',
-                      state: toastState.success,
+                      state: ToastState.success,
                     );
                     _refreshCalendar();
                   case ScannerRuleDeleted():
-                    ShowToast(
+                    showToast(
                       message: 'تم حذف الموعد الأسبوعي',
-                      state: toastState.success,
+                      state: ToastState.success,
                     );
                     _refreshCalendar();
                   case ScannerRuleSaveError(:final message):
                   case ScannerRuleDeleteError(:final message):
-                    ShowToast(message: message, state: toastState.error);
+                    showToast(message: message, state: ToastState.error);
                   default:
                     break;
                 }
@@ -171,20 +171,20 @@ class _ScannerAvailabilityViewState extends State<_ScannerAvailabilityView>
               listener: (context, state) {
                 switch (state) {
                   case ScannerExceptionSaved():
-                    ShowToast(
+                    showToast(
                       message: 'تم حفظ الاستثناء',
-                      state: toastState.success,
+                      state: ToastState.success,
                     );
                     _refreshCalendar();
                   case ScannerExceptionDeleted():
-                    ShowToast(
+                    showToast(
                       message: 'تم حذف الاستثناء',
-                      state: toastState.success,
+                      state: ToastState.success,
                     );
                     _refreshCalendar();
                   case ScannerExceptionSaveError(:final message):
                   case ScannerExceptionDeleteError(:final message):
-                    ShowToast(message: message, state: toastState.error);
+                    showToast(message: message, state: ToastState.error);
                   default:
                     break;
                 }

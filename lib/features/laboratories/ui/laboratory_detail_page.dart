@@ -8,6 +8,7 @@ import 'package:dental_lab_app/core/widgets/custom_circle_progress_indiacator_wi
 import 'package:dental_lab_app/core/widgets/detail_info_row_widget.dart';
 import 'package:dental_lab_app/core/widgets/glass/glass_app_bar.dart';
 import 'package:dental_lab_app/core/widgets/glass/glass_scaffold.dart';
+import 'package:dental_lab_app/core/widgets/glass/glass_section_title.dart';
 import 'package:dental_lab_app/features/laboratories/data/models/laboratory_model.dart';
 import 'package:dental_lab_app/features/laboratories/logic/laboratory_details/laboratory_details_cubit.dart';
 import 'package:dental_lab_app/features/laboratories/logic/laboratory_details/laboratory_details_state.dart';
@@ -46,7 +47,7 @@ class _LaboratoryDetailView extends StatelessWidget {
         return GlassScaffold(
           appBar: GlassAppBar(
             title: Text(
-              'تفاصيل المخبر',
+              'تفاصيل الفرع',
               style: AppTextStyles.font18MediumText.copyWith(
                 color: context.glass.onGlass,
               ),
@@ -90,6 +91,67 @@ class _LaboratoryDetailView extends StatelessWidget {
           ),
         );
       },
+    );
+  }
+}
+
+// Formatters for the settings rows. Each renders an em dash when the server
+// did not report the field, so a missing setting reads as "not reported"
+// rather than as a real zero — `0 MB` would say attachments are banned.
+String _count(int? value) => value == null ? '—' : '$value';
+String _megabytes(int? value) => value == null ? '—' : '$value ميغابايت';
+String _gigabytes(int? value) => value == null ? '—' : '$value غيغابايت';
+String _days(int? value) => value == null ? '—' : '$value يوم';
+String _hours(int? value) => value == null ? '—' : '$value ساعة';
+String _percent(int? value) => value == null ? '—' : '%$value';
+String _toggle(bool? value) => switch (value) {
+  null => '—',
+  true => 'مفعّل',
+  false => 'معطّل',
+};
+
+/// A titled block of read-only settings rows.
+class _SettingsCard extends StatelessWidget {
+  const _SettingsCard({required this.title, required this.rows});
+
+  final String title;
+
+  /// `(icon, label, value)` — a record rather than a class because these rows
+  /// are pure presentation and never leave this file.
+  final List<(IconData, String, String)> rows;
+
+  @override
+  Widget build(BuildContext context) {
+    final glass = context.glass;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const SizedBox(height: AppSpacing.lg),
+        GlassSectionTitle(title),
+        const SizedBox(height: AppSpacing.md),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
+          decoration: BoxDecoration(
+            gradient: glass.surfaceGradient,
+            borderRadius: BorderRadius.circular(AppRadius.glass),
+            border: Border.all(color: glass.strokeColor),
+            boxShadow: glass.shadows,
+          ),
+          child: Column(
+            children: [
+              for (var i = 0; i < rows.length; i++) ...[
+                if (i > 0) Divider(height: 1, color: glass.strokeColor),
+                DetailInfoRowWidget(
+                  icon: rows[i].$1,
+                  label: rows[i].$2,
+                  value: rows[i].$3,
+                ),
+              ],
+            ],
+          ),
+        ),
+      ],
     );
   }
 }
@@ -140,7 +202,13 @@ class LaboratoryDetailsBody extends StatelessWidget {
                   style: AppTextStyles.font20BoldText,
                 ),
                 const SizedBox(height: 4),
-                subtitle ?? _StatusBadge(isActive: laboratory.isActive),
+                // `/own` reports no isActive, so there is nothing to badge —
+                // and a default "مفعّل" would be an assertion the server never
+                // made.
+                subtitle ??
+                    (laboratory.isActive == null
+                        ? const SizedBox.shrink()
+                        : _StatusBadge(isActive: laboratory.isActive!)),
               ],
             ),
           ),
@@ -170,38 +238,114 @@ class LaboratoryDetailsBody extends StatelessWidget {
                   ],
                 ),
               ),
+              if (laboratory.hasMessageLimits)
+                _SettingsCard(
+                  title: 'حدود مرفقات الرسائل',
+                  rows: [
+                    (
+                      Icons.attach_file_outlined,
+                      'أقصى عدد مرفقات للحالة',
+                      _count(laboratory.maxMessageAttachmentsPerCase),
+                    ),
+                    (
+                      Icons.image_outlined,
+                      'أقصى حجم صورة',
+                      _megabytes(laboratory.maxMessageImageSizeMb),
+                    ),
+                    (
+                      Icons.videocam_outlined,
+                      'أقصى حجم فيديو',
+                      _megabytes(laboratory.maxMessageVideoSizeMb),
+                    ),
+                    (
+                      Icons.mic_none_outlined,
+                      'أقصى حجم تسجيل صوتي',
+                      _megabytes(laboratory.maxMessageAudioSizeMb),
+                    ),
+                    (
+                      Icons.insert_drive_file_outlined,
+                      'أقصى حجم ملف',
+                      _megabytes(laboratory.maxMessageFileSizeMb),
+                    ),
+                  ],
+                ),
+              if (laboratory.controlDeliveryReminderHours != null)
+                _SettingsCard(
+                  title: 'التذكيرات',
+                  rows: [
+                    (
+                      Icons.notifications_active_outlined,
+                      'تذكير تسليم الكونترول',
+                      _hours(laboratory.controlDeliveryReminderHours),
+                    ),
+                  ],
+                ),
+              if (laboratory.hasScanSettings)
+                _SettingsCard(
+                  title: 'تخزين المسوحات',
+                  rows: [
+                    (
+                      Icons.auto_delete_outlined,
+                      'حذف المسوحات القديمة',
+                      _toggle(laboratory.scanRetentionEnabled),
+                    ),
+                    (
+                      Icons.schedule_outlined,
+                      'مدة الاحتفاظ',
+                      _days(laboratory.scanRetentionDays),
+                    ),
+                    (
+                      Icons.folder_off_outlined,
+                      'يقتصر على الحالات المغلقة',
+                      _toggle(laboratory.scanRetentionOnlyClosedCases),
+                    ),
+                    (
+                      Icons.storage_outlined,
+                      'حجم التخزين المسموح',
+                      _gigabytes(laboratory.scanStorageBudgetGb),
+                    ),
+                    (
+                      Icons.warning_amber_outlined,
+                      'التنبيه عند بلوغ',
+                      _percent(laboratory.scanStorageWarnPercent),
+                    ),
+                  ],
+                ),
               ?footer,
             ],
             // The three counts read as a scoreboard for the lab, so they sit
-            // together beside the details rather than above them.
+            // together beside the details rather than above them. `/own` does
+            // not report them at all, so the whole strip goes rather than
+            // showing three zeros the server never sent.
             side: [
-              Row(
-                children: [
-                  Expanded(
-                    child: _StatTile(
-                      icon: Icons.people_outline,
-                      label: 'المستخدمين',
-                      value: '${laboratory.userCount}',
+              if (laboratory.hasCounts)
+                Row(
+                  children: [
+                    Expanded(
+                      child: _StatTile(
+                        icon: Icons.people_outline,
+                        label: 'المستخدمين',
+                        value: _count(laboratory.userCount),
+                      ),
                     ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: _StatTile(
-                      icon: Icons.medical_services_outlined,
-                      label: 'الأطباء',
-                      value: '${laboratory.doctorCount}',
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: _StatTile(
+                        icon: Icons.medical_services_outlined,
+                        label: 'الأطباء',
+                        value: _count(laboratory.doctorCount),
+                      ),
                     ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: _StatTile(
-                      icon: Icons.folder_outlined,
-                      label: 'الحالات',
-                      value: '${laboratory.caseCount}',
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: _StatTile(
+                        icon: Icons.folder_outlined,
+                        label: 'الحالات',
+                        value: _count(laboratory.caseCount),
+                      ),
                     ),
-                  ),
-                ],
-              ),
+                  ],
+                ),
             ],
           ),
         ],

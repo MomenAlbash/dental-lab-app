@@ -91,7 +91,9 @@ class ClinicsListView extends StatelessWidget {
                         name: clinic.name,
                         address: clinic.address ?? '',
                         cityName: clinic.cityName,
-                        code: clinic.code,
+                        zoneName: clinic.zoneDisplayName.isEmpty
+                            ? null
+                            : clinic.zoneDisplayName,
                         phoneNumber: clinic.phoneNumber,
                         heroTag: 'clinic-avatar-${clinic.id}',
                         // Refetch on return: the detail screen has its

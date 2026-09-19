@@ -1,9 +1,13 @@
+import 'package:dental_lab_app/core/auth/permissions.dart';
+import 'package:dental_lab_app/core/auth/session.dart';
+import 'package:dental_lab_app/core/di/dependency_injection.dart';
 import 'package:dartz/dartz.dart';
 import 'package:dental_lab_app/core/errors/failures.dart';
 import 'package:dental_lab_app/core/theming/app_theme.dart';
 import 'package:dental_lab_app/features/case_priorities/data/models/case_priority_model.dart';
 import 'package:dental_lab_app/features/case_priorities/data/repos/case_priorities_repo.dart';
 import 'package:dental_lab_app/features/case_priorities/logic/case_priorities/case_priorities_cubit.dart';
+import 'package:dental_lab_app/features/cases/data/models/case_counts_model.dart';
 import 'package:dental_lab_app/features/cases/data/models/case_filters_model.dart';
 import 'package:dental_lab_app/features/cases/data/models/case_list_item_model.dart';
 import 'package:dental_lab_app/features/cases/data/repos/cases_repo.dart';
@@ -38,6 +42,29 @@ Widget _wrap() {
     (_) async => Right<Failure, List<CaseListItemModel>>([
       for (var i = 1; i <= 6; i++) _case('$i'),
     ]),
+  );
+  // The tab strip and the date segment are counted by the server, under the
+  // same filters the rows came from — so the list screen makes three requests,
+  // not one.
+  when(
+    () => casesRepo.getPhaseCounts(
+      search: any(named: 'search'),
+      filters: any(named: 'filters'),
+    ),
+  ).thenAnswer(
+    (_) async => Right<Failure, CasePhaseCountsModel>(
+      const CasePhaseCountsModel(all: 6, newCases: 2, inProduction: 4),
+    ),
+  );
+  when(
+    () => casesRepo.getSlaCounts(
+      search: any(named: 'search'),
+      filters: any(named: 'filters'),
+    ),
+  ).thenAnswer(
+    (_) async => Right<Failure, CaseSlaCountsModel>(
+      const CaseSlaCountsModel(late$: 1, dueToday: 2),
+    ),
   );
 
   final prioritiesRepo = _MockCasePrioritiesRepo();
@@ -84,6 +111,18 @@ Future<void> _pumpAt(WidgetTester tester, Size size) async {
 }
 
 void main() {
+  // The list asks the session whether the user may delete, so the delete
+  // button can be hidden rather than shown and refused.
+  setUp(() async {
+    await getIt.reset();
+    getIt.registerLazySingleton<SessionCubit>(
+      () =>
+          SessionCubit(initial: const Permissions(isAdmin: true, granted: {})),
+    );
+  });
+
+  tearDown(() => getIt.reset());
+
   setUpAll(() {
     registerFallbackValue(CaseFiltersModel.empty);
   });

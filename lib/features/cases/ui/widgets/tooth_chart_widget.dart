@@ -37,13 +37,23 @@ class ToothChartWidget extends StatelessWidget {
     super.key,
     required this.teeth,
     required this.onChanged,
+    this.takenTeeth = const {},
   });
 
   final List<ToothMarkModel> teeth;
   final ValueChanged<List<ToothMarkModel>> onChanged;
 
+  /// Teeth already claimed by another restoration on the same case.
+  ///
+  /// They are drawn as spoken for and refuse a tap: one tooth cannot be two
+  /// restorations, and letting it be picked twice files a case whose piece
+  /// counts do not add up to the mouth it describes.
+  final Set<int> takenTeeth;
+
   bool _isSelected(int toothNumber) =>
       teeth.any((t) => t.toothNumber == toothNumber);
+
+  bool _isTaken(int toothNumber) => takenTeeth.contains(toothNumber);
 
   /// Whether [b] is joined to its neighbour [a]. The link is stored on the
   /// later tooth in arch order, so a span reads in one direction only.
@@ -51,6 +61,10 @@ class ToothChartWidget extends StatelessWidget {
       teeth.any((t) => t.toothNumber == b && t.connectedToToothNumber == a);
 
   void _toggleTooth(int toothNumber) {
+    // Guarded here as well as in the hit test: the chart is the only thing
+    // standing between a taken tooth and a second restoration on it.
+    if (_isTaken(toothNumber)) return;
+
     final next = [...teeth];
     final index = next.indexWhere((t) => t.toothNumber == toothNumber);
     if (index >= 0) {
@@ -107,34 +121,30 @@ class ToothChartWidget extends StatelessWidget {
             border: Border.all(color: glass.strokeColor),
             boxShadow: glass.shadows,
           ),
-          child: Column(
-            children: [
-              AspectRatio(
-                aspectRatio: 1.5,
-                child: _ArchView(
-                  numbers: _upperArch,
-                  isUpperArch: true,
-                  isSelected: _isSelected,
-                  isConnected: _isConnected,
-                  onToothTap: _toggleTooth,
-                  onConnectorTap: _toggleConnection,
-                ),
-              ),
-              const _BiteLine(),
-              AspectRatio(
-                aspectRatio: 1.5,
-                child: _ArchView(
-                  numbers: _lowerArch,
-                  isUpperArch: false,
-                  isSelected: _isSelected,
-                  isConnected: _isConnected,
-                  onToothTap: _toggleTooth,
-                  onConnectorTap: _toggleConnection,
-                ),
-              ),
-            ],
+          child: AspectRatio(
+            // Taller than wide: the two arches together form one closed oval,
+            // the way a full-mouth scan is presented.
+            aspectRatio: 0.78,
+            child: _MouthView(
+              isSelected: _isSelected,
+              isTaken: _isTaken,
+              isConnected: _isConnected,
+              onToothTap: _toggleTooth,
+              onConnectorTap: _toggleConnection,
+            ),
           ),
         ),
+        if (takenTeeth.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.only(top: AppSpacing.sm),
+            child: Text(
+              'الأسنان الباهتة محجوزة لتعويض آخر في هذه الحالة',
+              textAlign: TextAlign.center,
+              style: AppTextStyles.font12RegularHint.copyWith(
+                color: glass.onGlassMuted,
+              ),
+            ),
+          ),
         const SizedBox(height: AppSpacing.md),
         if (teeth.isEmpty)
           Padding(
@@ -165,54 +175,11 @@ class ToothChartWidget extends StatelessWidget {
   }
 }
 
-/// The dashed line separating the two arches — the bite line. Together with
-/// each arch's midline it forms the quadrant crosshair a dental chart is read
-/// against.
-class _BiteLine extends StatelessWidget {
-  const _BiteLine();
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      height: AppSpacing.lg,
-      width: double.infinity,
-      child: CustomPaint(
-        painter: _BiteLinePainter(
-          context.glass.onGlassMuted.withValues(alpha: 0.45),
-        ),
-      ),
-    );
-  }
-}
-
-class _BiteLinePainter extends CustomPainter {
-  _BiteLinePainter(this.color);
-
-  final Color color;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = color
-      ..strokeWidth = 1;
-
-    const dash = 5.0;
-    const gap = 4.0;
-    final y = size.height / 2;
-
-    for (var x = 0.0; x < size.width; x += dash + gap) {
-      canvas.drawLine(
-        Offset(x, y),
-        Offset(math.min(x + dash, size.width), y),
-        paint,
-      );
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant _BiteLinePainter oldDelegate) =>
-      oldDelegate.color != color;
-}
+/// How much of each half-ellipse is left empty at the bite line, as a fraction
+/// of the sweep. Without it the two third molars of a side (18 and 48) would
+/// touch, and the oval would read as one continuous ring of 32 teeth instead
+/// of two arches meeting.
+const double _archSweepInset = 0.018;
 
 /// Where every tooth of one arch sits, and how it is shaped.
 ///
@@ -220,19 +187,17 @@ class _BiteLinePainter extends CustomPainter {
 /// wider than it is deep, and a circular ring was what made the old chart read
 /// as a segmented donut.
 class _ArchLayout {
+  /// Both arches of a chart share one [center] and one pair of radii: that is
+  /// what turns two half-ellipses into the single oval of a full-mouth view.
   _ArchLayout({
-    required this.size,
     required this.numbers,
     required this.isUpper,
-  }) : center = Offset(
-         size.width / 2,
-         isUpper ? size.height * 0.94 : size.height * 0.06,
-       ),
-       radiusX = size.width * 0.43,
-       radiusY = size.height * 0.80,
-       unit = math.min(size.width / 16, size.height / 5.2);
+    required this.center,
+    required this.radiusX,
+    required this.radiusY,
+    required this.unit,
+  });
 
-  final Size size;
   final List<int> numbers;
   final bool isUpper;
 
@@ -288,7 +253,8 @@ class _ArchLayout {
   /// Centre of tooth [i]. The sweep runs from π to 2π, i.e. left → apex →
   /// right; the apex is the front of the mouth.
   Offset centerOf(int i) {
-    final angle = math.pi + math.pi * _t(i);
+    final sweep = math.pi * (1 - 2 * _archSweepInset);
+    final angle = math.pi + math.pi * _archSweepInset + sweep * _t(i);
     final dy = radiusY * math.sin(angle);
     return Offset(
       center.dx + radiusX * math.cos(angle),
@@ -313,13 +279,16 @@ class _ArchLayout {
   Size sizeOf(int i) {
     final width = _widths[i] / _totalWidth * _arcLength;
     final heightRatio = switch (_kindOf(numbers[i])) {
-      _ToothKind.incisor => 1.45,
-      _ToothKind.canine => 1.50,
-      _ToothKind.premolar => 1.12,
-      _ToothKind.molar => 0.95,
+      _ToothKind.incisor => 1.55,
+      _ToothKind.canine => 1.60,
+      _ToothKind.premolar => 1.30,
+      _ToothKind.molar => 1.10,
     };
-    // 0.94 leaves a hairline between neighbours so the boundary stays visible.
-    return Size(width * 0.94, width * heightRatio);
+    // Exactly its own share of the arc: neighbouring crowns meet at their
+    // contact points the way they do in a real arch, instead of sitting apart
+    // with the gum showing between every pair. Every crown is outlined in a
+    // second pass, so the boundary stays readable without a gap.
+    return Size(width, width * heightRatio);
   }
 
   /// The tooth's outline, already positioned and rotated on the canvas.
@@ -413,8 +382,13 @@ class _ArchLayout {
     final inward = center - mid;
     final length = inward.distance;
     if (length == 0) return mid;
-    return mid + inward / length * (unit * 0.72);
+    return mid + inward / length * insetOf(i);
   }
+
+  /// How far inside the arch the join circle and the bridge bar sit for tooth
+  /// [i]: clear of the crown itself, out on the gum, so neither ever covers a
+  /// tooth's number.
+  double insetOf(int i) => sizeOf(i).height * 0.5 + connectorRadius * 0.95;
 
   double get connectorRadius => math.max(unit * 0.24, 7);
 
@@ -437,19 +411,19 @@ class _ArchLayout {
   }
 }
 
-class _ArchView extends StatelessWidget {
-  const _ArchView({
-    required this.numbers,
-    required this.isUpperArch,
+/// Both arches on one canvas, laid out around a shared centre so they close
+/// into a single oval — the shape a full-mouth view is read in.
+class _MouthView extends StatelessWidget {
+  const _MouthView({
     required this.isSelected,
+    required this.isTaken,
     required this.isConnected,
     required this.onToothTap,
     required this.onConnectorTap,
   });
 
-  final List<int> numbers;
-  final bool isUpperArch;
   final bool Function(int) isSelected;
+  final bool Function(int) isTaken;
   final bool Function(int, int) isConnected;
   final ValueChanged<int> onToothTap;
   final void Function(int a, int b) onConnectorTap;
@@ -461,45 +435,78 @@ class _ArchView extends StatelessWidget {
     return LayoutBuilder(
       builder: (context, constraints) {
         final size = Size(constraints.maxWidth, constraints.maxHeight);
-        final layout = _ArchLayout(
-          size: size,
-          numbers: numbers,
-          isUpper: isUpperArch,
-        );
+        // The oval is centred in the box; the margin left around it is the
+        // room the crowns themselves need, since they straddle the ellipse.
+        final center = Offset(size.width / 2, size.height / 2);
+        final radiusX = size.width * 0.38;
+        final radiusY = size.height * 0.42;
+        final unit = math.min(size.width / 16, size.height / 10.4);
+
+        _ArchLayout archOf(List<int> numbers, {required bool isUpper}) =>
+            _ArchLayout(
+              numbers: numbers,
+              isUpper: isUpper,
+              center: center,
+              radiusX: radiusX,
+              radiusY: radiusY,
+              unit: unit,
+            );
+
+        final upper = archOf(_upperArch, isUpper: true);
+        final lower = archOf(_lowerArch, isUpper: false);
 
         return GestureDetector(
           behavior: HitTestBehavior.opaque,
           onTapUp: (details) {
             final point = details.localPosition;
 
-            // Connectors win: they sit between two crowns and are the smaller
-            // target, so testing them first keeps them reachable.
-            final connector = layout.connectorAtPoint(point);
-            if (connector != null) {
-              final a = numbers[connector];
-              final b = numbers[connector + 1];
-              if (isSelected(a) && isSelected(b)) {
-                onConnectorTap(a, b);
-                return;
+            for (final layout in [upper, lower]) {
+              // Connectors win: they sit between two crowns and are the
+              // smaller target, so testing them first keeps them reachable.
+              final connector = layout.connectorAtPoint(point);
+              if (connector != null) {
+                final a = layout.numbers[connector];
+                final b = layout.numbers[connector + 1];
+                if (isSelected(a) && isSelected(b)) {
+                  onConnectorTap(a, b);
+                  return;
+                }
               }
             }
 
-            final tooth = layout.toothAt(point);
-            if (tooth != null) onToothTap(numbers[tooth]);
+            for (final layout in [upper, lower]) {
+              final tooth = layout.toothAt(point);
+              if (tooth != null) {
+                // A tooth spoken for by another restoration swallows the tap
+                // rather than passing it to whatever is underneath.
+                if (isTaken(layout.numbers[tooth])) return;
+                onToothTap(layout.numbers[tooth]);
+                return;
+              }
+            }
           },
           child: CustomPaint(
             size: size,
-            painter: _ArchPainter(
-              layout: layout,
+            painter: _MouthPainter(
+              arches: [upper, lower],
               isSelected: isSelected,
+              isTaken: isTaken,
               isConnected: isConnected,
               // A painter has no BuildContext, so themed tones are resolved
               // here and handed in.
               accent: Theme.of(context).colorScheme.primary,
               gumColor: glass.toothGum,
               toothColor: glass.toothEnamel,
-              outlineColor: glass.strokeColor,
+              // Deliberately stronger than the app's hairline stroke: enamel
+              // is nearly white on a nearly white pane, and once the crowns
+              // touch, the outline is the only thing separating one tooth
+              // from the next.
+              outlineColor: glass.onGlassMuted.withValues(alpha: 0.55),
               labelColor: glass.onGlassMuted,
+              // A distinct hue rather than a blend of labelColor: in dark
+              // theme labelColor sits too close to toothColor's own
+              // brightness, so a taken tooth barely differed from a free one.
+              takenColor: glass.toothGum,
             ),
           ),
         );
@@ -508,37 +515,65 @@ class _ArchView extends StatelessWidget {
   }
 }
 
-class _ArchPainter extends CustomPainter {
-  _ArchPainter({
-    required this.layout,
+class _MouthPainter extends CustomPainter {
+  _MouthPainter({
+    required this.arches,
     required this.isSelected,
+    required this.isTaken,
     required this.isConnected,
     required this.accent,
     required this.gumColor,
     required this.toothColor,
     required this.outlineColor,
     required this.labelColor,
+    required this.takenColor,
   });
 
-  final _ArchLayout layout;
+  /// Upper arch first, then lower — painted in that order so they stack the
+  /// way they sit in the mouth.
+  final List<_ArchLayout> arches;
   final bool Function(int) isSelected;
+  final bool Function(int) isTaken;
   final bool Function(int, int) isConnected;
   final Color accent;
   final Color gumColor;
   final Color toothColor;
   final Color outlineColor;
   final Color labelColor;
+  final Color takenColor;
 
   @override
   void paint(Canvas canvas, Size size) {
-    _paintTissue(canvas);
-    _paintMidline(canvas, size);
-
-    for (var i = 0; i < layout.count; i++) {
-      _paintTooth(canvas, i);
+    for (final layout in arches) {
+      _paintTissue(canvas, layout);
     }
 
-    _paintConnectors(canvas);
+    _paintQuadrantLines(canvas, size);
+
+    // Painted in layers, not tooth by tooth, and the order is the whole point:
+    // the crowns touch, so anything drawn after a neighbour would be buried
+    // under that neighbour's fill. Bridge bars go under the crowns, the fills
+    // next, then the lines, and the numbers last of all — nothing is ever
+    // drawn on top of a tooth's number.
+    for (final layout in arches) {
+      _paintSpans(canvas, layout);
+    }
+    for (final layout in arches) {
+      for (var i = 0; i < layout.count; i++) {
+        _paintToothFill(canvas, layout, i);
+      }
+    }
+    for (final layout in arches) {
+      for (var i = 0; i < layout.count; i++) {
+        _paintToothDetail(canvas, layout, i);
+      }
+      _paintConnectors(canvas, layout);
+    }
+    for (final layout in arches) {
+      for (var i = 0; i < layout.count; i++) {
+        _paintNumber(canvas, layout, i);
+      }
+    }
   }
 
   /// The soft tissue behind the crowns: the palate (or the floor of the mouth)
@@ -547,7 +582,7 @@ class _ArchPainter extends CustomPainter {
   ///
   /// The filled inside is what makes the chart read as a mouth — an arch of
   /// crowns over an empty box reads as a diagram of nothing in particular.
-  void _paintTissue(Canvas canvas) {
+  void _paintTissue(Canvas canvas, _ArchLayout layout) {
     final outer = <Offset>[];
     final inner = <Offset>[];
 
@@ -585,18 +620,28 @@ class _ArchPainter extends CustomPainter {
     canvas.drawPath(band, Paint()..color = gumColor);
   }
 
-  /// The dashed midline that splits the arch into its left and right
-  /// quadrants — the same reference line a printed odontogram carries, and
-  /// what tells the user which side of the mouth they are looking at.
-  void _paintMidline(Canvas canvas, Size size) {
+  /// The crosshair that splits the oval into the four quadrants (1x, 2x, 3x,
+  /// 4x): the midline between the two central incisors, and the bite line
+  /// between the arches. It is the same reference an odontogram is printed
+  /// with, and it is what tells the user which side of which jaw they are
+  /// looking at.
+  void _paintQuadrantLines(Canvas canvas, Size size) {
     final paint = Paint()
       ..color = labelColor.withValues(alpha: 0.45)
       ..strokeWidth = 1;
 
+    final center = arches.first.center;
+
     _dashedLine(
       canvas,
-      Offset(size.width / 2, 0),
-      Offset(size.width / 2, size.height),
+      Offset(center.dx, 0),
+      Offset(center.dx, size.height),
+      paint,
+    );
+    _dashedLine(
+      canvas,
+      Offset(0, center.dy),
+      Offset(size.width, center.dy),
       paint,
     );
   }
@@ -618,95 +663,109 @@ class _ArchPainter extends CustomPainter {
     }
   }
 
-  void _paintTooth(Canvas canvas, int i) {
-    final path = layout.pathFor(i);
+  void _paintToothFill(Canvas canvas, _ArchLayout layout, int i) {
+    final number = layout.numbers[i];
+    final Color fill;
+    if (isSelected(number)) {
+      fill = accent;
+    } else if (isTaken(number)) {
+      // Blended from a distinct hue (the gum's own tone) rather than the
+      // muted label color: in dark theme, labelColor sits close in
+      // brightness to toothColor, so that blend barely read as different
+      // from a free tooth.
+      fill = Color.alphaBlend(takenColor.withValues(alpha: 0.45), toothColor);
+    } else {
+      fill = toothColor;
+    }
+
+    canvas.drawPath(layout.pathFor(i), Paint()..color = fill);
+  }
+
+  /// The crown's outline, and nothing else on the crown.
+  ///
+  /// The occlusal grooves were drawn here once. They crossed the tooth's
+  /// number, and a number that has to be read through a line is worse than a
+  /// crown that shows no anatomy: the silhouette already separates a molar
+  /// from an incisor.
+  void _paintToothDetail(Canvas canvas, _ArchLayout layout, int i) {
     final selected = isSelected(layout.numbers[i]);
 
-    canvas.drawPath(path, Paint()..color = selected ? accent : toothColor);
-    _paintOcclusalSurface(canvas, i, selected);
     canvas.drawPath(
-      path,
+      layout.pathFor(i),
       Paint()
         ..style = PaintingStyle.stroke
         ..strokeWidth = selected ? 1.6 : 1
         ..color = selected ? accent : outlineColor,
     );
-
-    _paintNumber(canvas, i, selected);
   }
 
-  /// The chewing surface of the back teeth — the inner ring a premolar or
-  /// molar shows when looked at from above. Front teeth present an edge, not a
-  /// surface, so they get none.
-  void _paintOcclusalSurface(Canvas canvas, int i, bool selected) {
-    final kind = _kindOf(layout.numbers[i]);
-    if (kind == _ToothKind.incisor || kind == _ToothKind.canine) return;
-
-    final size = layout.sizeOf(i);
-    final inset = kind == _ToothKind.molar ? 0.46 : 0.40;
-
-    final surface = Path()
-      ..addRRect(
-        RRect.fromRectAndRadius(
-          Rect.fromCenter(
-            center: Offset.zero,
-            width: size.width * inset * 2,
-            height: size.height * inset * 2,
-          ),
-          Radius.circular(size.width * 0.22),
-        ),
-      );
-
-    final matrix = Matrix4.identity()
-      ..translateByDouble(layout.centerOf(i).dx, layout.centerOf(i).dy, 0, 1)
-      ..rotateZ(layout.rotationOf(i));
-
-    canvas.drawPath(
-      surface.transform(matrix.storage),
-      Paint()
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 1
-        // Selected crowns are a solid accent block; a darker inner line would
-        // read as damage rather than anatomy, so it lightens instead.
-        ..color = selected
-            ? toothColor.withValues(alpha: 0.55)
-            : outlineColor.withValues(alpha: 0.65),
-    );
-  }
-
-  /// Numbers sit outside the crowns, upright, so they stay readable instead of
-  /// rotating with the tooth.
-  void _paintNumber(Canvas canvas, int i, bool selected) {
-    final direction = layout.centerOf(i) - layout.center;
-    final length = direction.distance;
-    if (length == 0) return;
-
-    final position =
-        layout.centerOf(i) +
-        direction / length * (layout.sizeOf(i).height * 0.62 + 7);
-
+  /// The FDI number is written on the crown itself, the way a scanner's
+  /// full-mouth view labels its teeth — and always upright, so it stays
+  /// readable instead of rotating with the tooth.
+  ///
+  /// Painted after everything else, for every tooth: the number is the one
+  /// thing a crown must always show, and a bridge bar crossing it used to wipe
+  /// it out exactly when the case got harder to read.
+  void _paintNumber(Canvas canvas, _ArchLayout layout, int i) {
+    final selected = isSelected(layout.numbers[i]);
     final painter = TextPainter(
       text: TextSpan(
         text: '${layout.numbers[i]}',
         style: TextStyle(
-          fontSize: math.max(layout.unit * 0.34, 8),
-          fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
-          color: selected ? accent : labelColor,
+          fontSize: math.max(layout.unit * 0.36, 8),
+          fontWeight: selected ? FontWeight.w700 : FontWeight.w600,
+          // On a selected crown the accent is the fill, so the label flips to
+          // the enamel tone to stay legible.
+          color: selected ? toothColor : labelColor,
         ),
       ),
       textDirection: TextDirection.ltr,
     )..layout();
 
+    final position = layout.centerOf(i);
     painter.paint(
       canvas,
       position - Offset(painter.width / 2, painter.height / 2),
     );
   }
 
+  /// The bar that makes a bridge span visible as one piece rather than as two
+  /// separate crowns.
+  ///
+  /// It runs beside the crowns, on the tongue side, and is painted before
+  /// them: drawn across the middle of the teeth it covered their numbers,
+  /// which is the one thing on a chart that must never be hidden.
+  void _paintSpans(Canvas canvas, _ArchLayout layout) {
+    for (var i = 0; i < layout.count - 1; i++) {
+      final a = layout.numbers[i];
+      final b = layout.numbers[i + 1];
+      if (!isSelected(a) || !isSelected(b) || !isConnected(a, b)) continue;
+
+      canvas.drawLine(
+        _towardCenter(layout, i),
+        _towardCenter(layout, i + 1),
+        Paint()
+          ..color = accent
+          ..strokeWidth = layout.connectorRadius * 1.1
+          ..strokeCap = StrokeCap.round,
+      );
+    }
+  }
+
+  /// The point on tooth [i] that the span bar passes through: pulled off the
+  /// crown toward the inside of the arch, where the join circle also sits.
+  Offset _towardCenter(_ArchLayout layout, int i) {
+    final toothCenter = layout.centerOf(i);
+    final inward = layout.center - toothCenter;
+    final length = inward.distance;
+    if (length == 0) return toothCenter;
+    return toothCenter + inward / length * layout.insetOf(i);
+  }
+
   /// One circle per gap between two *selected* neighbours: filled once they
   /// are joined, hollow while they are not. Offering it only where both teeth
   /// are on the restoration keeps the chart from sprouting 15 dots per arch.
-  void _paintConnectors(Canvas canvas) {
+  void _paintConnectors(Canvas canvas, _ArchLayout layout) {
     for (var i = 0; i < layout.count - 1; i++) {
       final a = layout.numbers[i];
       final b = layout.numbers[i + 1];
@@ -715,18 +774,6 @@ class _ArchPainter extends CustomPainter {
       final point = layout.connectorAt(i);
       final joined = isConnected(a, b);
       final radius = layout.connectorRadius;
-
-      if (joined) {
-        // The bar makes the span itself visible, not just its endpoints.
-        canvas.drawLine(
-          layout.centerOf(i),
-          layout.centerOf(i + 1),
-          Paint()
-            ..color = accent
-            ..strokeWidth = radius * 0.7
-            ..strokeCap = StrokeCap.round,
-        );
-      }
 
       canvas
         ..drawCircle(
@@ -758,7 +805,7 @@ class _ArchPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(covariant _ArchPainter oldDelegate) => true;
+  bool shouldRepaint(covariant _MouthPainter oldDelegate) => true;
 }
 
 /// One selected tooth below the chart, with its bridge link if it has one.

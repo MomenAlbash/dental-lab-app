@@ -1,10 +1,14 @@
 import 'dart:developer';
 
 import 'package:dartz/dartz.dart';
+import 'package:dental_lab_app/core/auth/permissions.dart';
+import 'package:dental_lab_app/core/auth/session.dart';
+import 'package:dental_lab_app/core/di/dependency_injection.dart';
 import 'package:dental_lab_app/core/errors/failures.dart';
 import 'package:dental_lab_app/core/helper/local/cache_keys.dart';
 import 'package:dental_lab_app/core/helper/local/cached_helper.dart';
 import 'package:dental_lab_app/core/helper/network_helper/api_service.dart';
+import 'package:dental_lab_app/core/notifications/push_notification_service.dart';
 import 'package:dental_lab_app/features/auth/data/models/login_request_model.dart';
 import 'package:dental_lab_app/features/auth/data/models/login_response_model.dart';
 import 'package:dio/dio.dart';
@@ -44,6 +48,17 @@ class LoginRepo {
         value: response.data?.isAdmin ?? false,
       );
 
+      // Navigation is gated on these, so they are adopted before the router
+      // leaves the login screen — otherwise the first frame of the shell draws
+      // the previous user's menu.
+      await getIt<SessionCubit>().adopt(
+        response.data?.permissions ?? Permissions.empty,
+      );
+
+      // Fire-and-forget: push is a nice-to-have, never something a login
+      // waits on or fails for.
+      getIt<PushNotificationService>().requestPermissionAndRegister();
+
       // Scope the session to the laboratory the account belongs to. If the
       // user has access to more than one, the laboratory-selection screen
       // overwrites this afterwards.
@@ -64,7 +79,7 @@ class LoginRepo {
       return right(response);
     } on DioException catch (e) {
       log('DioException during login: ${e.message}');
-      return left(ServerFailure.FromDioExecption(e));
+      return left(ServerFailure.fromDioException(e));
     } catch (e) {
       log('General Exception during login: ${e.toString()}');
       return left(ServerFailure.fromException(e));
@@ -86,7 +101,7 @@ class LoginRepo {
       return right(null);
     } on DioException catch (e) {
       log('DioException while changing password: ${e.message}');
-      return left(ServerFailure.FromDioExecption(e));
+      return left(ServerFailure.fromDioException(e));
     } catch (e) {
       log('General Exception while changing password: ${e.toString()}');
       return left(ServerFailure.fromException(e));
@@ -96,6 +111,7 @@ class LoginRepo {
   /// Clears the locally cached session — the API has no logout endpoint, so
   /// this is purely a client-side reset of the account/laboratory scope.
   Future<void> logout() async {
+    await getIt<SessionCubit>().clear();
     await CacheHelper.removeData(key: CacheKeys.token);
     await CacheHelper.removeData(key: CacheKeys.userId);
     await CacheHelper.removeData(key: CacheKeys.isAdmin);

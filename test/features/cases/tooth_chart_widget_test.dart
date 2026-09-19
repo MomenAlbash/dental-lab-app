@@ -10,26 +10,28 @@ void main() {
 
   setUp(() => teeth = []);
 
-  Widget wrap({ThemeData? theme}) => MaterialApp(
-    theme: theme ?? AppTheme.light,
-    locale: const Locale('ar'),
-    supportedLocales: const [Locale('ar'), Locale('en')],
-    localizationsDelegates: const [
-      GlobalMaterialLocalizations.delegate,
-      GlobalWidgetsLocalizations.delegate,
-      GlobalCupertinoLocalizations.delegate,
-    ],
-    home: Scaffold(
-      body: StatefulBuilder(
-        builder: (context, setState) => SingleChildScrollView(
-          child: ToothChartWidget(
-            teeth: teeth,
-            onChanged: (next) => setState(() => teeth = next),
+  Widget wrap({ThemeData? theme, Set<int> takenTeeth = const {}}) =>
+      MaterialApp(
+        theme: theme ?? AppTheme.light,
+        locale: const Locale('ar'),
+        supportedLocales: const [Locale('ar'), Locale('en')],
+        localizationsDelegates: const [
+          GlobalMaterialLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+        ],
+        home: Scaffold(
+          body: StatefulBuilder(
+            builder: (context, setState) => SingleChildScrollView(
+              child: ToothChartWidget(
+                teeth: teeth,
+                takenTeeth: takenTeeth,
+                onChanged: (next) => setState(() => teeth = next),
+              ),
+            ),
           ),
         ),
-      ),
-    ),
-  );
+      );
 
   void usePhoneScreen(WidgetTester tester) {
     tester.view.devicePixelRatio = 1.0;
@@ -192,6 +194,50 @@ void main() {
         }
       }
     }
+  });
+
+  testWidgets('a tooth taken by another restoration refuses every tap', (
+    tester,
+  ) async {
+    // One tooth carries one restoration. If the chart let it be marked again,
+    // the case would be filed claiming the same tooth twice.
+    usePhoneScreen(tester);
+    await tester.pumpWidget(wrap(takenTeeth: const {11, 12, 13}));
+    await tester.pumpAndSettle();
+
+    final chart = tester.getRect(find.byType(ToothChartWidget));
+    for (var dy = chart.top + 8; dy < chart.top + 420; dy += 5) {
+      for (var dx = chart.left + 8; dx < chart.right - 8; dx += 5) {
+        await tester.tapAt(Offset(dx, dy));
+        await tester.pump();
+      }
+    }
+
+    expect(
+      teeth.map((t) => t.toothNumber),
+      isNot(anyOf(contains(11), contains(12), contains(13))),
+    );
+  });
+
+  testWidgets('taken teeth are called out below the chart', (tester) async {
+    usePhoneScreen(tester);
+    await tester.pumpWidget(wrap(takenTeeth: const {11}));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.text('الأسنان الباهتة محجوزة لتعويض آخر في هذه الحالة'),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('nothing is said about taken teeth when there are none', (
+    tester,
+  ) async {
+    usePhoneScreen(tester);
+    await tester.pumpWidget(wrap());
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('محجوزة'), findsNothing);
   });
 
   testWidgets('removing a tooth breaks any span pointing at it', (

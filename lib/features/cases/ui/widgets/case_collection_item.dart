@@ -3,6 +3,7 @@ import 'package:dental_lab_app/core/theming/badge_variant.dart';
 import 'package:dental_lab_app/features/cases/data/models/case_list_item_model.dart';
 import 'package:dental_lab_app/features/cases/logic/cases/cases_cubit.dart';
 import 'package:dental_lab_app/features/cases/ui/widgets/case_list_item_widget.dart';
+import 'package:dental_lab_app/features/cases/ui/widgets/case_restoration_breakdown_sheet.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
@@ -26,7 +27,8 @@ class CaseCollectionItem extends StatelessWidget {
   /// from the priorities list — the case row itself only carries the id.
   final String? priorityVariant;
 
-  final VoidCallback onDelete;
+  /// Null hides the delete button — the user may not delete cases.
+  final VoidCallback? onDelete;
 
   @override
   Widget build(BuildContext context) {
@@ -34,7 +36,14 @@ class CaseCollectionItem extends StatelessWidget {
       caseNumber: caseItem.caseNumber ?? '',
       patientName: caseItem.patientName ?? '',
       doctorName: caseItem.doctorName ?? '',
-      stageName: caseItem.caseStatusLabel,
+      laboratoryName: caseItem.laboratoryName,
+      cityName: caseItem.cityName,
+      stageName: caseItem.stageLabel,
+      productionSummary: caseItem.productionSummaryLabel,
+      // The row carries its own stage token, so unlike the priority it needs
+      // no lookup against a catalogue.
+      stageColor: badgeVariantColor(context, caseItem.stage.stageBadgeVariant),
+      isLate: caseItem.stage.isLate,
       priorityLabel: caseItem.priorityLabel,
       priorityColor: badgeVariantColor(context, priorityVariant),
       onTap: () async {
@@ -43,6 +52,12 @@ class CaseCollectionItem extends StatelessWidget {
         // list refetches rather than showing what it had before.
         if (context.mounted) context.read<CasesCubit>().getCases();
       },
+      // Everything the sheet draws already arrived with this row, so it opens
+      // without a request. Hidden rather than disabled when the case has no
+      // restorations — the same null-hides contract as `onDelete`.
+      onShowBreakdown: caseItem.hasRestorationBreakdown
+          ? () => showCaseRestorationBreakdownSheet(context, caseItem: caseItem)
+          : null,
       onDelete: onDelete,
     );
   }

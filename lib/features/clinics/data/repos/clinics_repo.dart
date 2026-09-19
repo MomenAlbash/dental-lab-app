@@ -6,6 +6,7 @@ import 'package:dental_lab_app/core/helper/local/cache_keys.dart';
 import 'package:dental_lab_app/core/helper/local/cacheable_fetch.dart';
 import 'package:dental_lab_app/core/helper/local/cached_helper.dart';
 import 'package:dental_lab_app/core/helper/network_helper/api_service.dart';
+import 'package:dental_lab_app/core/helper/network_helper/people_api.dart';
 import 'package:dental_lab_app/features/clinics/data/models/clinic_model.dart';
 import 'package:dental_lab_app/features/clinics/data/models/create_clinic_request_model.dart';
 import 'package:dental_lab_app/features/clinics/data/models/update_clinic_request_model.dart';
@@ -28,7 +29,7 @@ class ClinicsRepo {
       return fallbackToCache(
         cacheKey: CacheKeys.cachedClinicsList,
         fromJson: ClinicModel.fromJson,
-        onFailure: () => ServerFailure.FromDioExecption(e),
+        onFailure: () => ServerFailure.fromDioException(e),
       );
     } catch (e) {
       log('General Exception while fetching clinics: ${e.toString()}');
@@ -48,7 +49,7 @@ class ClinicsRepo {
       return right(clinic);
     } on DioException catch (e) {
       log('DioException while fetching clinic: ${e.message}');
-      return left(ServerFailure.FromDioExecption(e));
+      return left(ServerFailure.fromDioException(e));
     } catch (e) {
       log('General Exception while fetching clinic: ${e.toString()}');
       return left(ServerFailure.fromException(e));
@@ -68,7 +69,7 @@ class ClinicsRepo {
       return right(clinic);
     } on DioException catch (e) {
       log('DioException while creating clinic: ${e.message}');
-      return left(ServerFailure.FromDioExecption(e));
+      return left(ServerFailure.fromDioException(e));
     } catch (e) {
       log('General Exception while creating clinic: ${e.toString()}');
       return left(ServerFailure.fromException(e));
@@ -90,9 +91,36 @@ class ClinicsRepo {
       return right(clinic);
     } on DioException catch (e) {
       log('DioException while updating clinic: ${e.message}');
-      return left(ServerFailure.FromDioExecption(e));
+      return left(ServerFailure.fromDioException(e));
     } catch (e) {
       log('General Exception while updating clinic: ${e.toString()}');
+      return left(ServerFailure.fromException(e));
+    }
+  }
+
+  /// Replaces the clinic's logo.
+  ///
+  /// The stored path comes back, but it is dropped: the caller refetches the
+  /// clinic instead. Two holders of the same record, one quietly newer, is how
+  /// a screen starts disagreeing with itself.
+  Future<Either<Failure, void>> uploadImage({
+    required String id,
+    required String filePath,
+  }) async {
+    try {
+      await _apiService.uploadClinicImage(
+        id: id,
+        filePath: filePath,
+        token: _token,
+      );
+
+      log('Uploaded image for clinic: $id');
+      return right(null);
+    } on DioException catch (e) {
+      log('DioException while uploading a clinic image: ${e.message}');
+      return left(ServerFailure.fromDioException(e));
+    } catch (e) {
+      log('General Exception while uploading a clinic image: $e');
       return left(ServerFailure.fromException(e));
     }
   }
@@ -105,7 +133,7 @@ class ClinicsRepo {
       return right(null);
     } on DioException catch (e) {
       log('DioException while deleting clinic: ${e.message}');
-      return left(ServerFailure.FromDioExecption(e));
+      return left(ServerFailure.fromDioException(e));
     } catch (e) {
       log('General Exception while deleting clinic: ${e.toString()}');
       return left(ServerFailure.fromException(e));

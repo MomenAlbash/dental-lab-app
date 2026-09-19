@@ -3,10 +3,18 @@ import 'package:dental_lab_app/core/helper/local/cached_helper.dart';
 import 'package:dental_lab_app/core/router/routes.dart';
 import 'package:dental_lab_app/features/auth/ui/login_page.dart';
 import 'package:dental_lab_app/features/scanner_availability/ui/scanner_availability_page.dart';
+import 'package:dental_lab_app/features/scanner_sessions/ui/scanner_sessions_page.dart';
 import 'package:dental_lab_app/features/case_priorities/data/models/case_priority_model.dart';
 import 'package:dental_lab_app/features/case_priorities/ui/case_priorities_list_page.dart';
+import 'package:dental_lab_app/features/case_ticket_templates/ui/case_ticket_template_editor_page.dart';
+import 'package:dental_lab_app/features/case_ticket_templates/ui/case_ticket_templates_list_page.dart';
+import 'package:dental_lab_app/features/case_stages/ui/case_workflow_editor_page.dart';
+import 'package:dental_lab_app/features/case_workflow_stages/ui/restoration_route_editor_page.dart';
+import 'package:dental_lab_app/features/departments/ui/departments_page.dart';
 import 'package:dental_lab_app/features/case_priorities/ui/case_priority_form_page.dart';
 import 'package:dental_lab_app/features/cases/ui/case_detail_page.dart';
+import 'package:dental_lab_app/features/cases/ui/barcode_scanner_page.dart';
+import 'package:dental_lab_app/features/cases/ui/scan_task_page.dart';
 import 'package:dental_lab_app/features/cases/ui/case_form_page.dart';
 import 'package:dental_lab_app/features/cases/ui/cases_list_page.dart';
 import 'package:dental_lab_app/features/clinics/data/models/clinic_model.dart';
@@ -14,9 +22,36 @@ import 'package:dental_lab_app/features/clinics/ui/clinic_detail_page.dart';
 import 'package:dental_lab_app/features/clinics/ui/clinic_form_page.dart';
 import 'package:dental_lab_app/features/clinics/ui/clinics_list_page.dart';
 import 'package:dental_lab_app/features/currencies/ui/currencies_list_page.dart';
-import 'package:dental_lab_app/features/currencies/ui/currency_detail_page.dart';
-import 'package:dental_lab_app/features/currencies/ui/currency_form_page.dart';
+import 'package:dental_lab_app/features/inventory/ui/inventory_list_page.dart';
+import 'package:dental_lab_app/features/purchases/ui/purchase_form_page.dart';
+import 'package:dental_lab_app/features/purchases/ui/purchases_list_page.dart';
+import 'package:dental_lab_app/features/store_reports/ui/feasibility_report_page.dart';
+import 'package:dental_lab_app/features/suppliers/ui/suppliers_list_page.dart';
+import 'package:dental_lab_app/features/accounting/ui/accounting_overview_page.dart';
+import 'package:dental_lab_app/features/accounting/ui/invoice_detail_page.dart';
+import 'package:dental_lab_app/features/accounting/ui/doctor_statement_page.dart';
+import 'package:dental_lab_app/features/accounting/ui/cashbox_page.dart';
+import 'package:dental_lab_app/features/attendance/ui/attendance_hub_page.dart';
+import 'package:dental_lab_app/features/attendance/ui/work_shifts_page.dart';
+import 'package:dental_lab_app/features/branding/ui/branding_page.dart';
+import 'package:dental_lab_app/features/case_priorities/ui/priority_overview_page.dart';
+import 'package:dental_lab_app/features/scan_storage/ui/scan_storage_page.dart';
+import 'package:dental_lab_app/features/notifications/ui/broadcast_page.dart';
+import 'package:dental_lab_app/features/details_questions/ui/details_questions_page.dart';
+import 'package:dental_lab_app/features/excel_import/ui/excel_import_page.dart';
+import 'package:dental_lab_app/features/employee_activity/ui/employee_activity_page.dart';
+import 'package:dental_lab_app/features/payroll/ui/payroll_page.dart';
+import 'package:dental_lab_app/features/accounting/ui/expenses_list_page.dart';
+import 'package:dental_lab_app/features/accounting/ui/invoice_form_page.dart';
+import 'package:dental_lab_app/features/accounting/ui/invoices_list_page.dart';
+import 'package:dental_lab_app/features/accounting/ui/manual_payment_form_page.dart';
+import 'package:dental_lab_app/features/accounting/ui/payments_list_page.dart';
+import 'package:dental_lab_app/features/accounting/ui/pending_payments_page.dart';
+import 'package:dental_lab_app/features/areas/ui/areas_list_page.dart';
 import 'package:dental_lab_app/features/cities/ui/cities_list_page.dart';
+import 'package:dental_lab_app/features/zones/data/models/zone_model.dart';
+import 'package:dental_lab_app/features/zones/ui/zone_form_page.dart';
+import 'package:dental_lab_app/features/zones/ui/zones_list_page.dart';
 import 'package:dental_lab_app/features/countries/ui/countries_list_page.dart';
 import 'package:dental_lab_app/features/doctors/data/models/doctor_model.dart';
 import 'package:dental_lab_app/features/doctors/ui/doctor_detail_page.dart';
@@ -44,6 +79,7 @@ import 'package:dental_lab_app/features/price_tiers/ui/price_tiers_list_page.dar
 import 'package:dental_lab_app/features/restoration_types/data/models/restoration_type_model.dart';
 import 'package:dental_lab_app/features/restoration_types/ui/restoration_type_form_page.dart';
 import 'package:dental_lab_app/features/restoration_types/ui/restoration_types_list_page.dart';
+import 'package:dental_lab_app/features/roles/data/models/role_model.dart';
 import 'package:dental_lab_app/features/roles/ui/role_form_page.dart';
 import 'package:dental_lab_app/features/roles/ui/roles_list_page.dart';
 import 'package:dental_lab_app/features/settings/ui/settings_page.dart';
@@ -124,7 +160,7 @@ abstract class AppRouter {
       GoRoute(
         path: Routes.roleFormScreen,
         builder: (context, state) =>
-            RoleFormPage(initialRole: state.extra as Map<String, dynamic>?),
+            RoleFormPage(initialRole: state.extra as RoleModel?),
       ),
       // The doctors flow is the pilot for the glass design system, so it uses
       // the softer fade+slide transition instead of the platform default.
@@ -161,12 +197,47 @@ abstract class AppRouter {
             CaseDetailPage(caseId: state.extra as String),
       ),
       GoRoute(
+        path: Routes.barcodeScannerScreen,
+        builder: (context, state) => const BarcodeScannerPage(),
+      ),
+      GoRoute(
+        path: Routes.scanTaskScreen,
+        builder: (context, state) {
+          // The scanner already resolved both — passing them on rather than
+          // refetching keeps the technician on one round trip, which is the
+          // whole point of scanning the piece's own label.
+          final args = state.extra as ScanTaskArgs;
+          return ScanTaskPage(
+            caseDetail: args.caseDetail,
+            restorationId: args.restorationId,
+          );
+        },
+      ),
+      GoRoute(
         path: Routes.scannerAvailabilityScreen,
         builder: (context, state) => const ScannerAvailabilityPage(),
       ),
       GoRoute(
+        path: Routes.scannerSessionsScreen,
+        builder: (context, state) => const ScannerSessionsPage(),
+      ),
+      GoRoute(
         path: Routes.casePrioritiesListScreen,
         builder: (context, state) => const CasePrioritiesListPage(),
+      ),
+      GoRoute(
+        path: Routes.caseWorkflowEditorScreen,
+        builder: (context, state) => const CaseWorkflowEditorPage(),
+      ),
+      GoRoute(
+        path: Routes.restorationRouteEditorScreen,
+        builder: (context, state) => RestorationRouteEditorPage(
+          args: state.extra as RestorationRouteEditorArgs,
+        ),
+      ),
+      GoRoute(
+        path: Routes.departmentsScreen,
+        builder: (context, state) => const DepartmentsPage(),
       ),
       GoRoute(
         path: Routes.casePriorityFormScreen,
@@ -256,15 +327,33 @@ abstract class AppRouter {
         builder: (context, state) => const CurrenciesListPage(),
       ),
       GoRoute(
-        path: Routes.currencyFormScreen,
-        builder: (context, state) => CurrencyFormPage(
-          initialCurrency: state.extra as Map<String, dynamic>?,
-        ),
+        path: Routes.inventoryListScreen,
+        builder: (context, state) => const InventoryListPage(),
       ),
       GoRoute(
-        path: Routes.currencyDetailScreen,
+        path: Routes.suppliersListScreen,
+        builder: (context, state) => const SuppliersListPage(),
+      ),
+      GoRoute(
+        path: Routes.purchasesListScreen,
+        builder: (context, state) => const PurchasesListPage(),
+      ),
+      GoRoute(
+        path: Routes.purchaseFormScreen,
+        builder: (context, state) => const PurchaseFormPage(),
+      ),
+      GoRoute(
+        path: Routes.feasibilityReportScreen,
+        builder: (context, state) => const FeasibilityReportPage(),
+      ),
+      GoRoute(
+        path: Routes.caseTicketTemplatesListScreen,
+        builder: (context, state) => const CaseTicketTemplatesListPage(),
+      ),
+      GoRoute(
+        path: Routes.caseTicketTemplateEditorScreen,
         builder: (context, state) =>
-            CurrencyDetailPage(currency: state.extra as Map<String, dynamic>),
+            CaseTicketTemplateEditorPage(templateId: state.extra as String),
       ),
       GoRoute(
         path: Routes.countriesListScreen,
@@ -273,6 +362,114 @@ abstract class AppRouter {
       GoRoute(
         path: Routes.citiesListScreen,
         builder: (context, state) => const CitiesListPage(),
+      ),
+      GoRoute(
+        path: Routes.areasListScreen,
+        builder: (context, state) => const AreasListPage(),
+      ),
+      GoRoute(
+        path: Routes.zonesListScreen,
+        builder: (context, state) => const ZonesListPage(),
+      ),
+      GoRoute(
+        path: Routes.zoneFormScreen,
+        builder: (context, state) =>
+            ZoneFormPage(initialZone: state.extra as ZoneModel?),
+      ),
+      GoRoute(
+        path: Routes.accountingOverviewScreen,
+        builder: (context, state) => const AccountingOverviewPage(),
+      ),
+      GoRoute(
+        path: Routes.invoicesListScreen,
+        builder: (context, state) => const InvoicesListPage(),
+      ),
+      GoRoute(
+        path: Routes.invoiceDetailScreen,
+        builder: (context, state) =>
+            InvoiceDetailPage(invoiceId: state.extra as String),
+      ),
+      GoRoute(
+        path: Routes.invoiceFormScreen,
+        builder: (context, state) => const InvoiceFormPage(),
+      ),
+      GoRoute(
+        path: Routes.paymentsListScreen,
+        builder: (context, state) => const PaymentsListPage(),
+      ),
+      GoRoute(
+        path: Routes.pendingPaymentsScreen,
+        builder: (context, state) => const PendingPaymentsPage(),
+      ),
+      GoRoute(
+        path: Routes.expensesListScreen,
+        builder: (context, state) => const ExpensesListPage(),
+      ),
+      GoRoute(
+        path: Routes.doctorStatementScreen,
+        builder: (context, state) =>
+            DoctorStatementPage(initialDoctorId: state.extra as String?),
+      ),
+      GoRoute(
+        path: Routes.cashboxScreen,
+        builder: (context, state) => const CashboxPage(),
+      ),
+      GoRoute(
+        path: Routes.attendanceHubScreen,
+        builder: (context, state) => const AttendanceHubPage(),
+      ),
+      GoRoute(
+        path: Routes.workShiftsScreen,
+        builder: (context, state) => const WorkShiftsPage(),
+      ),
+      GoRoute(
+        path: Routes.payrollScreen,
+        builder: (context, state) => const PayrollPage(),
+      ),
+      GoRoute(
+        path: Routes.excelImportScreen,
+        builder: (context, state) => const ExcelImportPage(),
+      ),
+      GoRoute(
+        path: Routes.detailsQuestionsScreen,
+        builder: (context, state) => const DetailsQuestionsPage(),
+      ),
+      GoRoute(
+        path: Routes.broadcastScreen,
+        builder: (context, state) => const BroadcastPage(),
+      ),
+      GoRoute(
+        path: Routes.scanStorageScreen,
+        builder: (context, state) => const ScanStoragePage(),
+      ),
+      GoRoute(
+        path: Routes.employeeActivityScreen,
+        builder: (context, state) => const EmployeeActivityPage(),
+      ),
+      GoRoute(
+        path: Routes.priorityOverviewScreen,
+        builder: (context, state) => const PriorityOverviewPage(),
+      ),
+      GoRoute(
+        path: Routes.brandingScreen,
+        builder: (context, state) => const BrandingPage(),
+      ),
+      GoRoute(
+        path: Routes.manualPaymentFormScreen,
+        builder: (context, state) {
+          final args =
+              state.extra
+                  as ({
+                    String doctorId,
+                    String? doctorName,
+                    String? invoiceId,
+                  })?;
+          return ManualPaymentFormPage(
+            initialDoctorId: args?.doctorId,
+            initialDoctorName: args?.doctorName,
+            initialInvoiceId: args?.invoiceId,
+          );
+        },
       ),
       GoRoute(
         path: Routes.settingsScreen,

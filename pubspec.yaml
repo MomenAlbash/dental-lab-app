@@ -51,6 +51,18 @@ dependencies:
   # Declarative entrance/stagger/shimmer animations. Replaces hand-rolled
   # AnimationControllers across list and page transitions (CLAUDE.md A.5).
   flutter_animate: ^4.5.2
+  mobile_scanner: ^7.4.0
+  qr_flutter: ^4.1.0
+  share_plus: ^12.0.2
+  # Bluetooth Low Energy for the label printer (Xprinter and similar clones
+  # expose a single writable characteristic rather than a standard printer
+  # profile) — BLE rather than classic SPP because classic Bluetooth sockets
+  # are unusable on iOS without an MFi-certified accessory.
+  flutter_blue_plus: ^1.35.5
+  permission_handler: ^12.0.1
+  firebase_core: ^4.14.0
+  firebase_messaging: ^16.6.0
+  flutter_local_notifications: ^22.3.0
 dev_dependencies:
   mocktail: ^1.0.4
   flutter_test:

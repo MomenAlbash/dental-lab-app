@@ -9,19 +9,31 @@ class RestorationTypeListItemWidget extends StatelessWidget {
   const RestorationTypeListItemWidget({
     super.key,
     required this.name,
-    required this.defaultPrice,
+    required this.priceLabel,
     required this.isActive,
     required this.stagesCount,
+    required this.onTap,
     required this.onEdit,
     required this.onDelete,
+    required this.onCopy,
   });
 
   final String name;
-  final double defaultPrice;
+
+  /// The catalogue's own price, already formatted with its currency. Null
+  /// when the lab has not priced this type in any currency yet.
+  final String? priceLabel;
   final bool isActive;
   final int stagesCount;
+
+  /// Opens this type's manufacturing route.
+  final VoidCallback onTap;
+
   final VoidCallback onEdit;
   final VoidCallback onDelete;
+
+  /// Clones this type into another laboratory.
+  final VoidCallback onCopy;
 
   @override
   Widget build(BuildContext context) {
@@ -42,91 +54,113 @@ class RestorationTypeListItemWidget extends StatelessWidget {
             border: Border.all(color: glass.strokeColor),
             borderRadius: radius,
           ),
-          child: IntrinsicHeight(
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Container(width: 4, color: railColor),
-                Expanded(
-                  child: Padding(
-                    padding: const EdgeInsets.all(AppSpacing.md),
-                    child: Row(
-                      children: [
-                        Container(
-                          width: 44,
-                          height: 44,
-                          alignment: Alignment.center,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            gradient: glass.brandGradient,
-                          ),
-                          child: const Icon(
-                            Icons.category_outlined,
-                            color: Colors.white,
-                            size: 20,
-                          ),
-                        ),
-                        const SizedBox(width: AppSpacing.md),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Text(
-                                name,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: AppTextStyles.font16MediumText.copyWith(
-                                  color: glass.onGlass,
-                                ),
+          // The row itself opens the type's manufacturing route — the stage
+          // count on it is the promise that there is something behind the tap.
+          child: Material(
+            type: MaterialType.transparency,
+            child: InkWell(
+              onTap: onTap,
+              child: IntrinsicHeight(
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Container(width: 4, color: railColor),
+                    Expanded(
+                      child: Padding(
+                        padding: const EdgeInsets.all(AppSpacing.md),
+                        child: Row(
+                          children: [
+                            Container(
+                              width: 44,
+                              height: 44,
+                              alignment: Alignment.center,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                gradient: glass.brandGradient,
                               ),
-                              const SizedBox(height: 3),
-                              Text(
-                                '${defaultPrice.toStringAsFixed(0)} ل.س',
-                                style: AppTextStyles.font13MediumPrimary,
+                              child: const Icon(
+                                Icons.category_outlined,
+                                color: Colors.white,
+                                size: 20,
                               ),
-                              const SizedBox(height: AppSpacing.sm),
-                              Wrap(
-                                spacing: 6,
-                                runSpacing: 6,
+                            ),
+                            const SizedBox(width: AppSpacing.md),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  _Badge(
-                                    label: isActive ? 'مفعّل' : 'موقوف',
-                                    color: isActive
-                                        ? glass.success
-                                        : glass.onGlassMuted,
+                                  Text(
+                                    name,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: AppTextStyles.font16MediumText
+                                        .copyWith(color: glass.onGlass),
                                   ),
-                                  if (stagesCount > 0)
-                                    _Badge(
-                                      label: '$stagesCount مراحل',
-                                      color: glass.info,
-                                    ),
+                                  const SizedBox(height: 3),
+                                  Text(
+                                    priceLabel ?? 'لا يوجد سعر بعد',
+                                    style: priceLabel == null
+                                        ? AppTextStyles.font13MediumPrimary
+                                              .copyWith(color: glass.warning)
+                                        : AppTextStyles.font13MediumPrimary,
+                                  ),
+                                  const SizedBox(height: AppSpacing.sm),
+                                  Wrap(
+                                    spacing: 6,
+                                    runSpacing: 6,
+                                    children: [
+                                      _Badge(
+                                        label: isActive ? 'مفعّل' : 'موقوف',
+                                        color: isActive
+                                            ? glass.success
+                                            : glass.onGlassMuted,
+                                      ),
+                                      if (stagesCount > 0)
+                                        _Badge(
+                                          label: '$stagesCount مراحل',
+                                          color: glass.info,
+                                        ),
+                                    ],
+                                  ),
                                 ],
                               ),
-                            ],
-                          ),
+                            ),
+                            const SizedBox(width: AppSpacing.xs),
+                            IconButton(
+                              tooltip: 'نسخ إلى فرع آخر',
+                              onPressed: onCopy,
+                              visualDensity: VisualDensity.compact,
+                              icon: Icon(
+                                Icons.copy_all_outlined,
+                                color: glass.onGlassMuted,
+                              ),
+                            ),
+                            IconButton(
+                              tooltip: 'تعديل',
+                              onPressed: onEdit,
+                              visualDensity: VisualDensity.compact,
+                              icon: Icon(
+                                Icons.edit_outlined,
+                                color: glass.onGlassMuted,
+                              ),
+                            ),
+                            IconButton(
+                              tooltip: 'حذف',
+                              onPressed: onDelete,
+                              visualDensity: VisualDensity.compact,
+                              icon: Icon(
+                                Icons.delete_outline,
+                                color: glass.error,
+                              ),
+                            ),
+                          ],
                         ),
-                        const SizedBox(width: AppSpacing.xs),
-                        IconButton(
-                          tooltip: 'تعديل',
-                          onPressed: onEdit,
-                          visualDensity: VisualDensity.compact,
-                          icon: Icon(
-                            Icons.edit_outlined,
-                            color: glass.onGlassMuted,
-                          ),
-                        ),
-                        IconButton(
-                          tooltip: 'حذف',
-                          onPressed: onDelete,
-                          visualDensity: VisualDensity.compact,
-                          icon: Icon(Icons.delete_outline, color: glass.error),
-                        ),
-                      ],
+                      ),
                     ),
-                  ),
+                  ],
                 ),
-              ],
+              ),
             ),
           ),
         ),

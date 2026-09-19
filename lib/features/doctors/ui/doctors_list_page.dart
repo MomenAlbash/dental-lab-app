@@ -152,9 +152,9 @@ class _DoctorsListViewState extends State<_DoctorsListView> {
           listener: (context, state) {
             switch (state) {
               case DoctorDeleted():
-                ShowToast(message: 'تم حذف الدكتور', state: toastState.success);
+                showToast(message: 'تم حذف الدكتور', state: ToastState.success);
               case DoctorDeleteError(:final message):
-                ShowToast(message: message, state: toastState.error);
+                showToast(message: message, state: ToastState.error);
               default:
                 break;
             }

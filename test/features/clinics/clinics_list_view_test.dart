@@ -18,14 +18,14 @@ ClinicModel _clinic(
   String id,
   String name, {
   String? city,
-  String? code,
+  String? zoneNameAr,
   String? address,
   String? phone,
 }) {
   return ClinicModel(
     id: id,
     name: name,
-    code: code,
+    zoneNameAr: zoneNameAr,
     address: address,
     phoneNumber: phone,
     city: city == null ? null : CityModel(id: 'c-$id', name: city),
@@ -92,7 +92,7 @@ void main() {
           '1',
           'عيادة النور',
           city: 'دمشق',
-          code: 'CL-001',
+          zoneNameAr: 'المزة',
           address: 'المزة، دمشق',
           phone: '0112223344',
         ),
@@ -104,7 +104,7 @@ void main() {
     expect(find.text('عيادة النور'), findsOneWidget);
     expect(find.text('عيادة الأمل'), findsOneWidget);
     expect(find.text('دمشق'), findsOneWidget);
-    expect(find.text('CL-001'), findsOneWidget);
+    expect(find.text('المزة'), findsOneWidget);
     expect(find.text('0112223344'), findsOneWidget);
     expect(find.text('بدون عنوان'), findsOneWidget);
     expect(tester.takeException(), isNull);
@@ -127,7 +127,7 @@ void main() {
             '1',
             'عيادة النور للأسنان والتجميل المتقدم',
             city: 'دمشق العاصمة',
-            code: 'CL-00123456',
+            zoneNameAr: 'زون طويل الاسم لاختبار الفيض',
             address: 'المزة، دمشق، سوريا، بجانب الجامع الكبير',
             phone: '0112223344',
           ),

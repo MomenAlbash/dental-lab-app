@@ -96,9 +96,9 @@ class _CaseMessagesTabState extends State<CaseMessagesTab> {
       listener: (context, state) {
         switch (state) {
           case CaseMessagesActionError(:final message):
-            ShowToast(message: message, state: toastState.error);
+            showToast(message: message, state: ToastState.error);
           case CaseMessageDeleted():
-            ShowToast(message: 'تم حذف الرسالة', state: toastState.success);
+            showToast(message: 'تم حذف الرسالة', state: ToastState.success);
           default:
             break;
         }

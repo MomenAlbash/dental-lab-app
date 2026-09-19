@@ -4,6 +4,7 @@ import 'package:dental_lab_app/core/theming/glass.dart';
 import 'package:dental_lab_app/core/theming/styles.dart';
 import 'package:dental_lab_app/core/widgets/show_toast_widget.dart';
 import 'package:dental_lab_app/features/clinics/data/models/clinic_model.dart';
+import 'package:dental_lab_app/features/currencies/ui/widgets/currency_assignment_sheet.dart';
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -23,13 +24,13 @@ class ClinicQuickActions extends StatelessWidget {
         mode: LaunchMode.externalApplication,
       );
       if (!launched) {
-        ShowToast(
+        showToast(
           message: 'لا يوجد تطبيق يدعم هذا الإجراء',
-          state: toastState.error,
+          state: ToastState.error,
         );
       }
     } catch (_) {
-      ShowToast(message: 'تعذّر تنفيذ الإجراء', state: toastState.error);
+      showToast(message: 'تعذّر تنفيذ الإجراء', state: ToastState.error);
     }
   }
 
@@ -83,6 +84,19 @@ class ClinicQuickActions extends StatelessWidget {
                   '${Uri.encodeComponent(address)}',
                 ),
               ),
+      ),
+      _QuickAction(
+        icon: Icons.payments_outlined,
+        label: 'العملات',
+        color: context.glass.warning,
+        // Always enabled, unlike the four above: those need a phone or an
+        // address to act on, while a clinic with no currency set is exactly
+        // the one this opens to fix.
+        onTap: () => showClinicCurrenciesSheet(
+          context,
+          clinicId: clinic.id,
+          clinicName: clinic.name.trim().isEmpty ? 'العيادة' : clinic.name,
+        ),
       ),
     ];
 

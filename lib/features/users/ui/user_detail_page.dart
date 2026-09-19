@@ -8,8 +8,10 @@ import 'package:dental_lab_app/core/widgets/glass/glass_scaffold.dart';
 import 'package:dental_lab_app/core/widgets/show_toast_widget.dart';
 import 'package:dental_lab_app/features/roles/logic/roles/roles_cubit.dart';
 import 'package:dental_lab_app/features/users/data/models/user_model.dart';
+import 'package:dental_lab_app/features/representatives/ui/representative_agent_sheet.dart';
 import 'package:dental_lab_app/features/users/logic/user_details/user_details_cubit.dart';
 import 'package:dental_lab_app/features/users/logic/user_details/user_details_state.dart';
+import 'package:dental_lab_app/features/users/ui/widgets/doctor_scope_sheet.dart';
 import 'package:dental_lab_app/features/users/ui/widgets/user_details_body.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -128,6 +130,16 @@ class _UserDetailViewState extends State<_UserDetailView> {
     controller.dispose();
   }
 
+  /// Opens the representative's agent history — who they report to now, and
+  /// everyone they reported to before.
+  Future<void> _onManageAgent(BuildContext context, UserModel user) {
+    return showRepresentativeAgentSheet(
+      context,
+      representativeUserId: user.id,
+      representativeName: user.username ?? user.email ?? '—',
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return BlocConsumer<UserDetailsCubit, UserDetailsState>(
@@ -137,9 +149,9 @@ class _UserDetailViewState extends State<_UserDetailView> {
       listener: (context, state) {
         switch (state) {
           case UserDetailsActionSuccess(:final message):
-            ShowToast(message: message, state: toastState.success);
+            showToast(message: message, state: ToastState.success);
           case UserDetailsActionError(:final message):
-            ShowToast(message: message, state: toastState.error);
+            showToast(message: message, state: ToastState.error);
           default:
             break;
         }
@@ -180,6 +192,14 @@ class _UserDetailViewState extends State<_UserDetailView> {
                   onToggleActive: () =>
                       context.read<UserDetailsCubit>().toggleActive(),
                   onResetPassword: _onResetPassword,
+                  onManageAgent: user.isRepresentative
+                      ? () => _onManageAgent(context, user)
+                      : null,
+                  onManageDoctorScope: () => showDoctorScopeSheet(
+                    context,
+                    userId: user.id,
+                    userLabel: user.username ?? user.email ?? '—',
+                  ),
                 );
               },
             ),

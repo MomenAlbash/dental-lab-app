@@ -1,3 +1,5 @@
+import 'package:dental_lab_app/core/auth/permissions.dart';
+import 'package:dental_lab_app/core/auth/session.dart';
 import 'package:dental_lab_app/core/di/dependency_injection.dart';
 import 'package:dental_lab_app/core/router/routes.dart';
 import 'package:dental_lab_app/core/theming/app_dimensions.dart';
@@ -8,12 +10,15 @@ import 'package:dental_lab_app/core/theming/styles.dart';
 import 'package:dental_lab_app/core/widgets/custom_circle_progress_indiacator_widget.dart';
 import 'package:dental_lab_app/core/widgets/glass/glass_app_bar.dart';
 import 'package:dental_lab_app/core/widgets/glass/glass_scaffold.dart';
+import 'package:dental_lab_app/core/widgets/show_toast_widget.dart';
 import 'package:dental_lab_app/features/clinics/data/models/clinic_model.dart';
+import 'package:dental_lab_app/features/clinics/data/repos/clinics_repo.dart';
 import 'package:dental_lab_app/features/clinics/logic/clinic_details/clinic_details_cubit.dart';
 import 'package:dental_lab_app/features/clinics/logic/clinic_details/clinic_details_state.dart';
 import 'package:dental_lab_app/features/clinics/ui/widgets/clinic_hero_header.dart';
 import 'package:dental_lab_app/features/clinics/ui/widgets/clinic_info_tiles.dart';
 import 'package:dental_lab_app/features/clinics/ui/widgets/clinic_quick_actions.dart';
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -86,12 +91,42 @@ class _ClinicDetailBody extends StatelessWidget {
 
   final ClinicModel clinic;
 
+  /// Replaces the clinic's logo, then refetches.
+  ///
+  /// The upload answers with the stored path, but the detail cubit is asked
+  /// again rather than the answer being spliced in: two holders of the same
+  /// record, one quietly newer, is how a screen starts disagreeing with itself.
+  Future<void> _changeLogo(BuildContext context) async {
+    final cubit = context.read<ClinicDetailsCubit>();
+
+    final result = await FilePicker.pickFiles(type: FileType.image);
+    final path = result?.files.single.path;
+    if (path == null) return;
+
+    final uploaded = await getIt<ClinicsRepo>().uploadImage(
+      id: clinic.id,
+      filePath: path,
+    );
+
+    await uploaded.fold(
+      (failure) async =>
+          showToast(message: failure.errorMessage, state: ToastState.error),
+      (_) async {
+        showToast(message: 'تم تحديث الشعار', state: ToastState.success);
+        await cubit.getClinicById(clinic.id);
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    final canEdit = getIt<SessionCubit>().state.canEdit(PermissionName.doctor);
+
     return CustomScrollView(
       slivers: [
         ClinicSliverHeader(
           clinic: clinic,
+          onChangeLogo: canEdit ? () => _changeLogo(context) : null,
           onEdit: () async {
             await context.push(Routes.clinicFormScreen, extra: clinic);
             if (context.mounted) {

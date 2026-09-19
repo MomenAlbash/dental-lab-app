@@ -1,9 +1,18 @@
 import 'package:dartz/dartz.dart';
 import 'package:dental_lab_app/core/errors/failures.dart';
+import 'package:dental_lab_app/core/auth/permissions.dart';
+import 'package:dental_lab_app/core/auth/session.dart';
+import 'package:dental_lab_app/core/di/dependency_injection.dart';
 import 'package:dental_lab_app/core/theming/app_theme.dart';
+import 'package:dental_lab_app/features/cities/data/models/city_model.dart';
+import 'package:dental_lab_app/features/cities/data/repos/cities_repo.dart';
+import 'package:dental_lab_app/features/cities/logic/cities/cities_cubit.dart';
 import 'package:dental_lab_app/features/case_priorities/data/models/case_priority_model.dart';
 import 'package:dental_lab_app/features/case_priorities/data/repos/case_priorities_repo.dart';
 import 'package:dental_lab_app/features/case_priorities/logic/case_priorities/case_priorities_cubit.dart';
+import 'package:dental_lab_app/features/case_stages/data/models/case_stage_model.dart';
+import 'package:dental_lab_app/features/case_stages/data/repos/case_stages_repo.dart';
+import 'package:dental_lab_app/features/case_stages/logic/case_stages/case_stages_cubit.dart';
 import 'package:dental_lab_app/features/cases/data/models/case_filters_model.dart';
 import 'package:dental_lab_app/features/cases/ui/widgets/case_filters_sheet.dart';
 import 'package:dental_lab_app/features/clinics/data/models/clinic_model.dart';
@@ -23,11 +32,19 @@ import 'package:mocktail/mocktail.dart';
 
 class _MockCasePrioritiesRepo extends Mock implements CasePrioritiesRepo {}
 
+class _MockCitiesRepo extends Mock implements CitiesRepo {}
+
 class _MockDoctorsRepo extends Mock implements DoctorsRepo {}
 
 class _MockClinicsRepo extends Mock implements ClinicsRepo {}
 
 class _MockPatientsRepo extends Mock implements PatientsRepo {}
+
+class _MockCaseStagesRepo extends Mock implements CaseStagesRepo {}
+
+/// Two stages, so the sheet has more than one chip to render.
+const _received = CaseStageModel(id: 's1', nameAr: 'الاستلام', caseCount: 4);
+const _review = CaseStageModel(id: 's2', nameAr: 'المراجعة');
 
 const _normal = CasePriorityModel(id: 'p1', nameAr: 'عادية');
 const _urgent = CasePriorityModel(id: 'p2', nameAr: 'مستعجلة');
@@ -65,6 +82,17 @@ Widget _sheet(
     ]),
   );
 
+  final stagesRepo = _MockCaseStagesRepo();
+  when(() => stagesRepo.getCaseStages()).thenAnswer(
+    (_) async =>
+        Right<Failure, List<CaseStageModel>>(const [_received, _review]),
+  );
+
+  final citiesRepo = _MockCitiesRepo();
+  when(
+    () => citiesRepo.getCities(),
+  ).thenAnswer((_) async => Right<Failure, List<CityModel>>(const []));
+
   return MultiBlocProvider(
     providers: [
       // Mirrors what openCaseFiltersSheet provides.
@@ -74,6 +102,8 @@ Widget _sheet(
       BlocProvider(create: (_) => DoctorsCubit(doctorsRepo)..getDoctors()),
       BlocProvider(create: (_) => ClinicsCubit(clinicsRepo)..getClinics()),
       BlocProvider(create: (_) => PatientsCubit(patientsRepo)..getPatients()),
+      BlocProvider(create: (_) => CaseStagesCubit(stagesRepo)..getCaseStages()),
+      BlocProvider(create: (_) => CitiesCubit(citiesRepo)..getCities()),
     ],
     child: CaseFiltersSheet(initial: initial),
   );
@@ -94,7 +124,18 @@ Widget _app({required Widget home}) => MaterialApp(
 void main() {
   late _MockCasePrioritiesRepo prioritiesRepo;
 
-  setUp(() {
+  tearDown(() => getIt.reset());
+
+  setUp(() async {
+    // The sheet asks the session whether the lab filter may be offered at
+    // all; a plain employee is the default so the sheet under test is the
+    // one most users see.
+    await getIt.reset();
+    getIt.registerLazySingleton<SessionCubit>(
+      () =>
+          SessionCubit(initial: const Permissions(isAdmin: false, granted: {})),
+    );
+
     prioritiesRepo = _MockCasePrioritiesRepo();
     when(
       () => prioritiesRepo.getCasePriorities(includeInactive: true),

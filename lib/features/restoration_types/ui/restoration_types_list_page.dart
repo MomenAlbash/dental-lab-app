@@ -12,6 +12,8 @@ import 'package:dental_lab_app/core/widgets/glass/glass_scaffold.dart';
 import 'package:dental_lab_app/core/widgets/glass/glass_skeleton.dart';
 import 'package:dental_lab_app/core/widgets/show_toast_widget.dart';
 import 'package:dental_lab_app/features/restoration_types/data/models/restoration_type_model.dart';
+import 'package:dental_lab_app/features/restoration_types/data/repos/restoration_types_repo.dart';
+import 'package:dental_lab_app/features/restoration_types/ui/widgets/copy_restoration_type_dialog.dart';
 import 'package:dental_lab_app/features/restoration_types/logic/restoration_types/restoration_types_cubit.dart';
 import 'package:dental_lab_app/features/restoration_types/logic/restoration_types/restoration_types_state.dart';
 import 'package:dental_lab_app/features/restoration_types/ui/widgets/restoration_types_list_view.dart';
@@ -72,6 +74,33 @@ class _RestorationTypesListViewState extends State<_RestorationTypesListView> {
     super.dispose();
   }
 
+  /// Clones a type — its prices, its durations and its whole route — into
+  /// another laboratory.
+  ///
+  /// The list is not refetched afterwards: the copy lands in a *different*
+  /// branch, so this screen is showing exactly what it should already.
+  Future<void> _copy(BuildContext context, RestorationTypeModel type) async {
+    final targetId = await showCopyRestorationTypeDialog(
+      context,
+      typeName: type.name ?? '—',
+    );
+    if (targetId == null || !context.mounted) return;
+
+    final result = await getIt<RestorationTypesRepo>().copyToLaboratory(
+      id: type.id,
+      targetLaboratoryId: targetId,
+    );
+
+    result.fold(
+      (failure) =>
+          showToast(message: failure.errorMessage, state: ToastState.error),
+      (copy) => showToast(
+        message: 'تم نسخ "${copy.name ?? type.name ?? ''}" إلى الفرع الآخر',
+        state: ToastState.success,
+      ),
+    );
+  }
+
   Future<void> _confirmDelete(
     BuildContext context,
     RestorationTypeModel type,
@@ -127,9 +156,9 @@ class _RestorationTypesListViewState extends State<_RestorationTypesListView> {
           listener: (context, state) {
             switch (state) {
               case RestorationTypeDeleted():
-                ShowToast(message: 'تم حذف التعويض', state: toastState.success);
+                showToast(message: 'تم حذف التعويض', state: ToastState.success);
               case RestorationTypeDeleteError(:final message):
-                ShowToast(message: message, state: toastState.error);
+                showToast(message: message, state: ToastState.error);
               default:
                 break;
             }
@@ -159,6 +188,7 @@ class _RestorationTypesListViewState extends State<_RestorationTypesListView> {
                     types: loaded,
                     scrollController: _scrollController,
                     onDelete: (type) => _confirmDelete(context, type),
+                    onCopy: (type) => _copy(context, type),
                   ),
                 (RestorationTypesError(:final message), null) => Center(
                   key: const ValueKey('restoration-types-error'),

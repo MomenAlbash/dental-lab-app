@@ -10,6 +10,9 @@ import 'package:dental_lab_app/features/clinics/data/models/clinic_model.dart';
 import 'package:dental_lab_app/features/clinics/data/repos/clinics_repo.dart';
 import 'package:dental_lab_app/features/clinics/logic/clinic_form/clinic_form_cubit.dart';
 import 'package:dental_lab_app/features/clinics/ui/clinic_form_page.dart';
+import 'package:dental_lab_app/features/zones/data/models/zone_model.dart';
+import 'package:dental_lab_app/features/zones/data/repos/zones_repo.dart';
+import 'package:dental_lab_app/features/zones/logic/zones/zones_cubit.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -22,13 +25,14 @@ class _MockClinicsRepo extends Mock implements ClinicsRepo {}
 
 class _MockCitiesRepo extends Mock implements CitiesRepo {}
 
+class _MockZonesRepo extends Mock implements ZonesRepo {}
+
 void main() {
   const dialogTitle = 'تجاهل التعديلات؟';
 
   final clinic = ClinicModel(
     id: 'c1',
     name: 'عيادة النور',
-    code: 'NR-1',
     phoneNumber: '0991234567',
   );
 
@@ -41,11 +45,17 @@ void main() {
       () => citiesRepo.getCities(),
     ).thenAnswer((_) async => Right<Failure, List<CityModel>>(const []));
 
+    final zonesRepo = _MockZonesRepo();
+    when(
+      () => zonesRepo.getZones(includeInactive: any(named: 'includeInactive')),
+    ).thenAnswer((_) async => Right<Failure, List<ZoneModel>>(const []));
+
     await getIt.reset();
     getIt.registerFactory<ClinicFormCubit>(
       () => ClinicFormCubit(_MockClinicsRepo()),
     );
     getIt.registerFactory<CitiesCubit>(() => CitiesCubit(citiesRepo));
+    getIt.registerFactory<ZonesCubit>(() => ZonesCubit(zonesRepo));
   });
 
   tearDown(() => getIt.reset());

@@ -1,7 +1,7 @@
-import 'package:dental_lab_app/features/cases/data/models/case_status.dart';
+import 'package:dental_lab_app/features/cases/data/models/case_counts_model.dart';
 
 /// Filters applied to the cases list (`GET /Cases` query params). All fields
-/// are optional — `null` means "don't filter by this".
+/// are optional — `null` (or an empty set) means "don't filter by this".
 class CaseFiltersModel {
   const CaseFiltersModel({
     this.doctorId,
@@ -12,9 +12,15 @@ class CaseFiltersModel {
     this.patientName,
     this.priorityId,
     this.priorityName,
-    this.caseStatus,
-    this.dueDateFrom,
-    this.dueDateTo,
+    this.stageIds = const {},
+    this.restorationStageIds = const {},
+    this.laboratoryIds = const {},
+    this.cityIds = const {},
+    this.cityNames = const {},
+    this.receivedFrom,
+    this.receivedTo,
+    this.phaseTab = CasePhaseTab.all,
+    this.sla = CaseSlaFilter.none,
   });
 
   static const empty = CaseFiltersModel();
@@ -35,30 +41,87 @@ class CaseFiltersModel {
   final String? priorityId;
   final String? priorityName;
 
-  /// Filters by the case's overall lifecycle status. Independent of the list's
-  /// summary strip, which narrows whatever the server already returned.
-  final CaseStatus? caseStatus;
-  final DateTime? dueDateFrom;
-  final DateTime? dueDateTo;
+  /// Ids of the lab's workflow stages to narrow by. A set, not a single value:
+  /// the API accepts `StageIds` repeatedly, and "show me everything still in
+  /// review" is usually several stages.
+  ///
+  /// Replaced a single `CaseStatus` enum value — stages are rows the lab
+  /// declares now, so there is no fixed list to pick one from.
+  final Set<String> stageIds;
+
+  /// Ids of *restoration* stages to narrow by (`RestorationStageIds`) — the
+  /// pieces' own routes, which are a different catalogue from [stageIds].
+  ///
+  /// Set by the "my tasks" queue from `GET /Cases/my-workflow-assignments`;
+  /// there is no manual picker for it, since a person does not choose which
+  /// stages they are assigned to.
+  final Set<String> restorationStageIds;
+
+  /// Laboratories to browse at once (`LaboratoryIds`).
+  ///
+  /// Empty means "whichever lab the `X-Laboratory-Id` header names" — the
+  /// ordinary single-lab view. Only an admin, or a user holding `Branches`,
+  /// may pass several: everyone else is pinned to the header no matter what
+  /// they send, so the control is not offered to them at all.
+  final Set<String> laboratoryIds;
+
+  /// Cities to narrow by, matched against each case's **clinic** city.
+  ///
+  /// Applied client-side: `GET /Cases` has no city parameter of any kind, so
+  /// the rows are fetched and then narrowed here. It therefore filters the
+  /// page that came back rather than the whole table — a real limit, and the
+  /// reason this is not offered as an equal to the server-side filters.
+  final Set<String> cityIds;
+
+  /// The chosen cities' names, so the sheet can show the selection without
+  /// waiting on the cities list.
+  final Set<String> cityNames;
+
+  /// The window filters on when the case was *received*. The API has no
+  /// due-date filter — `DueDateFrom`/`DueDateTo` were removed and were being
+  /// ignored silently.
+  final DateTime? receivedFrom;
+  final DateTime? receivedTo;
+
+  /// Which lifecycle tab the list is showing. Its own field rather than a
+  /// value folded into [stageIds]: the server counts the tabs separately from
+  /// the filters, and a tab is a view, not a narrowing the user typed.
+  final CasePhaseTab phaseTab;
+
+  /// The date segment: late, due today, or never promised a date.
+  final CaseSlaFilter sla;
 
   bool get isEmpty =>
       doctorId == null &&
       clinicId == null &&
       patientId == null &&
       priorityId == null &&
-      caseStatus == null &&
-      dueDateFrom == null &&
-      dueDateTo == null;
+      stageIds.isEmpty &&
+      laboratoryIds.isEmpty &&
+      cityIds.isEmpty &&
+      receivedFrom == null &&
+      receivedTo == null;
 
-  int get activeCount => [
-    doctorId,
-    clinicId,
-    patientId,
-    priorityId,
-    caseStatus,
-    dueDateFrom,
-    dueDateTo,
-  ].where((v) => v != null).length;
+  /// The count behind the filter sheet's badge. [phaseTab], [sla] and
+  /// [restorationStageIds] are deliberately excluded: the first two have their
+  /// own visible controls on the list screen, and the third is set by the "my
+  /// tasks" queue rather than typed by anyone — counting them here would
+  /// report a filter the sheet cannot show or clear.
+  ///
+  /// Note [stageIds] is counted by emptiness, not by null: a `const {}` is
+  /// non-null and would otherwise make every filter set look active.
+  int get activeCount =>
+      [
+        doctorId,
+        clinicId,
+        patientId,
+        priorityId,
+        receivedFrom,
+        receivedTo,
+      ].where((v) => v != null).length +
+      (stageIds.isEmpty ? 0 : 1) +
+      (laboratoryIds.isEmpty ? 0 : 1) +
+      (cityIds.isEmpty ? 0 : 1);
 
   CaseFiltersModel copyWith({
     String? doctorId,
@@ -73,12 +136,21 @@ class CaseFiltersModel {
     String? priorityId,
     String? priorityName,
     bool clearPriority = false,
-    CaseStatus? caseStatus,
-    bool clearCaseStatus = false,
-    DateTime? dueDateFrom,
-    bool clearDueDateFrom = false,
-    DateTime? dueDateTo,
-    bool clearDueDateTo = false,
+    Set<String>? stageIds,
+    bool clearStages = false,
+    Set<String>? restorationStageIds,
+    bool clearRestorationStages = false,
+    CasePhaseTab? phaseTab,
+    CaseSlaFilter? sla,
+    Set<String>? laboratoryIds,
+    bool clearLaboratories = false,
+    Set<String>? cityIds,
+    Set<String>? cityNames,
+    bool clearCities = false,
+    DateTime? receivedFrom,
+    bool clearReceivedFrom = false,
+    DateTime? receivedTo,
+    bool clearReceivedTo = false,
   }) {
     return CaseFiltersModel(
       doctorId: clearDoctor ? null : (doctorId ?? this.doctorId),
@@ -89,9 +161,21 @@ class CaseFiltersModel {
       patientName: clearPatient ? null : (patientName ?? this.patientName),
       priorityId: clearPriority ? null : (priorityId ?? this.priorityId),
       priorityName: clearPriority ? null : (priorityName ?? this.priorityName),
-      caseStatus: clearCaseStatus ? null : (caseStatus ?? this.caseStatus),
-      dueDateFrom: clearDueDateFrom ? null : (dueDateFrom ?? this.dueDateFrom),
-      dueDateTo: clearDueDateTo ? null : (dueDateTo ?? this.dueDateTo),
+      stageIds: clearStages ? const {} : (stageIds ?? this.stageIds),
+      restorationStageIds: clearRestorationStages
+          ? const {}
+          : (restorationStageIds ?? this.restorationStageIds),
+      phaseTab: phaseTab ?? this.phaseTab,
+      sla: sla ?? this.sla,
+      laboratoryIds: clearLaboratories
+          ? const {}
+          : (laboratoryIds ?? this.laboratoryIds),
+      cityIds: clearCities ? const {} : (cityIds ?? this.cityIds),
+      cityNames: clearCities ? const {} : (cityNames ?? this.cityNames),
+      receivedFrom: clearReceivedFrom
+          ? null
+          : (receivedFrom ?? this.receivedFrom),
+      receivedTo: clearReceivedTo ? null : (receivedTo ?? this.receivedTo),
     );
   }
 }

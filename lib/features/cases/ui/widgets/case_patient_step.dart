@@ -7,6 +7,7 @@ import 'package:dental_lab_app/features/case_priorities/data/models/case_priorit
 import 'package:dental_lab_app/features/case_priorities/logic/case_priorities/case_priorities_cubit.dart';
 import 'package:dental_lab_app/features/case_priorities/logic/case_priorities/case_priorities_state.dart';
 import 'package:dental_lab_app/features/cases/ui/widgets/case_lookup_dropdown.dart';
+import 'package:dental_lab_app/features/cases/ui/widgets/quick_add_patient_sheet.dart';
 import 'package:dental_lab_app/features/doctors/data/models/doctor_model.dart';
 import 'package:dental_lab_app/features/doctors/logic/doctors/doctors_cubit.dart';
 import 'package:dental_lab_app/features/doctors/logic/doctors/doctors_state.dart';
@@ -33,6 +34,10 @@ class CasePatientStep extends StatelessWidget {
     required this.onPickDueDate,
     required this.receivedAt,
     required this.onPickReceivedAt,
+    required this.isRepeatCase,
+    required this.onCaseKindChanged,
+    required this.previousCaseLabel,
+    required this.onPickPreviousCase,
   });
 
   final String? patientId;
@@ -48,6 +53,57 @@ class CasePatientStep extends StatelessWidget {
   final DateTime? receivedAt;
   final VoidCallback onPickReceivedAt;
 
+  /// Whether this case redoes earlier work. A remake is a different thing to
+  /// the bench than new work, so the form asks before anything else about it.
+  final bool isRepeatCase;
+  final ValueChanged<bool> onCaseKindChanged;
+
+  /// The linked case's number, once one is chosen.
+  final String? previousCaseLabel;
+  final VoidCallback onPickPreviousCase;
+
+  /// Opens the doctor form and, if a doctor was actually created, assigns it
+  /// to the field straight away — the user asked for this doctor *here*, so
+  /// making them find it again in the list afterwards is busywork.
+  Future<void> _addDoctor(BuildContext context) async {
+    final doctor = await context.push<DoctorModel>(Routes.doctorFormScreen);
+    if (doctor == null || !context.mounted) return;
+
+    // Reloaded so the new doctor is in the lookup's items; the selection is
+    // applied without waiting for it, since the field holds an id and fills in
+    // its label once the list arrives.
+    context.read<DoctorsCubit>().getDoctors();
+    onDoctorChanged(doctor.id, doctor.clinicId);
+  }
+
+  /// The clinic of the currently selected doctor, read off the loaded list —
+  /// a new patient is filed under the same clinic as the doctor treating them.
+  String? _clinicOfSelectedDoctor(BuildContext context) {
+    final state = context.read<DoctorsCubit>().state;
+    if (state is! DoctorsLoaded) return null;
+    for (final d in state.doctors) {
+      if (d.id == doctorId) return d.clinicId;
+    }
+    return null;
+  }
+
+  /// Adds a patient from inside the case form — name only, filed under the
+  /// doctor already chosen above — and selects it.
+  Future<void> _addPatient(BuildContext context) async {
+    final doctor = doctorId;
+    if (doctor == null) return;
+
+    final patient = await showQuickAddPatientSheet(
+      context: context,
+      doctorId: doctor,
+      clinicId: _clinicOfSelectedDoctor(context),
+    );
+    if (patient == null || !context.mounted) return;
+
+    context.read<PatientsCubit>().getPatients();
+    onPatientChanged(patient.id, patient);
+  }
+
   @override
   Widget build(BuildContext context) {
     return Column(
@@ -59,42 +115,48 @@ class CasePatientStep extends StatelessWidget {
             final doctors = state is DoctorsLoaded ? state.doctors : null;
 
             if (doctors != null && doctors.isEmpty) {
-              return _NoDoctorsNotice(
-                onAddDoctor: () async {
-                  final added = await context.push<bool>(
-                    Routes.doctorFormScreen,
-                  );
-                  if (added == true && context.mounted) {
-                    context.read<DoctorsCubit>().getDoctors();
-                  }
-                },
-              );
+              return _NoDoctorsNotice(onAddDoctor: () => _addDoctor(context));
             }
 
-            return CaseLookupDropdown(
-              value: doctorId,
-              icon: Icons.medical_services_outlined,
-              hintText: state is DoctorsLoading
-                  ? 'جارٍ تحميل الأطباء...'
-                  : 'اختر الطبيب',
-              items: doctors
-                  ?.map(
-                    (d) =>
-                        DropdownMenuItem(value: d.id, child: Text(d.fullName)),
-                  )
-                  .toList(),
-              onChanged: (id) {
-                String? clinicId;
-                if (id != null && doctors != null) {
-                  for (final d in doctors) {
-                    if (d.id == id) {
-                      clinicId = d.clinicId;
-                      break;
-                    }
-                  }
-                }
-                onDoctorChanged(id, clinicId);
-              },
+            return Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: CaseLookupDropdown(
+                    value: doctorId,
+                    icon: Icons.medical_services_outlined,
+                    hintText: state is DoctorsLoading
+                        ? 'جارٍ تحميل الأطباء...'
+                        : 'اختر الطبيب',
+                    items: doctors
+                        ?.map(
+                          (d) => DropdownMenuItem(
+                            value: d.id,
+                            child: Text(d.fullName),
+                          ),
+                        )
+                        .toList(),
+                    onChanged: (id) {
+                      String? clinicId;
+                      if (id != null && doctors != null) {
+                        for (final d in doctors) {
+                          if (d.id == id) {
+                            clinicId = d.clinicId;
+                            break;
+                          }
+                        }
+                      }
+                      onDoctorChanged(id, clinicId);
+                    },
+                  ),
+                ),
+                const SizedBox(width: 8),
+                _FieldActionButton(
+                  icon: Icons.person_add_alt_1_outlined,
+                  tooltip: 'إضافة طبيب جديد',
+                  onPressed: () => _addDoctor(context),
+                ),
+              ],
             );
           },
         ),
@@ -137,33 +199,72 @@ class CasePatientStep extends StatelessWidget {
         BlocBuilder<PatientsCubit, PatientsState>(
           builder: (context, state) {
             final patients = state is PatientsLoaded ? state.patients : null;
-            return CaseLookupDropdown(
-              value: patientId,
-              icon: Icons.personal_injury_outlined,
-              hintText: state is PatientsLoading
-                  ? 'جارٍ تحميل المرضى...'
-                  : 'اختر المريض',
-              items: patients
-                  ?.map(
-                    (p) =>
-                        DropdownMenuItem(value: p.id, child: Text(p.fullName)),
-                  )
-                  .toList(),
-              onChanged: (id) {
-                PatientModel? patient;
-                if (id != null && patients != null) {
-                  for (final p in patients) {
-                    if (p.id == id) {
-                      patient = p;
-                      break;
-                    }
-                  }
-                }
-                onPatientChanged(id, patient);
-              },
+            return Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: CaseLookupDropdown(
+                    value: patientId,
+                    icon: Icons.personal_injury_outlined,
+                    hintText: state is PatientsLoading
+                        ? 'جارٍ تحميل المرضى...'
+                        : 'اختر المريض',
+                    items: patients
+                        ?.map(
+                          (p) => DropdownMenuItem(
+                            value: p.id,
+                            child: Text(p.fullName),
+                          ),
+                        )
+                        .toList(),
+                    onChanged: (id) {
+                      PatientModel? patient;
+                      if (id != null && patients != null) {
+                        for (final p in patients) {
+                          if (p.id == id) {
+                            patient = p;
+                            break;
+                          }
+                        }
+                      }
+                      onPatientChanged(id, patient);
+                    },
+                  ),
+                ),
+                const SizedBox(width: 8),
+                // A patient belongs to a doctor, so this stays out of reach
+                // until one is picked rather than opening a sheet that cannot
+                // be submitted.
+                _FieldActionButton(
+                  icon: Icons.person_add_alt_1_outlined,
+                  tooltip: doctorId == null
+                      ? 'اختر الطبيب أولاً'
+                      : 'إضافة مريض جديد',
+                  onPressed: doctorId == null
+                      ? null
+                      : () => _addPatient(context),
+                ),
+              ],
             );
           },
         ),
+        const SizedBox(height: 16),
+        // Asked after the patient, not before: a remake is picked out of that
+        // patient's own earlier cases, so the question is unanswerable until
+        // the mouth it belongs to is known.
+        const _Label('نوع الحالة'),
+        _CaseKindSelector(
+          isRepeatCase: isRepeatCase,
+          onChanged: onCaseKindChanged,
+        ),
+        if (isRepeatCase) ...[
+          const SizedBox(height: 12),
+          _PreviousCaseField(
+            label: previousCaseLabel,
+            onTap: onPickPreviousCase,
+            isEnabled: patientId != null,
+          ),
+        ],
         const SizedBox(height: 16),
         const _Label('الأولوية'),
         // Still the one-tap row of options it always was — only its contents
@@ -191,18 +292,22 @@ class CasePatientStep extends StatelessWidget {
           },
         ),
         const SizedBox(height: 16),
+        // Received before due: the case is taken in first and promised second,
+        // and the delivery date is judged against the intake date — asking for
+        // them the other way round made the user answer the question before
+        // its reference point.
+        const _Label('تاريخ الاستلام'),
+        _DatePickerField(
+          value: receivedAt,
+          hintText: 'اختر تاريخ استلام الحالة',
+          onTap: onPickReceivedAt,
+        ),
+        const SizedBox(height: 16),
         const _Label('تاريخ التسليم'),
         _DatePickerField(
           value: dueDate,
           hintText: 'اختر تاريخ التسليم (اختياري)',
           onTap: onPickDueDate,
-        ),
-        const SizedBox(height: 16),
-        const _Label('تاريخ الاستلام'),
-        _DatePickerField(
-          value: receivedAt,
-          hintText: 'اختر تاريخ استلام الحالة (اختياري)',
-          onTap: onPickReceivedAt,
         ),
         const SizedBox(height: 16),
         const _Label('الرقم المرجعي'),
@@ -227,6 +332,100 @@ class CasePatientStep extends StatelessWidget {
           validator: (_) => null,
         ),
       ],
+    );
+  }
+}
+
+/// New work, or a remake of something the lab already delivered.
+///
+/// Asked first because it changes what the rest of the form means: a remake is
+/// judged against the case it repeats, and the bench needs that link to know
+/// what went wrong the first time.
+class _CaseKindSelector extends StatelessWidget {
+  const _CaseKindSelector({
+    required this.isRepeatCase,
+    required this.onChanged,
+  });
+
+  final bool isRepeatCase;
+  final ValueChanged<bool> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return SegmentedButton<bool>(
+      segments: const [
+        ButtonSegment(value: false, label: Text('حالة جديدة')),
+        ButtonSegment(value: true, label: Text('حالة قديمة')),
+      ],
+      selected: {isRepeatCase},
+      showSelectedIcon: false,
+      onSelectionChanged: (values) => onChanged(values.first),
+    );
+  }
+}
+
+/// The linked case, or the invitation to pick one.
+///
+/// Inert until a patient is chosen: the list it opens is that patient's own
+/// history, so tapping it earlier could only lead to an empty sheet.
+class _PreviousCaseField extends StatelessWidget {
+  const _PreviousCaseField({
+    required this.label,
+    required this.onTap,
+    required this.isEnabled,
+  });
+
+  final String? label;
+  final VoidCallback onTap;
+  final bool isEnabled;
+
+  @override
+  Widget build(BuildContext context) {
+    final glass = context.glass;
+    final isEmpty = label == null;
+
+    final String text;
+    if (!isEnabled) {
+      text = 'اختر المريض أولاً';
+    } else {
+      text = label ?? 'اختر الحالة التي تُعاد';
+    }
+
+    return InkWell(
+      onTap: isEnabled ? onTap : null,
+      borderRadius: BorderRadius.circular(AppRadius.glass),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
+        decoration: BoxDecoration(
+          gradient: glass.surfaceGradient,
+          borderRadius: BorderRadius.circular(AppRadius.glass),
+          border: Border.all(
+            color: isEmpty && isEnabled
+                ? Theme.of(context).colorScheme.primary.withValues(alpha: 0.5)
+                : glass.strokeColor,
+          ),
+        ),
+        child: Row(
+          children: [
+            Icon(Icons.history_outlined, color: glass.onGlassMuted),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                text,
+                overflow: TextOverflow.ellipsis,
+                style: isEmpty
+                    ? AppTextStyles.font14RegularSecondary.copyWith(
+                        color: glass.onGlassMuted,
+                      )
+                    : AppTextStyles.font14MediumText.copyWith(
+                        color: glass.onGlass,
+                      ),
+              ),
+            ),
+            if (isEnabled) Icon(Icons.chevron_left, color: glass.onGlassMuted),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -321,6 +520,54 @@ class _ReadOnlyField extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// The square "add" button beside a lookup field.
+///
+/// It sits at the top of the row rather than centred, because the lookup grows
+/// downward when its suggestion list opens and the button must stay level with
+/// the field itself. A null [onPressed] renders it muted and inert — used when
+/// what it would create still depends on a field the user has not filled.
+class _FieldActionButton extends StatelessWidget {
+  const _FieldActionButton({
+    required this.icon,
+    required this.tooltip,
+    required this.onPressed,
+  });
+
+  final IconData icon;
+  final String tooltip;
+  final VoidCallback? onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final glass = context.glass;
+    final enabled = onPressed != null;
+
+    return Tooltip(
+      message: tooltip,
+      child: InkWell(
+        onTap: onPressed,
+        borderRadius: BorderRadius.circular(AppRadius.glass),
+        child: Container(
+          // Matches the lookup field's height so the two read as one row.
+          height: 52,
+          width: 52,
+          decoration: BoxDecoration(
+            color: enabled ? glass.accentSurface : glass.fillColor,
+            borderRadius: BorderRadius.circular(AppRadius.glass),
+            border: Border.all(color: glass.strokeColor),
+          ),
+          child: Icon(
+            icon,
+            color: enabled
+                ? Theme.of(context).colorScheme.primary
+                : glass.onGlassMuted,
+          ),
+        ),
       ),
     );
   }

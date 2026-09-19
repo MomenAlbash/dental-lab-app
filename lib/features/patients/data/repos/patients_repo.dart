@@ -6,8 +6,10 @@ import 'package:dental_lab_app/core/helper/local/cache_keys.dart';
 import 'package:dental_lab_app/core/helper/local/cacheable_fetch.dart';
 import 'package:dental_lab_app/core/helper/local/cached_helper.dart';
 import 'package:dental_lab_app/core/helper/network_helper/api_service.dart';
+import 'package:dental_lab_app/core/helper/network_helper/lookup_api.dart';
 import 'package:dental_lab_app/features/patients/data/models/create_patient_request_model.dart';
 import 'package:dental_lab_app/features/patients/data/models/patient_filters_model.dart';
+import 'package:dental_lab_app/features/patients/data/models/patient_lookup_model.dart';
 import 'package:dental_lab_app/features/patients/data/models/patient_model.dart';
 import 'package:dio/dio.dart';
 
@@ -37,7 +39,7 @@ class PatientsRepo {
       return fallbackToCache(
         cacheKey: CacheKeys.cachedPatientsList,
         fromJson: PatientModel.fromJson,
-        onFailure: () => ServerFailure.FromDioExecption(e),
+        onFailure: () => ServerFailure.fromDioException(e),
       );
     } catch (e) {
       log('General Exception while fetching patients: ${e.toString()}');
@@ -57,7 +59,7 @@ class PatientsRepo {
       return right(patient);
     } on DioException catch (e) {
       log('DioException while fetching patient: ${e.message}');
-      return left(ServerFailure.FromDioExecption(e));
+      return left(ServerFailure.fromDioException(e));
     } catch (e) {
       log('General Exception while fetching patient: ${e.toString()}');
       return left(ServerFailure.fromException(e));
@@ -77,9 +79,32 @@ class PatientsRepo {
       return right(patient);
     } on DioException catch (e) {
       log('DioException while creating patient: ${e.message}');
-      return left(ServerFailure.FromDioExecption(e));
+      return left(ServerFailure.fromDioException(e));
     } catch (e) {
       log('General Exception while creating patient: ${e.toString()}');
+      return left(ServerFailure.fromException(e));
+    }
+  }
+
+  /// Just enough of a patient to confirm the right one was picked.
+  ///
+  /// Deliberately not the full record: a case form needs to show who this is,
+  /// not their history, and pulling the history to render one line is what
+  /// makes a form feel slow.
+  Future<Either<Failure, PatientLookupModel>> getLookup(String id) async {
+    try {
+      final patient = await _apiService.getPatientLookup(
+        id: id,
+        token: _token,
+      );
+
+      log('Fetched patient lookup: $id');
+      return right(patient);
+    } on DioException catch (e) {
+      log('DioException while fetching a patient lookup: ${e.message}');
+      return left(ServerFailure.fromDioException(e));
+    } catch (e) {
+      log('General Exception while fetching a patient lookup: $e');
       return left(ServerFailure.fromException(e));
     }
   }

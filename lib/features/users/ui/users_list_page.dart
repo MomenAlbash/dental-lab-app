@@ -138,12 +138,12 @@ class _UsersListViewState extends State<_UsersListView> {
           listener: (context, state) {
             switch (state) {
               case UserDeleted():
-                ShowToast(
+                showToast(
                   message: 'تم حذف المستخدم',
-                  state: toastState.success,
+                  state: ToastState.success,
                 );
               case UserDeleteError(:final message):
-                ShowToast(message: message, state: toastState.error);
+                showToast(message: message, state: ToastState.error);
               default:
                 break;
             }

@@ -21,7 +21,7 @@ class ClinicListItemWidget extends StatelessWidget {
     required this.onEdit,
     required this.onDelete,
     this.cityName,
-    this.code,
+    this.zoneName,
     this.phoneNumber,
     this.onTap,
     this.heroTag,
@@ -30,7 +30,7 @@ class ClinicListItemWidget extends StatelessWidget {
   final String name;
   final String address;
   final String? cityName;
-  final String? code;
+  final String? zoneName;
   final String? phoneNumber;
   final VoidCallback onEdit;
   final VoidCallback onDelete;
@@ -86,7 +86,7 @@ class ClinicListItemWidget extends StatelessWidget {
                             color: glass.onGlassMuted,
                           ),
                           if ((cityName?.isNotEmpty ?? false) ||
-                              (code?.isNotEmpty ?? false)) ...[
+                              (zoneName?.isNotEmpty ?? false)) ...[
                             const SizedBox(height: 6),
                             Wrap(
                               spacing: 6,
@@ -97,9 +97,9 @@ class ClinicListItemWidget extends StatelessWidget {
                                     label: cityName!,
                                     color: context.glass.info,
                                   ),
-                                if (code?.isNotEmpty ?? false)
+                                if (zoneName?.isNotEmpty ?? false)
                                   _Badge(
-                                    label: code!,
+                                    label: zoneName!,
                                     color: glass.onGlassMuted,
                                   ),
                               ],
@@ -246,10 +246,10 @@ class _CallChip extends StatelessWidget {
         mode: LaunchMode.externalApplication,
       );
       if (!launched) {
-        ShowToast(message: 'تعذّر بدء الاتصال', state: toastState.error);
+        showToast(message: 'تعذّر بدء الاتصال', state: ToastState.error);
       }
     } catch (_) {
-      ShowToast(message: 'تعذّر بدء الاتصال', state: toastState.error);
+      showToast(message: 'تعذّر بدء الاتصال', state: ToastState.error);
     }
   }
 

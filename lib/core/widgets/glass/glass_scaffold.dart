@@ -52,7 +52,11 @@ class GlassScaffold extends StatelessWidget {
   /// Width of the pinned navigation column on tablet and up. Wide enough for
   /// the drawer's rows at a large text scale, narrow enough to leave the page
   /// the majority of the screen.
-  static const double _pinnedNavWidth = 280;
+  ///
+  /// Public because chrome drawn *over* a scaffold — the shell's bottom
+  /// navigation bar — has to keep clear of this column, and duplicating the
+  /// number there would let the two drift apart.
+  static const double pinnedNavWidth = 280;
 
   @override
   Widget build(BuildContext context) {
@@ -93,7 +97,7 @@ class GlassScaffold extends StatelessWidget {
               tabletLayout: (_) => Row(
                 children: [
                   SizedBox(
-                    width: _pinnedNavWidth,
+                    width: pinnedNavWidth,
                     child: _PinnedNav(child: drawer!),
                   ),
                   Expanded(child: scaffold()),

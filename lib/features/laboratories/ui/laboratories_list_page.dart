@@ -82,8 +82,8 @@ class _LaboratoriesListViewState extends State<_LaboratoriesListView> {
 
     final confirmed = await ConfirmDialogWidget.show(
       context,
-      title: 'حذف المخبر',
-      message: 'هل أنت متأكد من حذف مخبر "${laboratory.name ?? ''}"؟',
+      title: 'حذف الفرع',
+      message: 'هل أنت متأكد من حذف فرع "${laboratory.name ?? ''}"؟',
       confirmText: 'حذف',
       isDestructive: true,
     );
@@ -103,14 +103,14 @@ class _LaboratoriesListViewState extends State<_LaboratoriesListView> {
       ),
       appBar: GlassAppBar(
         title: Text(
-          'المخابر',
+          'الفروع',
           style: AppTextStyles.font18MediumText.copyWith(color: glass.onGlass),
         ),
       ),
       floatingActionButton: Builder(
         builder: (context) =>
             GlassAddButton(
-              label: 'إضافة مخبر',
+              label: 'إضافة فرع',
               isExtended: _addButtonExtended,
               onPressed: () async {
                 await context.push(Routes.laboratoryFormScreen);
@@ -129,9 +129,9 @@ class _LaboratoriesListViewState extends State<_LaboratoriesListView> {
           listener: (context, state) {
             switch (state) {
               case LaboratoryDeleted():
-                ShowToast(message: 'تم حذف المخبر', state: toastState.success);
+                showToast(message: 'تم حذف الفرع', state: ToastState.success);
               case LaboratoryDeleteError(:final message):
-                ShowToast(message: message, state: toastState.error);
+                showToast(message: message, state: ToastState.error);
               default:
                 break;
             }
@@ -140,8 +140,9 @@ class _LaboratoriesListViewState extends State<_LaboratoriesListView> {
               current is! LaboratoryDeleted &&
               current is! LaboratoryDeleteError,
           builder: (context, state) {
-            if (state is LaboratoriesLoaded)
+            if (state is LaboratoriesLoaded) {
               _lastLaboratories = state.laboratories;
+            }
 
             final laboratories = switch (state) {
               LaboratoriesLoaded(:final laboratories) => laboratories,
@@ -214,7 +215,9 @@ class _LaboratoriesList extends StatelessWidget {
       itemBuilder: (context, laboratory, _) => LaboratoryListItemWidget(
         name: laboratory.name ?? '—',
         address: laboratory.address ?? '',
-        isActive: laboratory.isActive,
+        // The list endpoint always reports isActive; the fallback only covers
+        // a laboratory that reached this list from `/own`, which does not.
+        isActive: laboratory.isActive ?? true,
         isCurrent: laboratory.id == activeLaboratoryId,
         onTap: () =>
             context.push(Routes.laboratoryDetailScreen, extra: laboratory.id),
@@ -257,7 +260,7 @@ class _EmptyState extends StatelessWidget {
                 ),
                 const SizedBox(height: AppSpacing.lg),
                 Text(
-                  'لا يوجد مخابر بعد',
+                  'لا يوجد فروع بعد',
                   textAlign: TextAlign.center,
                   style: AppTextStyles.font16MediumText.copyWith(
                     color: glass.onGlass,
@@ -265,7 +268,7 @@ class _EmptyState extends StatelessWidget {
                 ),
                 const SizedBox(height: AppSpacing.sm),
                 Text(
-                  'أضف أول مخبر بالضغط على زر الإضافة',
+                  'أضف أول فرع بالضغط على زر الإضافة',
                   textAlign: TextAlign.center,
                   style: AppTextStyles.font14RegularSecondary.copyWith(
                     color: glass.onGlassMuted,

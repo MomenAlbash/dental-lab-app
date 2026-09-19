@@ -36,9 +36,9 @@ class _VoiceRecorderButtonState extends State<VoiceRecorderButton> {
   Future<void> _start() async {
     final granted = await ensureMicrophonePermission();
     if (!granted) {
-      ShowToast(
+      showToast(
         message: 'الرجاء السماح باستخدام الميكروفون',
-        state: toastState.error,
+        state: ToastState.error,
       );
       return;
     }

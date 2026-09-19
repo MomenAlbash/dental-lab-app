@@ -1,3 +1,6 @@
+import 'package:dental_lab_app/core/auth/permissions.dart';
+import 'package:dental_lab_app/core/auth/session.dart';
+import 'package:dental_lab_app/core/di/dependency_injection.dart';
 import 'package:dental_lab_app/core/router/routes.dart';
 import 'package:dental_lab_app/core/theming/app_dimensions.dart';
 import 'package:dental_lab_app/core/theming/app_motion.dart';
@@ -47,6 +50,42 @@ class SettingsPage extends StatelessWidget {
         color: glass.success,
       ),
     ];
+
+    return BlocBuilder<SessionCubit, Permissions>(
+      bloc: getIt<SessionCubit>(),
+      builder: (context, permissions) => _SettingsBody(
+        entries: permissions.canRead(PermissionName.branches)
+            ? [
+                ...entries,
+                _SettingsEntry(
+                  icon: Icons.receipt_long_outlined,
+                  label: 'قوالب طباعة الحالة',
+                  description: 'تصميم بطاقات الطباعة الحرارية للحالات',
+                  route: Routes.caseTicketTemplatesListScreen,
+                  color: glass.warning,
+                ),
+                _SettingsEntry(
+                  icon: Icons.palette_outlined,
+                  label: 'الهوية البصرية',
+                  description: 'لون المختبر وشعاره — يظهران على شاشة الدخول',
+                  route: Routes.brandingScreen,
+                  color: glass.error,
+                ),
+              ]
+            : entries,
+      ),
+    );
+  }
+}
+
+class _SettingsBody extends StatelessWidget {
+  const _SettingsBody({required this.entries});
+
+  final List<_SettingsEntry> entries;
+
+  @override
+  Widget build(BuildContext context) {
+    final glass = context.glass;
 
     return GlassScaffold(
       appBar: GlassAppBar(

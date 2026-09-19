@@ -41,31 +41,54 @@ class GlassSheetSurface extends StatelessWidget {
           sigmaX: glass.blurSigma,
           sigmaY: glass.blurSigma,
         ),
-        child: DecoratedBox(
-          decoration: BoxDecoration(
-            gradient: glass.surfaceGradient,
-            border: Border(top: BorderSide(color: glass.strokeColor)),
-          ),
-          child: SafeArea(
-            top: false,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Padding(
-                  padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
-                  child: Container(
-                    width: 40,
-                    height: 4,
-                    decoration: BoxDecoration(
-                      color: glass.onGlassMuted.withValues(alpha: 0.4),
-                      borderRadius: BorderRadius.circular(AppRadius.full),
-                    ),
-                  ),
+        child: Stack(
+          children: [
+            // The app's own backdrop, carried by the sheet rather than
+            // borrowed from whatever it happens to cover.
+            //
+            // A glass pane takes its colour from what is behind it, which
+            // works while a sheet covers part of a page. A tall form covers
+            // the whole screen, and the only thing left behind it is the
+            // neutral end of the background — so the sheet rendered flat grey
+            // and read as a different app. Kept translucent, so a short sheet
+            // still shows the real page through it.
+            Positioned.fill(
+              child: Opacity(
+                opacity: 0.55,
+                child: DecoratedBox(
+                  decoration: BoxDecoration(gradient: glass.backdropGradient),
                 ),
-                Flexible(child: child),
-              ],
+              ),
             ),
-          ),
+            DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: glass.surfaceGradient,
+                border: Border(top: BorderSide(color: glass.strokeColor)),
+              ),
+              child: SafeArea(
+                top: false,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.symmetric(
+                        vertical: AppSpacing.md,
+                      ),
+                      child: Container(
+                        width: 40,
+                        height: 4,
+                        decoration: BoxDecoration(
+                          color: glass.onGlassMuted.withValues(alpha: 0.4),
+                          borderRadius: BorderRadius.circular(AppRadius.full),
+                        ),
+                      ),
+                    ),
+                    Flexible(child: child),
+                  ],
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );

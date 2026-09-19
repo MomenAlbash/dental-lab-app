@@ -1,7 +1,8 @@
-/// Client-side shade reference data. The API only stores the chosen shade as
-/// free text (`shadeCervical`/`shadeMiddle`/`shadeIncisal`), so the guide
-/// picked here ("نوع التقسيمات") only curates which codes are offered — it is
-/// never sent to the server.
+/// Client-side shade reference data — which codes to offer for
+/// `shadeCervical`/`shadeMiddle`/`shadeIncisal` once the guide ("نوع
+/// التقسيمات") is picked. The API stores these as integer enums, not the
+/// labels below; the conversion happens in `ShadeCodes`, at the request/
+/// response boundary.
 enum ShadeGuide {
   vitaClassical('Vita Classical'),
   vita3dMaster('Vita 3D-Master');

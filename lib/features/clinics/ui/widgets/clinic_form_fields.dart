@@ -3,8 +3,12 @@ import 'package:dental_lab_app/core/theming/app_motion.dart';
 import 'package:dental_lab_app/core/theming/glass.dart';
 import 'package:dental_lab_app/core/theming/styles.dart';
 import 'package:dental_lab_app/core/widgets/custom_text_field_widget.dart';
+import 'package:dental_lab_app/features/cases/ui/widgets/case_lookup_dropdown.dart';
 import 'package:dental_lab_app/features/cities/logic/cities/cities_cubit.dart';
 import 'package:dental_lab_app/features/cities/logic/cities/cities_state.dart';
+import 'package:dental_lab_app/features/clinics/data/models/update_clinic_request_model.dart';
+import 'package:dental_lab_app/features/zones/logic/zones/zones_cubit.dart';
+import 'package:dental_lab_app/features/zones/logic/zones/zones_state.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -20,25 +24,28 @@ class ClinicFormFields extends StatelessWidget {
     super.key,
     required this.formKey,
     required this.nameController,
-    required this.codeController,
     required this.addressController,
     required this.phoneController,
     required this.emailController,
-    required this.websiteController,
     required this.cityId,
     required this.onCityChanged,
+    required this.zoneId,
+    required this.onZoneChanged,
     required this.isEditing,
   });
 
   final GlobalKey<FormState> formKey;
   final TextEditingController nameController;
-  final TextEditingController codeController;
   final TextEditingController addressController;
   final TextEditingController phoneController;
   final TextEditingController emailController;
-  final TextEditingController websiteController;
   final String? cityId;
   final ValueChanged<String?> onCityChanged;
+
+  /// Null while creating — the create endpoint carries no zone field at all;
+  /// a zone is assigned afterward, through an edit.
+  final String? zoneId;
+  final ValueChanged<String?>? onZoneChanged;
   final bool isEditing;
 
   @override
@@ -51,7 +58,6 @@ class ClinicFormFields extends StatelessWidget {
         children: [
           ClinicFormPreview(
             name: nameController.text,
-            code: codeController.text,
             cityId: cityId,
             isEditing: isEditing,
           ),
@@ -60,7 +66,7 @@ class ClinicFormFields extends StatelessWidget {
           _FormSection(
             step: 1,
             title: 'الهوية',
-            subtitle: 'اسم العيادة ورمزها',
+            subtitle: 'اسم العيادة',
             children: [
               AppTextFormField(
                 controller: nameController,
@@ -71,14 +77,6 @@ class ClinicFormFields extends StatelessWidget {
                 validator: (value) => (value == null || value.trim().isEmpty)
                     ? 'اسم العيادة مطلوب'
                     : null,
-              ),
-              AppTextFormField(
-                controller: codeController,
-                textField: 'الرمز',
-                hintText: 'أدخل رمز العيادة (اختياري)',
-                textInputAction: TextInputAction.next,
-                prefixIcon: const Icon(Icons.tag_outlined),
-                validator: (_) => null,
               ),
             ],
           ),
@@ -110,15 +108,6 @@ class ClinicFormFields extends StatelessWidget {
                   return value.contains('@') ? null : 'بريد إلكتروني غير صالح';
                 },
               ),
-              AppTextFormField(
-                controller: websiteController,
-                textField: 'الموقع الإلكتروني',
-                hintText: 'أدخل رابط الموقع (اختياري)',
-                keyboardType: TextInputType.url,
-                textInputAction: TextInputAction.done,
-                prefixIcon: const Icon(Icons.language_outlined),
-                validator: (_) => null,
-              ),
             ],
           ),
           const SizedBox(height: AppSpacing.lg),
@@ -126,7 +115,7 @@ class ClinicFormFields extends StatelessWidget {
           _FormSection(
             step: 3,
             title: 'الموقع',
-            subtitle: 'العنوان والمدينة',
+            subtitle: 'العنوان والمدينة والمنطقة',
             children: [
               AppTextFormField(
                 controller: addressController,
@@ -138,6 +127,12 @@ class ClinicFormFields extends StatelessWidget {
               ),
               _FieldLabel('المدينة'),
               _CityDropdown(value: cityId, onChanged: onCityChanged),
+              // The create endpoint carries no zone field — a clinic is
+              // zoned afterward, from its own edit screen, once it exists.
+              if (isEditing && onZoneChanged != null) ...[
+                _FieldLabel('المنطقة'),
+                _ZoneDropdown(value: zoneId, onChanged: onZoneChanged!),
+              ],
             ],
           ),
         ],
@@ -152,13 +147,11 @@ class ClinicFormPreview extends StatelessWidget {
   const ClinicFormPreview({
     super.key,
     required this.name,
-    required this.code,
     required this.cityId,
     required this.isEditing,
   });
 
   final String name;
-  final String code;
   final String? cityId;
   final bool isEditing;
 
@@ -241,24 +234,7 @@ class ClinicFormPreview extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: AppSpacing.sm),
-                    Row(
-                      children: [
-                        // Flexible on both: unlike the doctor form's fixed-label
-                        // gender chip, a clinic code is free text and can be long
-                        // enough at large text scales to overflow the row on its
-                        // own if it isn't allowed to shrink too.
-                        if (code.trim().isNotEmpty) ...[
-                          Flexible(
-                            child: _PreviewChip(
-                              icon: Icons.tag_outlined,
-                              label: code.trim(),
-                            ),
-                          ),
-                          const SizedBox(width: 6),
-                        ],
-                        _CityChip(cityId: cityId),
-                      ],
-                    ),
+                    Row(children: [_CityChip(cityId: cityId)]),
                   ],
                 ),
               ),
@@ -499,6 +475,52 @@ class _CityDropdown extends StatelessWidget {
               )
               .toList(),
           onChanged: cities == null ? null : onChanged,
+        );
+      },
+    );
+  }
+}
+
+/// Zone picker fed by [ZonesCubit]. A clinic's zone is a dated spell, not a
+/// plain field, so this offers an explicit "بدون منطقة" row rather than
+/// leaving the only way to clear one be never picking anything —
+/// [UpdateClinicRequestModel.clearZoneId] is what that row sends.
+class _ZoneDropdown extends StatelessWidget {
+  const _ZoneDropdown({required this.value, required this.onChanged});
+
+  final String? value;
+  final ValueChanged<String?> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return BlocBuilder<ZonesCubit, ZonesState>(
+      builder: (context, state) {
+        final zones = state is ZonesLoaded ? state.zones : null;
+
+        return CaseLookupDropdown(
+          value: value,
+          icon: Icons.map_outlined,
+          hintText: state is ZonesLoading
+              ? 'جارٍ تحميل المناطق...'
+              : 'اختر المنطقة (اختياري)',
+          items: zones == null
+              ? null
+              : [
+                  const DropdownMenuItem(
+                    value: UpdateClinicRequestModel.clearZoneId,
+                    child: Text('بدون منطقة'),
+                  ),
+                  for (final zone in zones)
+                    DropdownMenuItem(
+                      value: zone.id,
+                      child: Text(
+                        (zone.nameAr?.trim().isNotEmpty ?? false)
+                            ? zone.nameAr!.trim()
+                            : (zone.name ?? '—'),
+                      ),
+                    ),
+                ],
+          onChanged: zones == null ? (_) {} : onChanged,
         );
       },
     );

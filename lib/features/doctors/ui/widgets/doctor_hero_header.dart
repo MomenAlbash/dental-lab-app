@@ -16,10 +16,18 @@ class DoctorSliverHeader extends StatelessWidget {
     super.key,
     required this.doctor,
     required this.onEdit,
+    required this.onOpenAnswers,
+    this.onChangePhoto,
   });
 
   final DoctorModel doctor;
   final VoidCallback onEdit;
+
+  /// Replaces the doctor's photo. Null without the permission to edit them.
+  final VoidCallback? onChangePhoto;
+
+  /// Opens the laboratory's own custom questions for this doctor.
+  final VoidCallback onOpenAnswers;
 
   static const double expandedHeight = 268;
 
@@ -41,6 +49,17 @@ class DoctorSliverHeader extends StatelessWidget {
         ),
       ),
       actions: [
+        IconButton(
+          tooltip: 'أسئلة إضافية',
+          onPressed: onOpenAnswers,
+          icon: const Icon(Icons.quiz_outlined),
+        ),
+        if (onChangePhoto != null)
+          IconButton(
+            tooltip: 'تغيير الصورة',
+            onPressed: onChangePhoto,
+            icon: const Icon(Icons.photo_camera_outlined),
+          ),
         IconButton(
           tooltip: 'تعديل',
           onPressed: onEdit,

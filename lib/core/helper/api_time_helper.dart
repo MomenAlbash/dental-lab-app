@@ -65,6 +65,20 @@ class ApiTime {
     return '${date.year}-$month-$day';
   }
 
+  /// `"yyyy-MM-dd HH:mm"` in the device's own zone, for a timestamp the API
+  /// *does* send as a full instant (a stage change, a phase entry).
+  ///
+  /// Converted to local time on purpose: these read as "when did this happen
+  /// to me", and a UTC clock beside a wall clock two hours out reads as a bug.
+  static String displayDateTime(DateTime? value) {
+    if (value == null) return '—';
+
+    final local = value.toLocal();
+    final hour = local.hour.toString().padLeft(2, '0');
+    final minute = local.minute.toString().padLeft(2, '0');
+    return '${formatDate(local)} $hour:$minute';
+  }
+
   /// Minutes since midnight — for ordering and for measuring a rule's span.
   static int minutesOf(TimeOfDay time) => time.hour * 60 + time.minute;
 }

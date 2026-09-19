@@ -8,6 +8,7 @@ import 'package:dental_lab_app/core/helper/local/cached_helper.dart';
 import 'package:dental_lab_app/core/helper/network_helper/api_service.dart';
 import 'package:dental_lab_app/features/price_tiers/data/models/create_price_tier_request_model.dart';
 import 'package:dental_lab_app/features/price_tiers/data/models/price_tier_model.dart';
+import 'package:dental_lab_app/features/price_tiers/data/models/set_price_tier_doctors_request_model.dart';
 import 'package:dental_lab_app/features/price_tiers/data/models/set_price_tier_prices_request_model.dart';
 import 'package:dental_lab_app/features/price_tiers/data/models/update_price_tier_request_model.dart';
 import 'package:dio/dio.dart';
@@ -29,7 +30,7 @@ class PriceTiersRepo {
       return fallbackToCache(
         cacheKey: CacheKeys.cachedPriceTiersList,
         fromJson: PriceTierModel.fromJson,
-        onFailure: () => ServerFailure.FromDioExecption(e),
+        onFailure: () => ServerFailure.fromDioException(e),
       );
     } catch (e) {
       log('General Exception while fetching price tiers: ${e.toString()}');
@@ -49,7 +50,7 @@ class PriceTiersRepo {
       return right(tier);
     } on DioException catch (e) {
       log('DioException while fetching price tier: ${e.message}');
-      return left(ServerFailure.FromDioExecption(e));
+      return left(ServerFailure.fromDioException(e));
     } catch (e) {
       log('General Exception while fetching price tier: ${e.toString()}');
       return left(ServerFailure.fromException(e));
@@ -69,7 +70,7 @@ class PriceTiersRepo {
       return right(tier);
     } on DioException catch (e) {
       log('DioException while creating price tier: ${e.message}');
-      return left(ServerFailure.FromDioExecption(e));
+      return left(ServerFailure.fromDioException(e));
     } catch (e) {
       log('General Exception while creating price tier: ${e.toString()}');
       return left(ServerFailure.fromException(e));
@@ -91,7 +92,7 @@ class PriceTiersRepo {
       return right(tier);
     } on DioException catch (e) {
       log('DioException while updating price tier: ${e.message}');
-      return left(ServerFailure.FromDioExecption(e));
+      return left(ServerFailure.fromDioException(e));
     } catch (e) {
       log('General Exception while updating price tier: ${e.toString()}');
       return left(ServerFailure.fromException(e));
@@ -106,7 +107,7 @@ class PriceTiersRepo {
       return right(null);
     } on DioException catch (e) {
       log('DioException while deleting price tier: ${e.message}');
-      return left(ServerFailure.FromDioExecption(e));
+      return left(ServerFailure.fromDioException(e));
     } catch (e) {
       log('General Exception while deleting price tier: ${e.toString()}');
       return left(ServerFailure.fromException(e));
@@ -128,9 +129,33 @@ class PriceTiersRepo {
       return right(tier);
     } on DioException catch (e) {
       log('DioException while setting price tier prices: ${e.message}');
-      return left(ServerFailure.FromDioExecption(e));
+      return left(ServerFailure.fromDioException(e));
     } catch (e) {
       log('General Exception while setting price tier prices: ${e.toString()}');
+      return left(ServerFailure.fromException(e));
+    }
+  }
+
+  /// Replaces who is billed at this tier. Not cached — assigning against a
+  /// stale list would unassign doctors another user had just added.
+  Future<Either<Failure, PriceTierModel>> setPriceTierDoctors({
+    required String id,
+    required SetPriceTierDoctorsRequestModel body,
+  }) async {
+    try {
+      final tier = await _apiService.setPriceTierDoctors(
+        id: id,
+        body: body,
+        token: _token,
+      );
+
+      log('Set ${body.doctorIds.length} doctors on price tier: ${tier.name}');
+      return right(tier);
+    } on DioException catch (e) {
+      log('DioException while setting price tier doctors: ${e.message}');
+      return left(ServerFailure.fromDioException(e));
+    } catch (e) {
+      log('General Exception while setting price tier doctors: $e');
       return left(ServerFailure.fromException(e));
     }
   }

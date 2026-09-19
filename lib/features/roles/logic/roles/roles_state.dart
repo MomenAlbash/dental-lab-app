@@ -21,3 +21,10 @@ class RolesError extends RolesState {
   const RolesError(this.message);
   final String message;
 }
+
+/// Emitted after an optimistic delete is rolled back — a toast only, never
+/// something the list rebuilds on directly.
+class RolesActionError extends RolesState {
+  const RolesActionError(this.message);
+  final String message;
+}

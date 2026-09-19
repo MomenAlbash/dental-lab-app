@@ -8,6 +8,7 @@ import 'package:dental_lab_app/core/widgets/glass/glass_section_title.dart';
 import 'package:dental_lab_app/features/employees/data/models/employee_attachment_file_model.dart';
 import 'package:dental_lab_app/features/employees/data/models/employee_model.dart';
 import 'package:dental_lab_app/features/employees/ui/widgets/employee_hero_header.dart';
+import 'package:dental_lab_app/features/employees/ui/widgets/employee_employment_card.dart';
 import 'package:dental_lab_app/features/employees/ui/widgets/employee_quick_actions.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
@@ -26,6 +27,12 @@ class EmployeeDetailsBody extends StatelessWidget {
     required this.onAddFile,
     required this.onDeleteFile,
     required this.onOpenFile,
+    required this.onTerminate,
+    required this.onReinstate,
+    required this.onChangePhoto,
+    required this.onOpenAnswers,
+    required this.onOpenNotes,
+    required this.onOpenWorkAndPay,
   });
 
   final EmployeeModel employee;
@@ -34,6 +41,15 @@ class EmployeeDetailsBody extends StatelessWidget {
   final VoidCallback onAddFile;
   final ValueChanged<String> onDeleteFile;
   final ValueChanged<EmployeeAttachmentFileModel> onOpenFile;
+
+  final VoidCallback onTerminate;
+  final VoidCallback onReinstate;
+  final VoidCallback onChangePhoto;
+
+  /// Opens the laboratory's own custom questions for this employee.
+  final VoidCallback onOpenAnswers;
+  final VoidCallback onOpenNotes;
+  final VoidCallback onOpenWorkAndPay;
 
   @override
   Widget build(BuildContext context) {
@@ -105,7 +121,11 @@ class EmployeeDetailsBody extends StatelessWidget {
           children: [
             CustomScrollView(
               slivers: [
-                EmployeeSliverHeader(employee: employee, onEdit: onEdit),
+                EmployeeSliverHeader(
+                  employee: employee,
+                  onEdit: onEdit,
+                  onOpenAnswers: onOpenAnswers,
+                ),
                 SliverToBoxAdapter(
                   child: AdaptiveDetailSections(
                     main: [
@@ -135,6 +155,17 @@ class EmployeeDetailsBody extends StatelessWidget {
                       ),
                     ],
                     side: [
+                      // Above the contact shortcuts: what the laboratory can
+                      // *do* about this person outranks how to phone them.
+                      EmployeeEmploymentCard(
+                        employee: employee,
+                        isBusy: isBusy,
+                        onTerminate: onTerminate,
+                        onReinstate: onReinstate,
+                        onChangePhoto: onChangePhoto,
+                        onOpenNotes: onOpenNotes,
+                        onOpenWorkAndPay: onOpenWorkAndPay,
+                      ),
                       EmployeeQuickActions(employee: employee)
                           .animate()
                           .fadeIn(duration: AppMotion.base)

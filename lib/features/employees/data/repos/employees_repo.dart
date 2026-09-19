@@ -6,6 +6,7 @@ import 'package:dental_lab_app/core/helper/local/cache_keys.dart';
 import 'package:dental_lab_app/core/helper/local/cacheable_fetch.dart';
 import 'package:dental_lab_app/core/helper/local/cached_helper.dart';
 import 'package:dental_lab_app/core/helper/network_helper/api_service.dart';
+import 'package:dental_lab_app/core/helper/network_helper/people_api.dart';
 import 'package:dental_lab_app/features/employees/data/models/create_employee_request_model.dart';
 import 'package:dental_lab_app/features/employees/data/models/employee_attachment_file_model.dart';
 import 'package:dental_lab_app/features/employees/data/models/employee_model.dart';
@@ -29,7 +30,7 @@ class EmployeesRepo {
       return fallbackToCache(
         cacheKey: CacheKeys.cachedEmployeesList,
         fromJson: EmployeeModel.fromJson,
-        onFailure: () => ServerFailure.FromDioExecption(e),
+        onFailure: () => ServerFailure.fromDioException(e),
       );
     } catch (e) {
       log('General Exception while fetching employees: ${e.toString()}');
@@ -49,7 +50,7 @@ class EmployeesRepo {
       return right(employee);
     } on DioException catch (e) {
       log('DioException while fetching employee: ${e.message}');
-      return left(ServerFailure.FromDioExecption(e));
+      return left(ServerFailure.fromDioException(e));
     } catch (e) {
       log('General Exception while fetching employee: ${e.toString()}');
       return left(ServerFailure.fromException(e));
@@ -69,7 +70,7 @@ class EmployeesRepo {
       return right(employee);
     } on DioException catch (e) {
       log('DioException while creating employee: ${e.message}');
-      return left(ServerFailure.FromDioExecption(e));
+      return left(ServerFailure.fromDioException(e));
     } catch (e) {
       log('General Exception while creating employee: ${e.toString()}');
       return left(ServerFailure.fromException(e));
@@ -91,7 +92,7 @@ class EmployeesRepo {
       return right(employee);
     } on DioException catch (e) {
       log('DioException while updating employee: ${e.message}');
-      return left(ServerFailure.FromDioExecption(e));
+      return left(ServerFailure.fromDioException(e));
     } catch (e) {
       log('General Exception while updating employee: ${e.toString()}');
       return left(ServerFailure.fromException(e));
@@ -106,7 +107,7 @@ class EmployeesRepo {
       return right(null);
     } on DioException catch (e) {
       log('DioException while deleting employee: ${e.message}');
-      return left(ServerFailure.FromDioExecption(e));
+      return left(ServerFailure.fromDioException(e));
     } catch (e) {
       log('General Exception while deleting employee: ${e.toString()}');
       return left(ServerFailure.fromException(e));
@@ -128,7 +129,7 @@ class EmployeesRepo {
       return right(file);
     } on DioException catch (e) {
       log('DioException while uploading employee file: ${e.message}');
-      return left(ServerFailure.FromDioExecption(e));
+      return left(ServerFailure.fromDioException(e));
     } catch (e) {
       log('General Exception while uploading employee file: ${e.toString()}');
       return left(ServerFailure.fromException(e));
@@ -150,10 +151,90 @@ class EmployeesRepo {
       return right(null);
     } on DioException catch (e) {
       log('DioException while deleting employee file: ${e.message}');
-      return left(ServerFailure.FromDioExecption(e));
+      return left(ServerFailure.fromDioException(e));
     } catch (e) {
       log('General Exception while deleting employee file: ${e.toString()}');
       return left(ServerFailure.fromException(e));
     }
   }
+}
+
+/// The people-screen half of the employee API: their photo, their employment
+/// status, and the notes their file carries.
+///
+/// An extension rather than more methods on [EmployeesRepo] itself — it keeps
+/// the CRUD this feature started as readable, and these are the calls only the
+/// detail screen makes.
+extension EmployeePeopleRepo on EmployeesRepo {
+  Future<Either<Failure, T>> _guard<T>(
+    String what,
+    Future<T> Function() request,
+  ) async {
+    try {
+      return right(await request());
+    } on DioException catch (e) {
+      log('DioException while $what: ${e.message}');
+      return left(ServerFailure.fromDioException(e));
+    } catch (e) {
+      log('General Exception while $what: $e');
+      return left(ServerFailure.fromException(e));
+    }
+  }
+
+  Future<Either<Failure, EmployeeModel>> uploadImage({
+    required String id,
+    required String filePath,
+  }) => _guard(
+    'uploading an employee image',
+    () => _apiService.uploadEmployeeImage(
+      id: id,
+      filePath: filePath,
+      token: _token,
+    ),
+  );
+
+  /// Ends the employment — never deletes the person. Their attendance,
+  /// payslips and case history stay real and stay attached.
+  Future<Either<Failure, EmployeeModel>> terminate({
+    required String id,
+    required DateTime terminationDate,
+    String? note,
+  }) => _guard(
+    'terminating an employee',
+    () => _apiService.terminateEmployee(
+      id: id,
+      terminationDate: terminationDate,
+      note: note,
+      token: _token,
+    ),
+  );
+
+  Future<Either<Failure, EmployeeModel>> reinstate(String id) => _guard(
+    'reinstating an employee',
+    () => _apiService.reinstateEmployee(id: id, token: _token),
+  );
+
+  Future<Either<Failure, List<EmployeeNoteModel>>> getNotes({
+    String? employeeId,
+  }) => _guard(
+    'fetching employee notes',
+    () => _apiService.getEmployeeNotes(employeeId: employeeId, token: _token),
+  );
+
+  Future<Either<Failure, EmployeeNoteModel>> addNote({
+    required String employeeId,
+    required String note,
+  }) => _guard(
+    'adding an employee note',
+    () => _apiService.createEmployeeNote(
+      employeeId: employeeId,
+      note: note,
+      token: _token,
+    ),
+  );
+
+  Future<Either<Failure, void>> deleteNote(String noteId) => _guard(
+    'deleting an employee note',
+    () => _apiService.deleteEmployeeNote(noteId: noteId, token: _token),
+  );
 }

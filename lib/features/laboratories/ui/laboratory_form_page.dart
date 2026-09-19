@@ -102,7 +102,7 @@ class _LaboratoryFormViewState extends State<_LaboratoryFormView> {
     return GlassScaffold(
       appBar: GlassAppBar(
         title: Text(
-          _isEditing ? 'تعديل المخبر' : 'إضافة مخبر',
+          _isEditing ? 'تعديل الفرع' : 'إضافة فرع',
           style: AppTextStyles.font18MediumText.copyWith(
             color: context.glass.onGlass,
           ),
@@ -113,13 +113,13 @@ class _LaboratoryFormViewState extends State<_LaboratoryFormView> {
           listener: (context, state) {
             switch (state) {
               case LaboratoryFormSuccess():
-                ShowToast(
-                  message: _isEditing ? 'تم حفظ التعديلات' : 'تمت إضافة المخبر',
-                  state: toastState.success,
+                showToast(
+                  message: _isEditing ? 'تم حفظ التعديلات' : 'تمت إضافة الفرع',
+                  state: ToastState.success,
                 );
                 Navigator.of(context).pop(true);
               case LaboratoryFormError(:final message):
-                ShowToast(message: message, state: toastState.error);
+                showToast(message: message, state: ToastState.error);
               default:
                 break;
             }
@@ -147,13 +147,13 @@ class _LaboratoryFormViewState extends State<_LaboratoryFormView> {
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             Text(
-                              'اسم المخبر',
+                              'اسم الفرع',
                               style: AppTextStyles.font14MediumText,
                             ),
                             const SizedBox(height: 8),
                             AppTextFormField(
                               controller: _nameController,
-                              hintText: 'أدخل اسم المخبر',
+                              hintText: 'أدخل اسم الفرع',
                               textInputAction: TextInputAction.next,
                               prefixIcon: Icon(
                                 Icons.science_outlined,
@@ -161,7 +161,7 @@ class _LaboratoryFormViewState extends State<_LaboratoryFormView> {
                               ),
                               validator: (value) =>
                                   (value == null || value.trim().isEmpty)
-                                  ? 'اسم المخبر مطلوب'
+                                  ? 'اسم الفرع مطلوب'
                                   : null,
                             ),
                             const SizedBox(height: 20),
@@ -242,7 +242,7 @@ class _LaboratoryFormViewState extends State<_LaboratoryFormView> {
                                 onPressed: _onSavePressed,
                                 buttonText: _isEditing
                                     ? 'حفظ التعديلات'
-                                    : 'إضافة المخبر',
+                                    : 'إضافة الفرع',
                               ),
                           ],
                         ),

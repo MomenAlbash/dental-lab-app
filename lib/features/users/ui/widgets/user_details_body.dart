@@ -6,10 +6,10 @@ import 'package:dental_lab_app/core/widgets/custom_button_widget.dart';
 import 'package:dental_lab_app/core/widgets/custom_text_field_widget.dart';
 import 'package:dental_lab_app/core/widgets/detail_info_row_widget.dart';
 import 'package:dental_lab_app/core/widgets/glass/glass_section_title.dart';
+import 'package:dental_lab_app/features/cases/ui/widgets/case_lookup_dropdown.dart';
 import 'package:dental_lab_app/features/roles/logic/roles/roles_cubit.dart';
 import 'package:dental_lab_app/features/roles/logic/roles/roles_state.dart';
 import 'package:dental_lab_app/features/users/data/models/user_model.dart';
-import 'package:dental_lab_app/features/users/ui/widgets/labeled_dropdown.dart';
 import 'package:dental_lab_app/features/users/ui/widgets/user_hero_header.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -30,6 +30,8 @@ class UserDetailsBody extends StatelessWidget {
     required this.onSave,
     required this.onToggleActive,
     required this.onResetPassword,
+    this.onManageAgent,
+    this.onManageDoctorScope,
   });
 
   final UserModel user;
@@ -42,6 +44,14 @@ class UserDetailsBody extends StatelessWidget {
   final VoidCallback onSave;
   final VoidCallback onToggleActive;
   final VoidCallback onResetPassword;
+
+  /// Opens the representative's agent history. Null when the user is not a
+  /// representative, or the caller has nowhere to send them.
+  final VoidCallback? onManageAgent;
+
+  /// Opens the doctor-scope editor. Null for an admin, who sees every doctor
+  /// regardless of what is set.
+  final VoidCallback? onManageDoctorScope;
 
   @override
   Widget build(BuildContext context) {
@@ -164,6 +174,38 @@ class UserDetailsBody extends StatelessWidget {
                               context,
                             ).colorScheme.primary.withValues(alpha: 0.12),
                           ),
+                          // Only a representative reports to an agent, so the
+                          // action is not offered to anybody else — an empty
+                          // history sheet would answer a question they never
+                          // asked.
+                          // An admin sees every doctor by design, so the
+                          // scope editor is not offered for one — it would be
+                          // a setting the server ignores.
+                          if (!user.isAdmin && onManageDoctorScope != null)
+                            Padding(
+                              padding: const EdgeInsets.only(top: 12),
+                              child: CustomButtonWidget(
+                                onPressed: onManageDoctorScope,
+                                icon: Icons.filter_alt_outlined,
+                                buttonText: 'نطاق الأطباء',
+                                textColor: context.glass.warning,
+                                backgroundColor: context.glass.warning
+                                    .withValues(alpha: 0.12),
+                              ),
+                            ),
+                          if (user.isRepresentative && onManageAgent != null)
+                            Padding(
+                              padding: const EdgeInsets.only(top: 12),
+                              child: CustomButtonWidget(
+                                onPressed: onManageAgent,
+                                icon: Icons.supervisor_account_outlined,
+                                buttonText: 'الوكيل المسؤول',
+                                textColor: context.glass.info,
+                                backgroundColor: context.glass.info.withValues(
+                                  alpha: 0.12,
+                                ),
+                              ),
+                            ),
                         ],
                       ),
                     ],
@@ -250,7 +292,7 @@ class _RoleDropdown extends StatelessWidget {
     return BlocBuilder<RolesCubit, RolesState>(
       builder: (context, state) {
         final roles = state is RolesLoaded ? state.roles : null;
-        return LabeledDropdown(
+        return CaseLookupDropdown(
           value: value,
           icon: Icons.security_outlined,
           hintText: state is RolesLoading

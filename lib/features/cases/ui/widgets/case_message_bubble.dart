@@ -36,7 +36,7 @@ class CaseMessageBubble extends StatelessWidget {
       mode: LaunchMode.externalApplication,
     );
     if (!launched) {
-      ShowToast(message: 'تعذّر فتح المرفق', state: toastState.error);
+      showToast(message: 'تعذّر فتح المرفق', state: ToastState.error);
     }
   }
 
@@ -54,7 +54,7 @@ class CaseMessageBubble extends StatelessWidget {
               url,
               height: 160,
               fit: BoxFit.cover,
-              errorBuilder: (_, __, ___) =>
+              errorBuilder: (_, _, _) =>
                   const Icon(Icons.broken_image_outlined),
             ),
           ),

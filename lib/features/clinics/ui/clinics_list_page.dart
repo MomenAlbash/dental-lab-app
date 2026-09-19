@@ -134,9 +134,9 @@ class _ClinicsListViewState extends State<_ClinicsListView> {
           listener: (context, state) {
             switch (state) {
               case ClinicDeleted():
-                ShowToast(message: 'تم حذف العيادة', state: toastState.success);
+                showToast(message: 'تم حذف العيادة', state: ToastState.success);
               case ClinicDeleteError(:final message):
-                ShowToast(message: message, state: toastState.error);
+                showToast(message: message, state: ToastState.error);
               default:
                 break;
             }

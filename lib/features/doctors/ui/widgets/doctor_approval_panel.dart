@@ -6,13 +6,22 @@ import 'package:dental_lab_app/core/widgets/custom_text_field_widget.dart';
 import 'package:dental_lab_app/features/clinics/logic/clinics/clinics_cubit.dart';
 import 'package:dental_lab_app/features/clinics/logic/clinics/clinics_state.dart';
 import 'package:dental_lab_app/features/doctors/data/models/doctor_model.dart';
+import 'package:dental_lab_app/features/zones/logic/zones/zones_cubit.dart';
+import 'package:dental_lab_app/features/zones/logic/zones/zones_state.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 /// What the user chose in the approve dialog: link the doctor to an existing
-/// clinic, or create the one they asked for. Exactly one is set.
-typedef ApprovalChoice = ({String? clinicId, String? newClinicName});
+/// clinic (or create the one they asked for — exactly one of the clinic pair
+/// is set), and optionally assign that clinic to a zone the same way (the
+/// zone pair may both be null — a zone is not mandatory).
+typedef ApprovalChoice = ({
+  String? clinicId,
+  String? newClinicName,
+  String? zoneId,
+  String? newZoneName,
+});
 
 /// The review panel on a doctor's detail screen.
 ///
@@ -65,9 +74,12 @@ class _PendingPanel extends StatelessWidget {
   Future<void> _askApprove(BuildContext context) async {
     final choice = await showDialog<ApprovalChoice>(
       context: context,
-      builder: (_) => BlocProvider(
+      builder: (_) => MultiBlocProvider(
         // A dialog is its own route, so it cannot reach the page's providers.
-        create: (_) => getIt<ClinicsCubit>()..getClinics(),
+        providers: [
+          BlocProvider(create: (_) => getIt<ClinicsCubit>()..getClinics()),
+          BlocProvider(create: (_) => getIt<ZonesCubit>()..getZones()),
+        ],
         child: _ApproveDialog(requestedClinicName: doctor.requestedClinicName),
       ),
     );
@@ -244,6 +256,8 @@ class _ApproveDialog extends StatefulWidget {
 
 enum _ClinicChoice { existing, create }
 
+enum _ZoneChoice { unchanged, existing, create }
+
 class _ApproveDialogState extends State<_ApproveDialog> {
   late final String _requested = widget.requestedClinicName?.trim() ?? '';
 
@@ -256,17 +270,63 @@ class _ApproveDialogState extends State<_ApproveDialog> {
   String? _clinicId;
   String? _error;
 
+  // A zone is not mandatory the way a clinic is — "unchanged" is the default
+  // and the ordinary case for a lab that has not started zoning its clinics.
+  _ZoneChoice _zoneChoice = _ZoneChoice.unchanged;
+  String? _zoneId;
+  final _newZoneNameController = TextEditingController();
+
+  @override
+  void dispose() {
+    _newZoneNameController.dispose();
+    super.dispose();
+  }
+
   void _confirm() {
+    final String? clinicId;
+    final String? newClinicName;
     switch (_choice) {
       case _ClinicChoice.existing:
         if (_clinicId == null) {
           setState(() => _error = 'اختر العيادة أولاً');
           return;
         }
-        Navigator.of(context).pop((clinicId: _clinicId, newClinicName: null));
+        clinicId = _clinicId;
+        newClinicName = null;
       case _ClinicChoice.create:
-        Navigator.of(context).pop((clinicId: null, newClinicName: _requested));
+        clinicId = null;
+        newClinicName = _requested;
     }
+
+    final String? zoneId;
+    final String? newZoneName;
+    switch (_zoneChoice) {
+      case _ZoneChoice.unchanged:
+        zoneId = null;
+        newZoneName = null;
+      case _ZoneChoice.existing:
+        if (_zoneId == null) {
+          setState(() => _error = 'اختر المنطقة أولاً');
+          return;
+        }
+        zoneId = _zoneId;
+        newZoneName = null;
+      case _ZoneChoice.create:
+        final name = _newZoneNameController.text.trim();
+        if (name.isEmpty) {
+          setState(() => _error = 'اكتب اسم المنطقة');
+          return;
+        }
+        zoneId = null;
+        newZoneName = name;
+    }
+
+    Navigator.of(context).pop((
+      clinicId: clinicId,
+      newClinicName: newClinicName,
+      zoneId: zoneId,
+      newZoneName: newZoneName,
+    ));
   }
 
   @override
@@ -280,82 +340,177 @@ class _ApproveDialogState extends State<_ApproveDialog> {
       content: SizedBox(
         width: MediaQuery.sizeOf(context).width * 0.8,
         child: SingleChildScrollView(
-          child: RadioGroup<_ClinicChoice>(
-            groupValue: _choice,
-            onChanged: (value) => setState(() {
-              _choice = value!;
-              _error = null;
-            }),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Text(
-                  'لا يمكن قبول الدكتور دون ربطه بعيادة:',
-                  style: AppTextStyles.font14RegularSecondary.copyWith(
-                    color: glass.onGlassMuted,
-                  ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(
+                'لا يمكن قبول الدكتور دون ربطه بعيادة:',
+                style: AppTextStyles.font14RegularSecondary.copyWith(
+                  color: glass.onGlassMuted,
                 ),
-                const SizedBox(height: AppSpacing.sm),
-                if (_requested.isNotEmpty)
-                  RadioListTile<_ClinicChoice>(
-                    value: _ClinicChoice.create,
-                    contentPadding: EdgeInsets.zero,
-                    title: Text(
-                      'إنشاء العيادة المطلوبة: $_requested',
-                      style: AppTextStyles.font14MediumText,
-                    ),
-                  ),
-                RadioListTile<_ClinicChoice>(
-                  value: _ClinicChoice.existing,
-                  contentPadding: EdgeInsets.zero,
-                  title: Text(
-                    'اختيار عيادة موجودة',
-                    style: AppTextStyles.font14MediumText,
-                  ),
-                ),
-                if (_choice == _ClinicChoice.existing)
-                  BlocBuilder<ClinicsCubit, ClinicsState>(
-                    builder: (context, state) {
-                      final clinics = state is ClinicsLoaded
-                          ? state.clinics
-                          : null;
-                      return DropdownButtonFormField<String>(
-                        initialValue: _clinicId,
-                        isExpanded: true,
-                        decoration: InputDecoration(
-                          hintText: state is ClinicsLoading
-                              ? 'جارٍ تحميل العيادات...'
-                              : 'اختر العيادة',
+              ),
+              const SizedBox(height: AppSpacing.sm),
+              RadioGroup<_ClinicChoice>(
+                groupValue: _choice,
+                onChanged: (value) => setState(() {
+                  _choice = value!;
+                  _error = null;
+                }),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    if (_requested.isNotEmpty)
+                      RadioListTile<_ClinicChoice>(
+                        value: _ClinicChoice.create,
+                        contentPadding: EdgeInsets.zero,
+                        title: Text(
+                          'إنشاء العيادة المطلوبة: $_requested',
+                          style: AppTextStyles.font14MediumText,
                         ),
-                        items: clinics
-                            ?.map(
-                              (clinic) => DropdownMenuItem(
-                                value: clinic.id,
-                                child: Text(clinic.name),
-                              ),
-                            )
-                            .toList(),
-                        onChanged: clinics == null
-                            ? null
-                            : (value) => setState(() {
-                                _clinicId = value;
-                                _error = null;
-                              }),
-                      );
-                    },
-                  ),
-                if (_error != null) ...[
-                  const SizedBox(height: 6),
-                  Text(
-                    _error!,
-                    style: AppTextStyles.font12RegularHint.copyWith(
-                      color: glass.error,
+                      ),
+                    RadioListTile<_ClinicChoice>(
+                      value: _ClinicChoice.existing,
+                      contentPadding: EdgeInsets.zero,
+                      title: Text(
+                        'اختيار عيادة موجودة',
+                        style: AppTextStyles.font14MediumText,
+                      ),
                     ),
+                  ],
+                ),
+              ),
+              if (_choice == _ClinicChoice.existing)
+                BlocBuilder<ClinicsCubit, ClinicsState>(
+                  builder: (context, state) {
+                    final clinics = state is ClinicsLoaded
+                        ? state.clinics
+                        : null;
+                    return DropdownButtonFormField<String>(
+                      initialValue: _clinicId,
+                      isExpanded: true,
+                      decoration: InputDecoration(
+                        hintText: state is ClinicsLoading
+                            ? 'جارٍ تحميل العيادات...'
+                            : 'اختر العيادة',
+                      ),
+                      items: clinics
+                          ?.map(
+                            (clinic) => DropdownMenuItem(
+                              value: clinic.id,
+                              child: Text(clinic.name),
+                            ),
+                          )
+                          .toList(),
+                      onChanged: clinics == null
+                          ? null
+                          : (value) => setState(() {
+                              _clinicId = value;
+                              _error = null;
+                            }),
+                    );
+                  },
+                ),
+
+              // Optional: assigning the clinic to a zone. Left on "بدون
+              // تغيير" by default — a zone is not mandatory the way a
+              // clinic is.
+              const SizedBox(height: AppSpacing.lg),
+              Text(
+                'منطقة العيادة (اختياري):',
+                style: AppTextStyles.font14RegularSecondary.copyWith(
+                  color: glass.onGlassMuted,
+                ),
+              ),
+              const SizedBox(height: AppSpacing.sm),
+              RadioGroup<_ZoneChoice>(
+                groupValue: _zoneChoice,
+                onChanged: (value) => setState(() {
+                  _zoneChoice = value!;
+                  _error = null;
+                }),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    RadioListTile<_ZoneChoice>(
+                      value: _ZoneChoice.unchanged,
+                      contentPadding: EdgeInsets.zero,
+                      title: Text(
+                        'بدون تغيير',
+                        style: AppTextStyles.font14MediumText,
+                      ),
+                    ),
+                    RadioListTile<_ZoneChoice>(
+                      value: _ZoneChoice.existing,
+                      contentPadding: EdgeInsets.zero,
+                      title: Text(
+                        'اختيار منطقة موجودة',
+                        style: AppTextStyles.font14MediumText,
+                      ),
+                    ),
+                    RadioListTile<_ZoneChoice>(
+                      value: _ZoneChoice.create,
+                      contentPadding: EdgeInsets.zero,
+                      title: Text(
+                        'إنشاء منطقة جديدة',
+                        style: AppTextStyles.font14MediumText,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              if (_zoneChoice == _ZoneChoice.existing)
+                BlocBuilder<ZonesCubit, ZonesState>(
+                  builder: (context, state) {
+                    final zones = state is ZonesLoaded ? state.zones : null;
+                    return DropdownButtonFormField<String>(
+                      initialValue: _zoneId,
+                      isExpanded: true,
+                      decoration: InputDecoration(
+                        hintText: state is ZonesLoading
+                            ? 'جارٍ تحميل المناطق...'
+                            : 'اختر المنطقة',
+                      ),
+                      items: zones
+                          ?.map(
+                            (zone) => DropdownMenuItem(
+                              value: zone.id,
+                              child: Text(
+                                (zone.nameAr?.trim().isNotEmpty ?? false)
+                                    ? zone.nameAr!.trim()
+                                    : (zone.name ?? '—'),
+                              ),
+                            ),
+                          )
+                          .toList(),
+                      onChanged: zones == null
+                          ? null
+                          : (value) => setState(() {
+                              _zoneId = value;
+                              _error = null;
+                            }),
+                    );
+                  },
+                )
+              else if (_zoneChoice == _ZoneChoice.create)
+                AppTextFormField(
+                  controller: _newZoneNameController,
+                  hintText: 'اسم المنطقة',
+                  validator: (_) => null,
+                ),
+
+              if (_error != null) ...[
+                const SizedBox(height: 6),
+                Text(
+                  _error!,
+                  style: AppTextStyles.font12RegularHint.copyWith(
+                    color: glass.error,
                   ),
-                ],
+                ),
               ],
-            ),
+            ],
           ),
         ),
       ),

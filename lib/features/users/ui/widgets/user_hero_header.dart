@@ -175,7 +175,11 @@ class _HeaderPanel extends StatelessWidget {
               spacing: 6,
               runSpacing: 6,
               children: [
-                _Pill(label: user.type.isDoctor ? 'حساب طبيب' : 'حساب موظف'),
+                _Pill(
+                  label: user.type.isDoctor
+                      ? 'حساب طبيب'
+                      : (user.isRepresentative ? 'حساب مندوب' : 'حساب موظف'),
+                ),
                 _Pill(label: user.isActive ? 'مفعّل' : 'موقوف'),
                 if (user.isAdmin) const _Pill(label: 'مدير'),
               ],

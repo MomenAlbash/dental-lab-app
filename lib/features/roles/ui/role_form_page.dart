@@ -1,42 +1,64 @@
+import 'package:dental_lab_app/core/auth/permissions.dart';
+import 'package:dental_lab_app/core/di/dependency_injection.dart';
 import 'package:dental_lab_app/core/theming/app_dimensions.dart';
 import 'package:dental_lab_app/core/theming/glass.dart';
 import 'package:dental_lab_app/core/theming/styles.dart';
+import 'package:dental_lab_app/core/widgets/adaptive_layout.dart';
 import 'package:dental_lab_app/core/widgets/custom_button_widget.dart';
+import 'package:dental_lab_app/core/widgets/custom_circle_progress_indiacator_widget.dart';
 import 'package:dental_lab_app/core/widgets/custom_text_field_widget.dart';
 import 'package:dental_lab_app/core/widgets/glass/glass_app_bar.dart';
 import 'package:dental_lab_app/core/widgets/glass/glass_scaffold.dart';
 import 'package:dental_lab_app/core/widgets/glass/glass_section_title.dart';
+import 'package:dental_lab_app/core/widgets/glass/glass_skeleton.dart';
+import 'package:dental_lab_app/core/widgets/show_toast_widget.dart';
+import 'package:dental_lab_app/features/roles/data/models/create_role_request_model.dart';
+import 'package:dental_lab_app/features/roles/data/models/role_model.dart';
+import 'package:dental_lab_app/features/roles/data/models/update_role_request_model.dart';
+import 'package:dental_lab_app/features/roles/logic/role_form/role_form_cubit.dart';
+import 'package:dental_lab_app/features/roles/logic/role_form/role_form_state.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 
-/// The API's permission enums (`PermissionName` 1..9, `PermissionType` 0..1)
-/// aren't documented with string labels yet, so they're shown by number
-/// until the backend publishes names.
-const List<int> _permissionNames = [1, 2, 3, 4, 5, 6, 7, 8, 9];
-const List<int> _permissionTypes = [0, 1];
-
-/// Add/edit role screen — design only for now (no Cubit / API wiring yet).
-/// Pass [initialRole] (a map with `name`/`description`) to open in edit mode.
-class RoleFormPage extends StatefulWidget {
+/// Add/edit role screen — `PermissionName` values with no [PermissionName.label]
+/// are modules this app has no screen for yet, and are left out of the
+/// checklist entirely rather than offered as a permission nobody here can
+/// act on.
+class RoleFormPage extends StatelessWidget {
   const RoleFormPage({super.key, this.initialRole});
 
-  final Map<String, dynamic>? initialRole;
+  final RoleModel? initialRole;
 
   @override
-  State<RoleFormPage> createState() => _RoleFormPageState();
+  Widget build(BuildContext context) {
+    return BlocProvider(
+      create: (_) => getIt<RoleFormCubit>()..loadPermissionCatalog(),
+      child: _RoleFormView(initialRole: initialRole),
+    );
+  }
 }
 
-class _RoleFormPageState extends State<RoleFormPage> {
+class _RoleFormView extends StatefulWidget {
+  const _RoleFormView({this.initialRole});
+
+  final RoleModel? initialRole;
+
+  @override
+  State<_RoleFormView> createState() => _RoleFormViewState();
+}
+
+class _RoleFormViewState extends State<_RoleFormView> {
   final _formKey = GlobalKey<FormState>();
   late final _nameController = TextEditingController(
-    text: widget.initialRole?['name'] as String? ?? '',
+    text: widget.initialRole?.name ?? '',
   );
   late final _descriptionController = TextEditingController(
-    text: widget.initialRole?['description'] as String? ?? '',
+    text: widget.initialRole?.description ?? '',
   );
 
-  // permissionName -> selected permissionType (or null if not granted).
-  final Map<int, int?> _permissions = {
-    for (final name in _permissionNames) name: null,
+  late final Map<PermissionName, PermissionType?> _selected = {
+    for (final p in widget.initialRole?.permissions ?? const <RolePermission>[])
+      p.name: p.type,
   };
 
   bool get _isEditing => widget.initialRole != null;
@@ -49,9 +71,35 @@ class _RoleFormPageState extends State<RoleFormPage> {
   }
 
   void _onSavePressed() {
-    if (_formKey.currentState?.validate() ?? false) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('سيتم ربط حفظ الدور بالـ API لاحقاً')),
+    if (!(_formKey.currentState?.validate() ?? false)) return;
+
+    final cubit = context.read<RoleFormCubit>();
+    final permissions = [
+      for (final entry in _selected.entries)
+        if (entry.value != null)
+          RolePermission(name: entry.key, type: entry.value!),
+    ];
+
+    if (_isEditing) {
+      cubit.updateRole(
+        id: widget.initialRole!.id,
+        updateRequestBody: UpdateRoleRequestModel(
+          name: _nameController.text.trim(),
+          description: _descriptionController.text.trim().isEmpty
+              ? null
+              : _descriptionController.text.trim(),
+        ),
+        permissions: permissions,
+      );
+    } else {
+      cubit.createRole(
+        CreateRoleRequestModel(
+          name: _nameController.text.trim(),
+          description: _descriptionController.text.trim().isEmpty
+              ? null
+              : _descriptionController.text.trim(),
+          permissions: permissions,
+        ),
       );
     }
   }
@@ -68,79 +116,152 @@ class _RoleFormPageState extends State<RoleFormPage> {
         ),
       ),
       body: SafeArea(
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            final isWide = constraints.maxWidth >= 600;
-            final contentWidth = isWide ? 560.0 : constraints.maxWidth;
+        child: BlocConsumer<RoleFormCubit, RoleFormState>(
+          listener: (context, state) {
+            switch (state) {
+              case RoleFormSuccess(:final role):
+                showToast(
+                  message: _isEditing ? 'تم حفظ التعديلات' : 'تمت إضافة الدور',
+                  state: ToastState.success,
+                );
+                // The role itself, not just a bool — the user-form's
+                // "quick add role" dropdown selects it straight off this.
+                Navigator.of(context).pop(role);
+              case RoleFormError(:final message):
+                showToast(message: message, state: ToastState.error);
+              case RoleFormCatalogError(:final message):
+                showToast(message: message, state: ToastState.error);
+              default:
+                break;
+            }
+          },
+          builder: (context, state) {
+            final catalog = switch (state) {
+              RoleFormCatalogLoaded(:final catalog) => catalog,
+              RoleFormSubmitting() ||
+              RoleFormSuccess() ||
+              RoleFormError() => _lastCatalog,
+              _ => null,
+            };
+            if (catalog != null) _lastCatalog = catalog;
 
-            return Center(
-              child: SingleChildScrollView(
-                padding: EdgeInsets.symmetric(
-                  horizontal: isWide ? 32 : 20,
-                  vertical: 20,
-                ),
-                child: ConstrainedBox(
-                  constraints: BoxConstraints(maxWidth: contentWidth),
-                  child: Form(
-                    key: _formKey,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          'اسم الدور',
-                          style: AppTextStyles.font14MediumText,
-                        ),
-                        const SizedBox(height: 8),
-                        AppTextFormField(
-                          controller: _nameController,
-                          hintText: 'أدخل اسم الدور',
-                          textInputAction: TextInputAction.next,
-                          prefixIcon: Icon(
-                            Icons.badge_outlined,
-                            color: context.glass.onGlassMuted,
-                          ),
-                          validator: (value) =>
-                              (value == null || value.trim().isEmpty)
-                              ? 'اسم الدور مطلوب'
-                              : null,
-                        ),
-                        const SizedBox(height: 20),
-                        Text('الوصف', style: AppTextStyles.font14MediumText),
-                        const SizedBox(height: 8),
-                        AppTextFormField(
-                          controller: _descriptionController,
-                          hintText: 'أدخل وصف الدور (اختياري)',
-                          textInputAction: TextInputAction.done,
-                          prefixIcon: Icon(
-                            Icons.notes_outlined,
-                            color: context.glass.onGlassMuted,
-                          ),
-                          validator: (_) => null,
-                        ),
-                        const SizedBox(height: 24),
-                        const GlassSectionTitle('الصلاحيات'),
-                        const SizedBox(height: 4),
-                        Text(
-                          'فعّل الصلاحية وحدد نوعها',
-                          style: AppTextStyles.font12RegularHint.copyWith(
+            if (catalog == null) {
+              return state is RoleFormCatalogError
+                  ? Center(
+                      child: Padding(
+                        padding: const EdgeInsets.all(24),
+                        child: Text(
+                          state.message,
+                          textAlign: TextAlign.center,
+                          style: AppTextStyles.font14RegularSecondary.copyWith(
                             color: context.glass.onGlassMuted,
                           ),
                         ),
-                        const SizedBox(height: 12),
-                        ..._permissionNames.map(_buildPermissionRow),
-                        const SizedBox(height: 24),
-                        CustomButtonWidget(
-                          onPressed: _onSavePressed,
-                          buttonText: _isEditing
-                              ? 'حفظ التعديلات'
-                              : 'إضافة الدور',
+                      ),
+                    )
+                  : const Padding(
+                      padding: EdgeInsets.all(24),
+                      child: GlassListSkeleton(),
+                    );
+            }
+
+            final isSubmitting = state is RoleFormSubmitting;
+
+            return LayoutBuilder(
+              builder: (context, constraints) {
+                final isWide =
+                    AdaptiveLayout.formFactorFor(constraints.maxWidth) !=
+                    AdaptiveFormFactor.mobile;
+                final contentWidth = isWide ? 560.0 : constraints.maxWidth;
+
+                return Center(
+                  child: SingleChildScrollView(
+                    padding: EdgeInsets.symmetric(
+                      horizontal: isWide ? 32 : 20,
+                      vertical: 20,
+                    ),
+                    child: ConstrainedBox(
+                      constraints: BoxConstraints(maxWidth: contentWidth),
+                      child: Form(
+                        key: _formKey,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              'اسم الدور',
+                              style: AppTextStyles.font14MediumText,
+                            ),
+                            const SizedBox(height: 8),
+                            AppTextFormField(
+                              controller: _nameController,
+                              hintText: 'أدخل اسم الدور',
+                              textInputAction: TextInputAction.next,
+                              enabled: !isSubmitting,
+                              prefixIcon: Icon(
+                                Icons.badge_outlined,
+                                color: context.glass.onGlassMuted,
+                              ),
+                              validator: (value) =>
+                                  (value == null || value.trim().isEmpty)
+                                  ? 'اسم الدور مطلوب'
+                                  : null,
+                            ),
+                            const SizedBox(height: 20),
+                            Text(
+                              'الوصف',
+                              style: AppTextStyles.font14MediumText,
+                            ),
+                            const SizedBox(height: 8),
+                            AppTextFormField(
+                              controller: _descriptionController,
+                              hintText: 'أدخل وصف الدور (اختياري)',
+                              textInputAction: TextInputAction.done,
+                              enabled: !isSubmitting,
+                              prefixIcon: Icon(
+                                Icons.notes_outlined,
+                                color: context.glass.onGlassMuted,
+                              ),
+                              validator: (_) => null,
+                            ),
+                            const SizedBox(height: 24),
+                            const GlassSectionTitle('الصلاحيات'),
+                            const SizedBox(height: 4),
+                            Text(
+                              'فعّل الصلاحية وحدد نوعها',
+                              style: AppTextStyles.font12RegularHint.copyWith(
+                                color: context.glass.onGlassMuted,
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                            for (final name in catalog)
+                              if (name.label != null)
+                                _PermissionRow(
+                                  name: name,
+                                  selected: _selected[name],
+                                  enabled: !isSubmitting,
+                                  onChanged: (type) =>
+                                      setState(() => _selected[name] = type),
+                                ),
+                            const SizedBox(height: 24),
+                            if (isSubmitting)
+                              const Center(
+                                child: CustomCircleProgressIndiacatorWidget(),
+                              )
+                            else
+                              CustomButtonWidget(
+                                onPressed: _onSavePressed,
+                                buttonText: _isEditing
+                                    ? 'حفظ التعديلات'
+                                    : 'إضافة الدور',
+                              ),
+                          ],
                         ),
-                      ],
+                      ),
                     ),
                   ),
-                ),
-              ),
+                );
+              },
             );
           },
         ),
@@ -148,11 +269,28 @@ class _RoleFormPageState extends State<RoleFormPage> {
     );
   }
 
-  Widget _buildPermissionRow(int permissionName) {
-    final selectedType = _permissions[permissionName];
-    final isEnabled = selectedType != null;
+  /// The catalog only ever arrives once; kept so a later Submitting/Success/
+  /// Error state does not blank the checklist mid-save.
+  List<PermissionName>? _lastCatalog;
+}
 
+class _PermissionRow extends StatelessWidget {
+  const _PermissionRow({
+    required this.name,
+    required this.selected,
+    required this.enabled,
+    required this.onChanged,
+  });
+
+  final PermissionName name;
+  final PermissionType? selected;
+  final bool enabled;
+  final ValueChanged<PermissionType?> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
     final glass = context.glass;
+    final isEnabled = selected != null;
 
     return Container(
       margin: const EdgeInsets.only(bottom: AppSpacing.sm),
@@ -168,35 +306,29 @@ class _RoleFormPageState extends State<RoleFormPage> {
       child: Row(
         children: [
           Expanded(
-            child: Text(
-              'صلاحية رقم $permissionName',
-              style: AppTextStyles.font14MediumText,
-            ),
+            child: Text(name.label!, style: AppTextStyles.font14MediumText),
           ),
           if (isEnabled)
-            SegmentedButton<int>(
-              segments: _permissionTypes
-                  .map(
-                    (type) =>
-                        ButtonSegment(value: type, label: Text('نوع $type')),
-                  )
-                  .toList(),
-              selected: {selectedType},
-              onSelectionChanged: (selection) {
-                setState(() => _permissions[permissionName] = selection.first);
-              },
+            SegmentedButton<PermissionType>(
+              segments: const [
+                ButtonSegment(value: PermissionType.read, label: Text('قراءة')),
+                ButtonSegment(
+                  value: PermissionType.fullAccess,
+                  label: Text('كامل'),
+                ),
+              ],
+              selected: {selected!},
+              onSelectionChanged: enabled
+                  ? (selection) => onChanged(selection.first)
+                  : null,
               style: const ButtonStyle(visualDensity: VisualDensity.compact),
             ),
           Switch(
             value: isEnabled,
             activeThumbColor: Theme.of(context).colorScheme.primary,
-            onChanged: (value) {
-              setState(
-                () => _permissions[permissionName] = value
-                    ? _permissionTypes.first
-                    : null,
-              );
-            },
+            onChanged: enabled
+                ? (value) => onChanged(value ? PermissionType.read : null)
+                : null,
           ),
         ],
       ),

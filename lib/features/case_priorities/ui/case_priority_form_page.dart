@@ -130,15 +130,15 @@ class _CasePriorityFormViewState extends State<_CasePriorityFormView> {
           listener: (context, state) {
             switch (state) {
               case CasePriorityFormSuccess():
-                ShowToast(
+                showToast(
                   message: _isEditing
                       ? 'تم حفظ التعديلات'
                       : 'تمت إضافة الأولوية',
-                  state: toastState.success,
+                  state: ToastState.success,
                 );
                 Navigator.of(context).pop(true);
               case CasePriorityFormError(:final message):
-                ShowToast(message: message, state: toastState.error);
+                showToast(message: message, state: ToastState.error);
               default:
                 break;
             }

@@ -15,7 +15,7 @@ import 'package:dental_lab_app/features/case_workflow_stages/data/models/case_wo
 
 /// One entry in a restoration's workflow-stage timeline
 /// (`ClinicCaseRestorationStatusHistoryDto`) — records each move from one
-/// stage to the next, unlike [CaseStatusHistoryModel] which tracks the case's
+/// stage to the next, unlike [CaseStageHistoryModel] which tracks the case's
 /// overall status.
 class CaseRestorationStatusHistoryModel {
   final String? stageId;

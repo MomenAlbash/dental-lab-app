@@ -1,10 +1,12 @@
+import 'package:dental_lab_app/features/accounting/data/models/currency_model.dart';
+import 'package:dental_lab_app/features/case_priorities/data/models/case_priority_model.dart';
+import 'package:dental_lab_app/core/theming/app_dimensions.dart';
 import 'package:dental_lab_app/core/theming/glass.dart';
 import 'package:dental_lab_app/core/theming/styles.dart';
 import 'package:dental_lab_app/core/widgets/custom_button_widget.dart';
 import 'package:dental_lab_app/core/widgets/custom_circle_progress_indiacator_widget.dart';
 import 'package:dental_lab_app/core/widgets/custom_text_field_widget.dart';
-import 'package:dental_lab_app/features/restoration_types/data/models/create_restoration_type_request_model.dart';
-import 'package:dental_lab_app/features/restoration_types/data/models/update_restoration_type_request_model.dart';
+import 'package:dental_lab_app/features/restoration_types/data/models/save_restoration_type_price_request_model.dart';
 import 'package:flutter/material.dart';
 
 /// The restoration-type add/edit form section. State is owned by the page.
@@ -15,25 +17,18 @@ class RestorationTypeFormFields extends StatelessWidget {
     required this.nameController,
     required this.nameArController,
     required this.descriptionController,
-    required this.defaultPriceController,
     required this.transparencyController,
-    required this.lowDurationController,
-    required this.normalDurationController,
-    required this.highDurationController,
-    required this.urgentDurationController,
+    required this.durationControllers,
     required this.pricingType,
     required this.onPricingTypeChanged,
+    required this.currencies,
+    required this.loadingCurrencies,
+    required this.prices,
+    required this.onAddPrice,
+    required this.onRemovePrice,
     required this.isEditing,
     required this.isActive,
     required this.onActiveChanged,
-    required this.stages,
-    required this.onAddStage,
-    required this.onRemoveStage,
-    required this.onToggleStageFinal,
-    this.editStages = const [],
-    this.onAddEditStage,
-    this.onRemoveEditStage,
-    this.onToggleEditStageFinal,
     required this.isSubmitting,
     required this.onSave,
   });
@@ -42,31 +37,27 @@ class RestorationTypeFormFields extends StatelessWidget {
   final TextEditingController nameController;
   final TextEditingController nameArController;
   final TextEditingController descriptionController;
-  final TextEditingController defaultPriceController;
   final TextEditingController transparencyController;
-  final TextEditingController lowDurationController;
-  final TextEditingController normalDurationController;
-  final TextEditingController highDurationController;
-  final TextEditingController urgentDurationController;
+
+  /// Every currency the lab has, for the "add a price" dialog to offer.
+  final List<CurrencyModel> currencies;
+  final bool loadingCurrencies;
+
+  /// One row per currency this type is priced in, alongside
+  /// [defaultPriceController]'s currency-less list price. Empty is the
+  /// ordinary case for a single-currency laboratory.
+  final List<SaveRestorationTypePriceRequestModel> prices;
+  final VoidCallback onAddPrice;
+  final ValueChanged<int> onRemovePrice;
+
+  /// One controller per priority level, keyed by the level so each row can
+  /// label itself with the name the lab wrote.
+  final Map<CasePriorityModel, TextEditingController> durationControllers;
   final int pricingType;
   final ValueChanged<int> onPricingTypeChanged;
   final bool isEditing;
   final bool isActive;
   final ValueChanged<bool> onActiveChanged;
-
-  /// Workflow stages this restoration type moves through, in order. Only
-  /// editable while creating — the API takes them inline on create.
-  final List<CreateRestorationTypeStageRequestModel> stages;
-  final VoidCallback onAddStage;
-  final ValueChanged<int> onRemoveStage;
-  final ValueChanged<int> onToggleStageFinal;
-
-  /// Stages for the type being edited. Sent as a full replace with the
-  /// update request when "save" is pressed.
-  final List<UpdateRestorationTypeStageRequestModel> editStages;
-  final VoidCallback? onAddEditStage;
-  final ValueChanged<int>? onRemoveEditStage;
-  final ValueChanged<int>? onToggleEditStageFinal;
 
   final bool isSubmitting;
   final VoidCallback onSave;
@@ -117,24 +108,42 @@ class RestorationTypeFormFields extends StatelessWidget {
             ),
             validator: (_) => null,
           ),
-          const SizedBox(height: 20),
-          const _Label('السعر الافتراضي'),
-          AppTextFormField(
-            controller: defaultPriceController,
-            hintText: 'أدخل السعر الافتراضي',
-            textInputAction: TextInputAction.next,
-            prefixIcon: Icon(
-              Icons.attach_money_outlined,
+          const SizedBox(height: 24),
+          _SectionTitle('الأسعار حسب العملة'),
+          const SizedBox(height: 4),
+          Text(
+            'يجب إضافة سعر واحد على الأقل — لا يوجد سعر افتراضي بدون عملة. '
+            'إذا المخبر بيسعّر هالتعويض بأكثر من عملة (مثلاً ليرة سورية '
+            'ودولار)، أضف سعراً لكل عملة هون. عند إضافة تعويض على حالة، هيدا '
+            'هو السعر يلي رح ينعبى تلقائياً حسب العملة المختارة.',
+            style: AppTextStyles.font12RegularHint.copyWith(
               color: context.glass.onGlassMuted,
             ),
-            validator: (value) {
-              if (value == null || value.trim().isEmpty) {
-                return 'السعر الافتراضي مطلوب';
-              }
-              return double.tryParse(value) == null
-                  ? 'الرجاء إدخال رقم صحيح'
-                  : null;
-            },
+          ),
+          const SizedBox(height: 12),
+          if (prices.isEmpty)
+            Text(
+              'لا يوجد سعر بعد — أضف واحداً قبل الحفظ',
+              style: AppTextStyles.font12RegularHint.copyWith(
+                color: context.glass.warning,
+              ),
+            )
+          else
+            for (var i = 0; i < prices.length; i++) ...[
+              _CurrencyPriceRow(
+                price: prices[i],
+                currencyLabel: _currencyLabel(prices[i].currencyId),
+                onRemove: () => onRemovePrice(i),
+              ),
+              const SizedBox(height: 8),
+            ],
+          const SizedBox(height: 8),
+          OutlinedButton.icon(
+            onPressed: loadingCurrencies ? null : onAddPrice,
+            icon: const Icon(Icons.add),
+            label: Text(
+              loadingCurrencies ? 'جارٍ تحميل العملات...' : 'إضافة سعر لعملة',
+            ),
           ),
           const SizedBox(height: 20),
           const _Label('نسبة الشفافية'),
@@ -167,51 +176,49 @@ class RestorationTypeFormFields extends StatelessWidget {
           ),
           const SizedBox(height: 24),
           _SectionTitle('مدة الإنجاز حسب الأولوية (بالدقائق)'),
+          const SizedBox(height: 4),
+          Text(
+            'صف لكل أولوية أعلنها المخبر. اترك الحقل فارغاً إن لم تُقدَّر '
+            'المدة بعد.',
+            style: AppTextStyles.font12RegularHint.copyWith(
+              color: context.glass.onGlassMuted,
+            ),
+          ),
           const SizedBox(height: 12),
-          _DurationField(label: 'منخفضة', controller: lowDurationController),
-          const SizedBox(height: 12),
-          _DurationField(label: 'عادية', controller: normalDurationController),
-          const SizedBox(height: 12),
-          _DurationField(label: 'عالية', controller: highDurationController),
-          const SizedBox(height: 12),
-          _DurationField(label: 'عاجلة', controller: urgentDurationController),
+          // One row per priority the lab declared — not four fixed boxes. The
+          // old Low/Normal/High/Urgent came from an enum the API retired: a lab
+          // with two tiers was shown four, and one with six could fill only
+          // four of them.
+          if (durationControllers.isEmpty)
+            Text(
+              'لا توجد أولويات معرّفة بعد — عرّفها من شاشة الأولويات',
+              style: AppTextStyles.font12RegularHint.copyWith(
+                color: context.glass.onGlassMuted,
+              ),
+            )
+          else
+            for (final entry in durationControllers.entries) ...[
+              _DurationField(
+                label: entry.key.displayName,
+                controller: entry.value,
+              ),
+              const SizedBox(height: 12),
+            ],
           const SizedBox(height: 24),
-          if (!isEditing) ...[
-            _SectionTitle('مراحل العمل'),
-            const SizedBox(height: 4),
-            Text(
-              'المراحل التي يمر بها هذا التعويض داخل المخبر، بالترتيب.',
-              style: AppTextStyles.font12RegularHint.copyWith(
-                color: context.glass.onGlassMuted,
-              ),
+          // No stage editor here any more. The create/update endpoints declare
+          // no `stages` field, so everything typed in it was dropped on the
+          // floor — a type saved with five stages opened with none, which is
+          // exactly what the route screen was reporting.
+          _SectionTitle('مراحل التصنيع'),
+          const SizedBox(height: 4),
+          Text(
+            'تُضاف من شاشة "مسار التعويض" بعد حفظ النوع — لكل مرحلة ترتيب '
+            'وطريقة استلام وإسناد، وهي أكبر من أن تُختصر هنا.',
+            style: AppTextStyles.font12RegularHint.copyWith(
+              color: context.glass.onGlassMuted,
             ),
-            const SizedBox(height: 12),
-            _StagesEditor(
-              stages: stages,
-              onAdd: onAddStage,
-              onRemove: onRemoveStage,
-              onToggleFinal: onToggleStageFinal,
-            ),
-            const SizedBox(height: 24),
-          ],
-          if (isEditing) ...[
-            _SectionTitle('مراحل العمل'),
-            const SizedBox(height: 4),
-            Text(
-              'المراحل التي يمر بها هذا التعويض داخل المخبر، بالترتيب.',
-              style: AppTextStyles.font12RegularHint.copyWith(
-                color: context.glass.onGlassMuted,
-              ),
-            ),
-            const SizedBox(height: 12),
-            _EditStagesEditor(
-              stages: editStages,
-              onAdd: onAddEditStage,
-              onRemove: onRemoveEditStage,
-              onToggleFinal: onToggleEditStageFinal,
-            ),
-            const SizedBox(height: 24),
-          ],
+          ),
+          const SizedBox(height: 24),
           if (isEditing) ...[
             _SwitchTile(
               label: 'مفعّل',
@@ -231,198 +238,72 @@ class RestorationTypeFormFields extends StatelessWidget {
       ),
     );
   }
+
+  String _currencyLabel(String currencyId) {
+    for (final currency in currencies) {
+      if (currency.id == currencyId) {
+        return currency.name ?? currency.code ?? currency.symbol ?? '—';
+      }
+    }
+    return '—';
+  }
+}
+
+class _CurrencyPriceRow extends StatelessWidget {
+  const _CurrencyPriceRow({
+    required this.price,
+    required this.currencyLabel,
+    required this.onRemove,
+  });
+
+  final SaveRestorationTypePriceRequestModel price;
+  final String currencyLabel;
+  final VoidCallback onRemove;
+
+  @override
+  Widget build(BuildContext context) {
+    final glass = context.glass;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.md,
+        vertical: AppSpacing.sm,
+      ),
+      decoration: BoxDecoration(
+        gradient: glass.surfaceGradient,
+        borderRadius: BorderRadius.circular(AppRadius.glass),
+        border: Border.all(color: glass.strokeColor),
+      ),
+      child: Row(
+        children: [
+          Icon(
+            Icons.currency_exchange_outlined,
+            size: 18,
+            color: glass.onGlassMuted,
+          ),
+          const SizedBox(width: AppSpacing.sm),
+          Expanded(
+            child: Text(currencyLabel, style: AppTextStyles.font14MediumText),
+          ),
+          Text(
+            price.price.toStringAsFixed(0),
+            style: AppTextStyles.font14MediumText.copyWith(
+              color: glass.onGlass,
+            ),
+          ),
+          IconButton(
+            tooltip: 'حذف',
+            onPressed: onRemove,
+            visualDensity: VisualDensity.compact,
+            icon: Icon(Icons.close, size: 18, color: glass.error),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 /// The ordered list of workflow stages, with add/remove and a "final stage"
-/// toggle per row.
-class _StagesEditor extends StatelessWidget {
-  const _StagesEditor({
-    required this.stages,
-    required this.onAdd,
-    required this.onRemove,
-    required this.onToggleFinal,
-  });
-
-  final List<CreateRestorationTypeStageRequestModel> stages;
-  final VoidCallback onAdd;
-  final ValueChanged<int> onRemove;
-  final ValueChanged<int> onToggleFinal;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        if (stages.isEmpty)
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: 8),
-            child: Text(
-              'لم تتم إضافة مراحل',
-              textAlign: TextAlign.center,
-              style: AppTextStyles.font14RegularSecondary.copyWith(
-                color: context.glass.onGlassMuted,
-              ),
-            ),
-          )
-        else
-          ...stages.asMap().entries.map(
-            (entry) => Container(
-              margin: const EdgeInsets.only(bottom: 8),
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              decoration: BoxDecoration(
-                gradient: context.glass.surfaceGradient,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: context.glass.strokeColor),
-              ),
-              child: Row(
-                children: [
-                  CircleAvatar(
-                    radius: 14,
-                    backgroundColor: context.glass.accentSurface,
-                    child: Text(
-                      '${entry.key + 1}',
-                      style: AppTextStyles.font12RegularHint.copyWith(
-                        color: Theme.of(context).colorScheme.primary,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Text(
-                      entry.value.name,
-                      style: AppTextStyles.font14MediumText,
-                    ),
-                  ),
-                  Tooltip(
-                    message: entry.value.isFinal
-                        ? 'مرحلة نهائية'
-                        : 'تعيين كمرحلة نهائية',
-                    child: IconButton(
-                      onPressed: () => onToggleFinal(entry.key),
-                      icon: Icon(
-                        entry.value.isFinal ? Icons.flag : Icons.outlined_flag,
-                        color: entry.value.isFinal
-                            ? context.glass.success
-                            : context.glass.onGlassMuted,
-                      ),
-                    ),
-                  ),
-                  IconButton(
-                    onPressed: () => onRemove(entry.key),
-                    icon: Icon(Icons.close, color: context.glass.error),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        OutlinedButton.icon(
-          onPressed: onAdd,
-          icon: const Icon(Icons.add),
-          label: const Text('إضافة مرحلة'),
-        ),
-      ],
-    );
-  }
-}
-
-/// The ordered list of stages on the type being edited, with add/remove and
-/// a "final stage" toggle per row. Sent as a full replace on save.
-class _EditStagesEditor extends StatelessWidget {
-  const _EditStagesEditor({
-    required this.stages,
-    required this.onAdd,
-    required this.onRemove,
-    required this.onToggleFinal,
-  });
-
-  final List<UpdateRestorationTypeStageRequestModel> stages;
-  final VoidCallback? onAdd;
-  final ValueChanged<int>? onRemove;
-  final ValueChanged<int>? onToggleFinal;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        if (stages.isEmpty)
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: 8),
-            child: Text(
-              'لم تتم إضافة مراحل',
-              textAlign: TextAlign.center,
-              style: AppTextStyles.font14RegularSecondary.copyWith(
-                color: context.glass.onGlassMuted,
-              ),
-            ),
-          )
-        else
-          ...stages.asMap().entries.map(
-            (entry) => Container(
-              margin: const EdgeInsets.only(bottom: 8),
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              decoration: BoxDecoration(
-                gradient: context.glass.surfaceGradient,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: context.glass.strokeColor),
-              ),
-              child: Row(
-                children: [
-                  CircleAvatar(
-                    radius: 14,
-                    backgroundColor: context.glass.accentSurface,
-                    child: Text(
-                      '${entry.key + 1}',
-                      style: AppTextStyles.font12RegularHint.copyWith(
-                        color: Theme.of(context).colorScheme.primary,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Text(
-                      entry.value.name,
-                      style: AppTextStyles.font14MediumText,
-                    ),
-                  ),
-                  Tooltip(
-                    message: entry.value.isFinal
-                        ? 'مرحلة نهائية'
-                        : 'تعيين كمرحلة نهائية',
-                    child: IconButton(
-                      onPressed: onToggleFinal == null
-                          ? null
-                          : () => onToggleFinal!(entry.key),
-                      icon: Icon(
-                        entry.value.isFinal ? Icons.flag : Icons.outlined_flag,
-                        color: entry.value.isFinal
-                            ? context.glass.success
-                            : context.glass.onGlassMuted,
-                      ),
-                    ),
-                  ),
-                  IconButton(
-                    onPressed: onRemove == null
-                        ? null
-                        : () => onRemove!(entry.key),
-                    icon: Icon(Icons.close, color: context.glass.error),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        OutlinedButton.icon(
-          onPressed: onAdd,
-          icon: const Icon(Icons.add),
-          label: const Text('إضافة مرحلة'),
-        ),
-      ],
-    );
-  }
-}
-
 class _DurationField extends StatelessWidget {
   const _DurationField({required this.label, required this.controller});
 

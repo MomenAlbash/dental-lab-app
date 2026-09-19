@@ -144,7 +144,7 @@ class _UserFiltersSheetState extends State<UserFiltersSheet> {
                             return CaseLookupDropdown(
                               value: _laboratoryId,
                               icon: Icons.factory_outlined,
-                              hintText: 'كل المخابر',
+                              hintText: 'كل الفروع',
                               items: state.laboratories
                                   .map(
                                     (lab) => DropdownMenuItem(

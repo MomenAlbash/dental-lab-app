@@ -1,63 +1,52 @@
+/// `ClinicUpdateClinicRequest`. Every field is optional — only what changed
+/// needs sending.
 class UpdateClinicRequestModel {
-  final String name;
-  final String? code;
+  /// Send as [zoneId] to take the clinic off its zone. A plain `null` means
+  /// "field omitted, leave the current assignment alone" and cannot express
+  /// "clear it" — this is the same convention `UpdateDoctorRequest.priceTierId`
+  /// uses for the same reason.
+  static const clearZoneId = '00000000-0000-0000-0000-000000000000';
+
+  final String? name;
   final String? phoneNumber;
   final String? email;
   final String? address;
   final String? cityId;
-  final String? websiteUrl;
+  final String? laboratoryId;
+  final double? latitude;
+  final double? longitude;
+
+  /// Repoints the clinic's zone, as a dated spell — see [ClinicModel.zoneId].
+  /// Null (omitted) leaves the current assignment alone; [clearZoneId]
+  /// clears it.
+  final String? zoneId;
+  final bool? isActive;
 
   UpdateClinicRequestModel({
-    required this.name,
-    this.code,
+    this.name,
     this.phoneNumber,
     this.email,
     this.address,
     this.cityId,
-    this.websiteUrl,
+    this.laboratoryId,
+    this.latitude,
+    this.longitude,
+    this.zoneId,
+    this.isActive,
   });
-
-  factory UpdateClinicRequestModel.fromJson(Map<String, dynamic> json) {
-    return UpdateClinicRequestModel(
-      name: json['name'] as String,
-      code: json['code'] as String?,
-      phoneNumber: json['phoneNumber'] as String?,
-      email: json['email'] as String?,
-      address: json['address'] as String?,
-      cityId: json['cityId'] as String?,
-      websiteUrl: json['websiteUrl'] as String?,
-    );
-  }
 
   Map<String, dynamic> toJson() {
     return {
       'name': name,
-      'code': code,
       'phoneNumber': phoneNumber,
       'email': email,
       'address': address,
       'cityId': cityId,
-      'websiteUrl': websiteUrl,
+      'laboratoryId': laboratoryId,
+      'latitude': latitude,
+      'longitude': longitude,
+      'zoneId': zoneId,
+      'isActive': isActive,
     };
-  }
-
-  UpdateClinicRequestModel copyWith({
-    String? name,
-    String? code,
-    String? phoneNumber,
-    String? email,
-    String? address,
-    String? cityId,
-    String? websiteUrl,
-  }) {
-    return UpdateClinicRequestModel(
-      name: name ?? this.name,
-      code: code ?? this.code,
-      phoneNumber: phoneNumber ?? this.phoneNumber,
-      email: email ?? this.email,
-      address: address ?? this.address,
-      cityId: cityId ?? this.cityId,
-      websiteUrl: websiteUrl ?? this.websiteUrl,
-    );
   }
 }

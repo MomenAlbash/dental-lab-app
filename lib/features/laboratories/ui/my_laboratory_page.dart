@@ -10,6 +10,8 @@ import 'package:dental_lab_app/core/widgets/glass/glass_scaffold.dart';
 import 'package:dental_lab_app/features/laboratories/logic/laboratory_details/laboratory_details_cubit.dart';
 import 'package:dental_lab_app/features/laboratories/logic/laboratory_details/laboratory_details_state.dart';
 import 'package:dental_lab_app/features/laboratories/ui/laboratory_detail_page.dart';
+import 'package:dental_lab_app/features/currencies/ui/widgets/currency_assignment_sheet.dart';
+import 'package:dental_lab_app/features/laboratories/ui/widgets/printed_identity_sheet.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
@@ -53,6 +55,29 @@ class _MyLaboratoryView extends StatelessWidget {
               ),
             ),
             actions: [
+              if (laboratory != null) ...[
+                IconButton(
+                  tooltip: 'عملات المخبر',
+                  onPressed: () => showLaboratoryCurrenciesSheet(context),
+                  icon: const Icon(Icons.payments_outlined),
+                ),
+                IconButton(
+                  tooltip: 'الهوية المطبوعة',
+                  onPressed: () async {
+                    final changed = await showPrintedIdentitySheet(
+                      context,
+                      laboratory: laboratory,
+                    );
+                    // Only when something was actually saved — the sheet
+                    // writes on its own endpoints, so a browse changes
+                    // nothing to refetch.
+                    if (changed == true && context.mounted) {
+                      context.read<LaboratoryDetailsCubit>().getOwnLaboratory();
+                    }
+                  },
+                  icon: const Icon(Icons.receipt_long_outlined),
+                ),
+              ],
               if (laboratory != null)
                 IconButton(
                   onPressed: () async {
@@ -74,7 +99,7 @@ class _MyLaboratoryView extends StatelessWidget {
                 LaboratoryDetailsBody(
                   laboratory: laboratory,
                   subtitle: Text(
-                    'المخبر الافتراضي لحسابك',
+                    'الفرع الافتراضي لحسابك',
                     style: AppTextStyles.font13MediumPrimary,
                   ),
                   footer: const _SwitchLaboratoryFooter(),
@@ -125,7 +150,7 @@ class _SwitchLaboratoryFooter extends StatelessWidget {
               const SizedBox(width: 12),
               Expanded(
                 child: Text(
-                  'يمكنك إنشاء مخبر آخر والتعامل مع النظام كمخبر مختلف من صفحة المخابر.',
+                  'يمكنك إنشاء فرع آخر والتعامل مع النظام كفرع مختلف من صفحة الفروع.',
                   style: AppTextStyles.font13MediumPrimary,
                 ),
               ),
@@ -136,7 +161,7 @@ class _SwitchLaboratoryFooter extends StatelessWidget {
         TextButton.icon(
           onPressed: () => context.push(Routes.laboratoriesListScreen),
           icon: const Icon(Icons.science_outlined),
-          label: const Text('عرض جميع المخابر'),
+          label: const Text('عرض جميع الفروع'),
         ),
       ],
     );

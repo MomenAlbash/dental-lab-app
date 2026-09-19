@@ -121,12 +121,12 @@ class _PriceTiersListViewState extends State<_PriceTiersListView> {
           listener: (context, state) {
             switch (state) {
               case PriceTierDeleted():
-                ShowToast(
+                showToast(
                   message: 'تم حذف الشريحة السعرية',
-                  state: toastState.success,
+                  state: ToastState.success,
                 );
               case PriceTierDeleteError(:final message):
-                ShowToast(message: message, state: toastState.error);
+                showToast(message: message, state: ToastState.error);
               default:
                 break;
             }

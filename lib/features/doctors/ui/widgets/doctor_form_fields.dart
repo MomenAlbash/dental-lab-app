@@ -1,16 +1,20 @@
+import 'package:dental_lab_app/core/router/routes.dart';
 import 'package:dental_lab_app/core/theming/app_dimensions.dart';
 import 'package:dental_lab_app/core/theming/app_motion.dart';
 import 'package:dental_lab_app/core/theming/glass.dart';
 import 'package:dental_lab_app/core/theming/styles.dart';
 import 'package:dental_lab_app/core/widgets/custom_text_field_widget.dart';
+import 'package:dental_lab_app/core/widgets/quick_add_field.dart';
 import 'package:dental_lab_app/features/cities/logic/cities/cities_cubit.dart';
 import 'package:dental_lab_app/features/cities/logic/cities/cities_state.dart';
+import 'package:dental_lab_app/features/clinics/data/models/clinic_model.dart';
 import 'package:dental_lab_app/features/clinics/logic/clinics/clinics_cubit.dart';
 import 'package:dental_lab_app/features/clinics/logic/clinics/clinics_state.dart';
 import 'package:dental_lab_app/features/doctors/data/models/doctor_model.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:go_router/go_router.dart';
 
 /// The doctor add/edit form — mirrors `CreateDoctorRequest` /
 /// `UpdateDoctorRequest`. All state is owned by the parent page and passed in.
@@ -788,25 +792,33 @@ class _ClinicDropdown extends StatelessWidget {
     return BlocBuilder<ClinicsCubit, ClinicsState>(
       builder: (context, state) {
         final clinics = state is ClinicsLoaded ? state.clinics : null;
-        return _LookupDropdown(
-          value: value,
-          icon: Icons.local_hospital_outlined,
-          hintText: state is ClinicsLoading
-              ? 'جارٍ تحميل العيادات...'
-              : 'اختر العيادة',
-          // Required: a doctor without a clinic cannot be reached through the
-          // clinic listings the rest of the app is organised around.
-          validator: (value) =>
-              (value == null || value.isEmpty) ? 'اختر العيادة' : null,
-          items: clinics
-              ?.map(
-                (clinic) => DropdownMenuItem(
-                  value: clinic.id,
-                  child: Text(clinic.name),
-                ),
-              )
-              .toList(),
-          onChanged: onChanged,
+        return QuickAddField<ClinicModel>(
+          tooltip: 'إضافة عيادة جديدة',
+          onAdd: () => context.push<ClinicModel>(Routes.clinicFormScreen),
+          onAdded: (clinic) {
+            context.read<ClinicsCubit>().getClinics();
+            onChanged(clinic.id);
+          },
+          field: _LookupDropdown(
+            value: value,
+            icon: Icons.local_hospital_outlined,
+            hintText: state is ClinicsLoading
+                ? 'جارٍ تحميل العيادات...'
+                : 'اختر العيادة',
+            // Required: a doctor without a clinic cannot be reached through the
+            // clinic listings the rest of the app is organised around.
+            validator: (value) =>
+                (value == null || value.isEmpty) ? 'اختر العيادة' : null,
+            items: clinics
+                ?.map(
+                  (clinic) => DropdownMenuItem(
+                    value: clinic.id,
+                    child: Text(clinic.name),
+                  ),
+                )
+                .toList(),
+            onChanged: onChanged,
+          ),
         );
       },
     );

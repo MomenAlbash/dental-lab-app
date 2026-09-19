@@ -13,11 +13,15 @@ class CasePriorityListItemWidget extends StatelessWidget {
     super.key,
     required this.priority,
     required this.onEdit,
+    required this.onAssign,
     required this.onDelete,
   });
 
   final CasePriorityModel priority;
   final VoidCallback onEdit;
+
+  /// Opens the per-doctor allowance flow.
+  final VoidCallback onAssign;
   final VoidCallback onDelete;
 
   /// What the doctor gets for free each month, in words.
@@ -127,6 +131,18 @@ class CasePriorityListItemWidget extends StatelessWidget {
                           ),
                         ),
                         const SizedBox(width: AppSpacing.xs),
+                        IconButton(
+                          // The lab-wide figures above are the default; this
+                          // is where one doctor gets five free and another
+                          // three.
+                          tooltip: 'حصص الأطباء',
+                          onPressed: onAssign,
+                          visualDensity: VisualDensity.compact,
+                          icon: Icon(
+                            Icons.person_add_alt,
+                            color: glass.onGlassMuted,
+                          ),
+                        ),
                         IconButton(
                           tooltip: 'تعديل',
                           onPressed: onEdit,

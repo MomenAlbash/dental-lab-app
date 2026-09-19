@@ -1,64 +1,42 @@
-/// One workflow stage sent inline while updating a restoration type
-/// (`ClinicUpdateRestorationTypeStageRequest`). Pass [id] to update an
-/// existing stage in place; omit it to create a new one. Any existing stage
-/// left out of the list is removed — this is a full replace.
-class UpdateRestorationTypeStageRequestModel {
-  final String? id;
-  final String name;
-  final int? order;
-  final bool isFinal;
-  final bool isActive;
+import 'package:dental_lab_app/features/restoration_types/data/models/save_priority_duration_request_model.dart';
+import 'package:dental_lab_app/features/restoration_types/data/models/save_restoration_type_price_request_model.dart';
 
-  UpdateRestorationTypeStageRequestModel({
-    this.id,
-    required this.name,
-    this.order,
-    this.isFinal = false,
-    this.isActive = true,
-  });
-
-  Map<String, dynamic> toJson() {
-    return {
-      if (id != null) 'id': id,
-      'name': name,
-      'order': order,
-      'isFinal': isFinal,
-      'isActive': isActive,
-    };
-  }
-}
-
-/// Update payload for a restoration type — same as create plus [isActive].
-/// [stages] is a full replace: existing stages are matched by [id]
-/// (`UpdateRestorationTypeStageRequestModel.id`), new ones omit it, and any
-/// existing stage left out of the list is removed.
+/// Update payload for a restoration type (`ClinicUpdateRestorationTypeRequest`)
+/// — same as create plus [isActive].
+///
+/// There is no currency-less `defaultPrice` field, and no `stages` field
+/// either — a route's stages are edited on their own endpoint
+/// (`/restoration-type-stages`), never inline on this request.
 class UpdateRestorationTypeRequestModel {
   final String? name;
   final String? nameAr;
   final String? description;
   final double? transparency;
-  final double? defaultPrice;
+
+  /// List price per currency — replaces the whole set when sent. Pre-fill
+  /// this from the type's existing [RestorationTypeModel.prices] so an edit
+  /// that never touches pricing does not wipe it. An empty list is rejected
+  /// by the server rather than clearing the set — a restoration type must
+  /// always keep at least one price.
+  final List<SaveRestorationTypePriceRequestModel> prices;
+
   final int? pricingType;
   final bool? isActive;
-  final int? lowPriorityDurationMinutes;
-  final int? normalPriorityDurationMinutes;
-  final int? highPriorityDurationMinutes;
-  final int? urgentPriorityDurationMinutes;
-  final List<UpdateRestorationTypeStageRequestModel>? stages;
+
+  /// One row per priority level the lab declared. The four fixed columns
+  /// this replaced were the retired `CasePriority` enum: the API takes
+  /// `durations` now, and the old keys were dropped on the floor.
+  final List<SavePriorityDurationRequestModel> durations;
 
   UpdateRestorationTypeRequestModel({
     this.name,
     this.nameAr,
     this.description,
     this.transparency,
-    this.defaultPrice,
+    this.prices = const [],
     this.pricingType,
     this.isActive,
-    this.lowPriorityDurationMinutes,
-    this.normalPriorityDurationMinutes,
-    this.highPriorityDurationMinutes,
-    this.urgentPriorityDurationMinutes,
-    this.stages,
+    this.durations = const [],
   });
 
   Map<String, dynamic> toJson() {
@@ -67,14 +45,10 @@ class UpdateRestorationTypeRequestModel {
       'nameAr': nameAr,
       'description': description,
       'transparency': transparency,
-      'defaultPrice': defaultPrice,
+      'prices': prices.map((p) => p.toJson()).toList(),
       'pricingType': pricingType,
       'isActive': isActive,
-      'lowPriorityDurationMinutes': lowPriorityDurationMinutes,
-      'normalPriorityDurationMinutes': normalPriorityDurationMinutes,
-      'highPriorityDurationMinutes': highPriorityDurationMinutes,
-      'urgentPriorityDurationMinutes': urgentPriorityDurationMinutes,
-      if (stages != null) 'stages': stages!.map((s) => s.toJson()).toList(),
+      'durations': durations.map((d) => d.toJson()).toList(),
     };
   }
 }

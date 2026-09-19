@@ -105,15 +105,15 @@ class _PriceTierFormViewState extends State<_PriceTierFormView> {
           listener: (context, state) {
             switch (state) {
               case PriceTierFormSuccess():
-                ShowToast(
+                showToast(
                   message: _isEditing
                       ? 'تم حفظ التعديلات'
                       : 'تمت إضافة الشريحة',
-                  state: toastState.success,
+                  state: ToastState.success,
                 );
                 Navigator.of(context).pop(true);
               case PriceTierFormError(:final message):
-                ShowToast(message: message, state: toastState.error);
+                showToast(message: message, state: ToastState.error);
               default:
                 break;
             }

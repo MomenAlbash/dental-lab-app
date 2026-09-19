@@ -27,7 +27,11 @@ class CreatePatientRequestModel {
       'clinicId': clinicId,
       'firstName': firstName,
       'lastName': lastName,
-      'gender': gender,
+      // Omitted rather than sent as null: `gender` maps to a non-nullable
+      // enum on the API, which answers 400 ("The JSON value could not be
+      // converted to ... Gender") for an explicit null. Leaving the key out
+      // lets the server apply its own default.
+      if (gender != null) 'gender': gender,
       'dateOfBirth': dateOfBirth,
       'phoneNumber': phoneNumber,
       'notes': notes,

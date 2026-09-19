@@ -55,9 +55,18 @@ void main() {
       ]),
     );
 
+    // The create form asks the server which number the new doctor will get,
+    // so the repo has to be resolvable even in a test that is only about the
+    // unsaved-changes guard.
+    final doctorsRepo = _MockDoctorsRepo();
+    when(() => doctorsRepo.getNextNumber()).thenAnswer(
+      (_) async => Right<Failure, int>(47),
+    );
+
     await getIt.reset();
+    getIt.registerFactory<DoctorsRepo>(() => doctorsRepo);
     getIt.registerFactory<DoctorFormCubit>(
-      () => DoctorFormCubit(_MockDoctorsRepo()),
+      () => DoctorFormCubit(doctorsRepo),
     );
     getIt.registerFactory<CitiesCubit>(() => CitiesCubit(citiesRepo));
     getIt.registerFactory<ClinicsCubit>(() => ClinicsCubit(clinicsRepo));

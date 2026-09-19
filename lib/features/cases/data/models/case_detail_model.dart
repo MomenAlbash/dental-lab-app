@@ -1,7 +1,9 @@
+import 'package:dental_lab_app/features/cases/data/models/case_intake_enums.dart';
 import 'package:dental_lab_app/features/cases/data/models/case_file_model.dart';
 import 'package:dental_lab_app/features/cases/data/models/case_restoration_model.dart';
-import 'package:dental_lab_app/features/cases/data/models/case_status.dart';
-import 'package:dental_lab_app/features/cases/data/models/case_status_history_model.dart';
+import 'package:dental_lab_app/features/cases/data/models/case_stage_history_model.dart';
+import 'package:dental_lab_app/features/cases/data/models/case_stage_move_model.dart';
+import 'package:dental_lab_app/features/cases/data/models/case_stage_summary.dart';
 import 'package:dental_lab_app/features/cases/data/models/tooth_mark_model.dart';
 import 'package:dental_lab_app/features/clinics/data/models/clinic_model.dart';
 import 'package:dental_lab_app/features/doctors/data/models/doctor_model.dart';
@@ -20,7 +22,19 @@ class CaseDetailModel {
   final String? patientName;
   final DoctorModel? doctor;
   final ClinicModel? clinic;
-  final CaseStatus caseStatus;
+
+  /// Where the case is in the lab's own workflow — see [CaseStageSummary].
+  final CaseStageSummary stage;
+
+  /// How the case came in. It decides which head of every route the case
+  /// runs, so the progress board cannot be drawn without it.
+  /// Where the case sits in the fixed lifecycle. The lab-drawn stages all
+  /// live inside `inProduction`; the other five are checkpoints moved by
+  /// their own actions.
+  final CasePhase? phase;
+
+  final ImpressionMethod? impressionMethod;
+  final DigitalScanSource? digitalScanSource;
   final String? dueDate;
   final String? createdAt;
   final String? receivedAt;
@@ -28,7 +42,15 @@ class CaseDetailModel {
   final List<ToothMarkModel> teeth;
   final List<CaseRestorationModel> restorations;
   final List<CaseFileModel> files;
-  final List<CaseStatusHistoryModel> history;
+  final List<CaseStageHistoryModel> history;
+
+  /// What the case may do right now, resolved by the server.
+  ///
+  /// The only source of truth for the move sheet: the rules behind it — the
+  /// running order, the parallel step, the production barrier, the declared
+  /// rework target — are the server.s, and a client-computed list would
+  /// disagree with it the moment the lab edits its workflow.
+  final List<CaseStageMoveModel> availableTransitions;
 
   CaseDetailModel({
     required this.id,
@@ -40,7 +62,10 @@ class CaseDetailModel {
     this.patientName,
     this.doctor,
     this.clinic,
-    this.caseStatus = CaseStatus.created,
+    this.stage = CaseStageSummary.empty,
+    this.phase,
+    this.impressionMethod,
+    this.digitalScanSource,
     this.dueDate,
     this.createdAt,
     this.receivedAt,
@@ -49,11 +74,14 @@ class CaseDetailModel {
     this.restorations = const [],
     this.files = const [],
     this.history = const [],
+    this.availableTransitions = const [],
   });
 
   String? get doctorName => doctor?.fullName;
   String? get clinicName => clinic?.name;
-  String get caseStatusLabel => caseStatus.arabicLabel;
+
+  /// The stage's name, or empty when the case has none.
+  String get stageLabel => stage.label;
 
   /// Arabic first, English as the fallback; empty when the case has no
   /// priority at all, so callers can hide the badge rather than show a dash.
@@ -86,7 +114,14 @@ class CaseDetailModel {
       clinic: json['clinic'] == null
           ? null
           : ClinicModel.fromJson(json['clinic'] as Map<String, dynamic>),
-      caseStatus: CaseStatus.fromApi(json['caseStatus'] as int?),
+      stage: CaseStageSummary.fromCaseJson(json),
+      phase: CasePhase.fromValue(json['phase'] as int?),
+      impressionMethod: ImpressionMethod.fromValue(
+        json['impressionMethod'] as int?,
+      ),
+      digitalScanSource: DigitalScanSource.fromValue(
+        json['digitalScanSource'] as int?,
+      ),
       dueDate: json['dueDate'] as String?,
       createdAt: json['createdAt'] as String?,
       receivedAt: json['receivedAt'] as String?,
@@ -94,7 +129,11 @@ class CaseDetailModel {
       teeth: _list(json['teeth'], ToothMarkModel.fromJson),
       restorations: _list(json['restorations'], CaseRestorationModel.fromJson),
       files: _list(json['files'], CaseFileModel.fromJson),
-      history: _list(json['history'], CaseStatusHistoryModel.fromJson),
+      history: _list(json['history'], CaseStageHistoryModel.fromJson),
+      availableTransitions: _list(
+        json['availableTransitions'],
+        CaseStageMoveModel.fromJson,
+      ),
     );
   }
 }

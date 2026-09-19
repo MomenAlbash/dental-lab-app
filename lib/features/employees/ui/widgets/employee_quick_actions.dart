@@ -26,13 +26,13 @@ class EmployeeQuickActions extends StatelessWidget {
         mode: LaunchMode.externalApplication,
       );
       if (!launched) {
-        ShowToast(
+        showToast(
           message: 'لا يوجد تطبيق يدعم هذا الإجراء',
-          state: toastState.error,
+          state: ToastState.error,
         );
       }
     } catch (_) {
-      ShowToast(message: 'تعذّر تنفيذ الإجراء', state: toastState.error);
+      showToast(message: 'تعذّر تنفيذ الإجراء', state: ToastState.error);
     }
   }
 

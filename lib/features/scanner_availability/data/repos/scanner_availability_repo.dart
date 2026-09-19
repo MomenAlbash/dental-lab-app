@@ -33,7 +33,7 @@ class ScannerAvailabilityRepo {
       return fallbackToCache(
         cacheKey: CacheKeys.cachedScannerRulesList,
         fromJson: ScannerAvailabilityRuleModel.fromJson,
-        onFailure: () => ServerFailure.FromDioExecption(e),
+        onFailure: () => ServerFailure.fromDioException(e),
       );
     } catch (e) {
       log('General Exception while fetching scanner rules: ${e.toString()}');
@@ -58,7 +58,7 @@ class ScannerAvailabilityRepo {
       return right(rule);
     } on DioException catch (e) {
       log('DioException while creating scanner rule: ${e.message}');
-      return left(ServerFailure.FromDioExecption(e));
+      return left(ServerFailure.fromDioException(e));
     } catch (e) {
       log('General Exception while creating scanner rule: ${e.toString()}');
       return left(ServerFailure.fromException(e));
@@ -80,7 +80,7 @@ class ScannerAvailabilityRepo {
       return right(rule);
     } on DioException catch (e) {
       log('DioException while updating scanner rule: ${e.message}');
-      return left(ServerFailure.FromDioExecption(e));
+      return left(ServerFailure.fromDioException(e));
     } catch (e) {
       log('General Exception while updating scanner rule: ${e.toString()}');
       return left(ServerFailure.fromException(e));
@@ -95,7 +95,7 @@ class ScannerAvailabilityRepo {
       return right(null);
     } on DioException catch (e) {
       log('DioException while deleting scanner rule: ${e.message}');
-      return left(ServerFailure.FromDioExecption(e));
+      return left(ServerFailure.fromDioException(e));
     } catch (e) {
       log('General Exception while deleting scanner rule: ${e.toString()}');
       return left(ServerFailure.fromException(e));
@@ -117,7 +117,7 @@ class ScannerAvailabilityRepo {
       return right(exceptions);
     } on DioException catch (e) {
       log('DioException while fetching scanner exceptions: ${e.message}');
-      return left(ServerFailure.FromDioExecption(e));
+      return left(ServerFailure.fromDioException(e));
     } catch (e) {
       log(
         'General Exception while fetching scanner exceptions: ${e.toString()}',
@@ -139,7 +139,7 @@ class ScannerAvailabilityRepo {
       return right(exception);
     } on DioException catch (e) {
       log('DioException while saving scanner exception: ${e.message}');
-      return left(ServerFailure.FromDioExecption(e));
+      return left(ServerFailure.fromDioException(e));
     } catch (e) {
       log('General Exception while saving scanner exception: ${e.toString()}');
       return left(ServerFailure.fromException(e));
@@ -154,7 +154,7 @@ class ScannerAvailabilityRepo {
       return right(null);
     } on DioException catch (e) {
       log('DioException while deleting scanner exception: ${e.message}');
-      return left(ServerFailure.FromDioExecption(e));
+      return left(ServerFailure.fromDioException(e));
     } catch (e) {
       log(
         'General Exception while deleting scanner exception: ${e.toString()}',
@@ -180,7 +180,7 @@ class ScannerAvailabilityRepo {
       return right(days);
     } on DioException catch (e) {
       log('DioException while fetching scanner calendar: ${e.message}');
-      return left(ServerFailure.FromDioExecption(e));
+      return left(ServerFailure.fromDioException(e));
     } catch (e) {
       log('General Exception while fetching scanner calendar: ${e.toString()}');
       return left(ServerFailure.fromException(e));

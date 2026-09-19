@@ -26,7 +26,7 @@ class CountriesRepo {
       return fallbackToCache(
         cacheKey: CacheKeys.cachedCountriesList,
         fromJson: CountryModel.fromJson,
-        onFailure: () => ServerFailure.FromDioExecption(e),
+        onFailure: () => ServerFailure.fromDioException(e),
       );
     } catch (e) {
       log('General Exception while fetching countries: ${e.toString()}');
@@ -49,7 +49,7 @@ class CountriesRepo {
       return right(country);
     } on DioException catch (e) {
       log('DioException while creating country: ${e.message}');
-      return left(ServerFailure.FromDioExecption(e));
+      return left(ServerFailure.fromDioException(e));
     } catch (e) {
       log('General Exception while creating country: ${e.toString()}');
       return left(ServerFailure.fromException(e));
@@ -71,7 +71,7 @@ class CountriesRepo {
       return right(country);
     } on DioException catch (e) {
       log('DioException while updating country: ${e.message}');
-      return left(ServerFailure.FromDioExecption(e));
+      return left(ServerFailure.fromDioException(e));
     } catch (e) {
       log('General Exception while updating country: ${e.toString()}');
       return left(ServerFailure.fromException(e));
@@ -86,7 +86,7 @@ class CountriesRepo {
       return right(null);
     } on DioException catch (e) {
       log('DioException while deleting country: ${e.message}');
-      return left(ServerFailure.FromDioExecption(e));
+      return left(ServerFailure.fromDioException(e));
     } catch (e) {
       log('General Exception while deleting country: ${e.toString()}');
       return left(ServerFailure.fromException(e));

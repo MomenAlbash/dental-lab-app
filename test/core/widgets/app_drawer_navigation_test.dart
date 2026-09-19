@@ -1,3 +1,5 @@
+import 'package:dental_lab_app/core/auth/permissions.dart';
+import 'package:dental_lab_app/core/auth/session.dart';
 import 'package:dental_lab_app/core/di/dependency_injection.dart';
 import 'package:dental_lab_app/core/helper/local/cached_helper.dart';
 import 'package:dental_lab_app/core/router/routes.dart';
@@ -37,6 +39,13 @@ void main() {
 
     await getIt.reset();
     getIt.registerLazySingleton<ThemeCubit>(() => ThemeCubit());
+    // These tests are about navigating between destinations, so they sign in
+    // as an admin — every row is visible and nothing is gated away. The gating
+    // itself is covered in app_drawer_permissions_test.dart.
+    getIt.registerLazySingleton<SessionCubit>(
+      () =>
+          SessionCubit(initial: const Permissions(isAdmin: true, granted: {})),
+    );
 
     router = GoRouter(
       initialLocation: Routes.homeScreen,
@@ -134,7 +143,7 @@ void main() {
       expect(drawerRow('الدكاترة'), findsOneWidget);
       expect(drawerRow('العيادات'), findsOneWidget);
       // Other groups are gone: this is a level, not an expansion.
-      expect(drawerRow('المخابر'), findsNothing);
+      expect(drawerRow('الفروع'), findsNothing);
       expect(drawerRow('الرئيسية'), findsNothing);
     });
 

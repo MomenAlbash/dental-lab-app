@@ -123,7 +123,7 @@ class _PatientFormViewState extends State<_PatientFormView> {
     if (!(_formKey.currentState?.validate() ?? false)) return;
     final doctorId = _doctorId;
     if (doctorId == null) {
-      ShowToast(message: 'الرجاء اختيار الطبيب', state: toastState.error);
+      showToast(message: 'الرجاء اختيار الطبيب', state: ToastState.error);
       return;
     }
 
@@ -166,13 +166,13 @@ class _PatientFormViewState extends State<_PatientFormView> {
             listener: (context, state) {
               switch (state) {
                 case PatientFormSuccess():
-                  ShowToast(
+                  showToast(
                     message: 'تمت إضافة المريض',
-                    state: toastState.success,
+                    state: ToastState.success,
                   );
                   Navigator.of(context).pop(true);
                 case PatientFormError(:final message):
-                  ShowToast(message: message, state: toastState.error);
+                  showToast(message: message, state: ToastState.error);
                 default:
                   break;
               }

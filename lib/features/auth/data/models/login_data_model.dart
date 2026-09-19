@@ -1,3 +1,4 @@
+import 'package:dental_lab_app/core/auth/permissions.dart';
 import 'package:dental_lab_app/features/auth/data/models/user_role_model.dart';
 import 'package:dental_lab_app/features/laboratories/data/models/laboratory_model.dart';
 
@@ -27,6 +28,28 @@ class LoginData {
     this.laboratoryId,
     this.laboratory,
   });
+
+  /// What this user may do, resolved from their role's grants plus [isAdmin].
+  ///
+  /// Lives here rather than in the cubit so there is exactly one place that
+  /// knows how a `ClinicUserDto` turns into a [Permissions] — the login
+  /// response and `GET /ClinicAuth/me` both return this shape.
+  Permissions get permissions {
+    final granted = <PermissionName, PermissionType>{};
+
+    for (final entry in role?.permissions ?? const []) {
+      final name = PermissionName.fromValue(entry.name);
+      final type = PermissionType.fromValue(entry.type);
+      if (name == null || type == null) continue;
+
+      final existing = granted[name];
+      if (existing == null || type.satisfies(existing)) {
+        granted[name] = type;
+      }
+    }
+
+    return Permissions(isAdmin: isAdmin, granted: granted);
+  }
 
   factory LoginData.fromJson(Map<String, dynamic> json) {
     return LoginData(

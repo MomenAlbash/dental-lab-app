@@ -1,3 +1,9 @@
+import 'package:dental_lab_app/features/accounting/data/models/currency_model.dart';
+import 'package:dental_lab_app/features/accounting/data/repos/accounting_repo.dart';
+import 'package:dental_lab_app/features/case_priorities/logic/case_priorities/case_priorities_cubit.dart';
+import 'package:dental_lab_app/features/case_priorities/logic/case_priorities/case_priorities_state.dart';
+import 'package:dental_lab_app/features/case_priorities/data/models/case_priority_model.dart';
+import 'package:dental_lab_app/features/restoration_types/data/models/save_priority_duration_request_model.dart';
 import 'package:dental_lab_app/core/di/dependency_injection.dart';
 import 'package:dental_lab_app/core/theming/glass.dart';
 import 'package:dental_lab_app/core/theming/styles.dart';
@@ -7,10 +13,14 @@ import 'package:dental_lab_app/core/widgets/glass/glass_scaffold.dart';
 import 'package:dental_lab_app/core/widgets/show_toast_widget.dart';
 import 'package:dental_lab_app/features/restoration_types/data/models/create_restoration_type_request_model.dart';
 import 'package:dental_lab_app/features/restoration_types/data/models/restoration_type_model.dart';
+import 'package:dental_lab_app/features/restoration_types/data/repos/restoration_types_repo.dart';
+import 'package:dental_lab_app/features/restoration_types/data/models/save_restoration_type_price_request_model.dart';
 import 'package:dental_lab_app/features/restoration_types/data/models/update_restoration_type_request_model.dart';
 import 'package:dental_lab_app/features/restoration_types/logic/restoration_type_form/restoration_type_form_cubit.dart';
 import 'package:dental_lab_app/features/restoration_types/logic/restoration_type_form/restoration_type_form_state.dart';
+import 'package:dental_lab_app/features/cases/ui/widgets/case_lookup_dropdown.dart';
 import 'package:dental_lab_app/features/restoration_types/ui/widgets/restoration_type_form_fields.dart';
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
@@ -22,8 +32,15 @@ class RestorationTypeFormPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return BlocProvider(
-      create: (_) => getIt<RestorationTypeFormCubit>(),
+    return MultiBlocProvider(
+      providers: [
+        BlocProvider(create: (_) => getIt<RestorationTypeFormCubit>()),
+        // The durations are one row per level the lab declared, so the form
+        // cannot draw them without the levels themselves.
+        BlocProvider(
+          create: (_) => getIt<CasePrioritiesCubit>()..getCasePriorities(),
+        ),
+      ],
       child: _RestorationTypeFormView(
         initialRestorationType: initialRestorationType,
       ),
@@ -52,70 +69,116 @@ class _RestorationTypeFormViewState extends State<_RestorationTypeFormView> {
   late final _descriptionController = TextEditingController(
     text: widget.initialRestorationType?.description ?? '',
   );
-  late final _defaultPriceController = TextEditingController(
-    text: widget.initialRestorationType?.defaultPrice.toString() ?? '',
-  );
   late final _transparencyController = TextEditingController(
     text: widget.initialRestorationType?.transparency?.toString() ?? '',
   );
-  late final _lowDurationController = TextEditingController(
-    text:
-        widget.initialRestorationType?.lowPriorityDurationMinutes?.toString() ??
-        '',
-  );
-  late final _normalDurationController = TextEditingController(
-    text:
-        widget.initialRestorationType?.normalPriorityDurationMinutes
-            ?.toString() ??
-        '',
-  );
-  late final _highDurationController = TextEditingController(
-    text:
-        widget.initialRestorationType?.highPriorityDurationMinutes
-            ?.toString() ??
-        '',
-  );
-  late final _urgentDurationController = TextEditingController(
-    text:
-        widget.initialRestorationType?.urgentPriorityDurationMinutes
-            ?.toString() ??
-        '',
-  );
+
+  /// One controller per priority level the lab declared, built once the levels
+  /// arrive. Keyed by the level so each row labels itself with the name the
+  /// lab wrote — four fixed boxes were the retired CasePriority enum.
+  final Map<CasePriorityModel, TextEditingController> _durationControllers = {};
 
   late int _pricingType = widget.initialRestorationType?.pricingType ?? 1;
   late bool _isActive = widget.initialRestorationType?.isActive ?? true;
 
-  /// Stages picked while creating — the API accepts them inline on create.
-  final List<CreateRestorationTypeStageRequestModel> _stages = [];
-
-  /// Stages for the type being edited — pre-filled from the type's current
-  /// stages (keeping their [id] so the update call matches/updates them in
-  /// place) and edited locally. The whole list is sent as a full replace
-  /// when saving.
-  late final List<UpdateRestorationTypeStageRequestModel> _editStages = [
-    for (final s in widget.initialRestorationType?.stages ?? const [])
-      UpdateRestorationTypeStageRequestModel(
-        id: s.id,
-        name: s.name ?? '',
-        order: s.order,
-        isFinal: s.isFinal,
-        isActive: s.isActive,
-      ),
+  /// Seeded from the type's existing per-currency prices so an edit that
+  /// never opens this section resends exactly what was already there.
+  late final List<SaveRestorationTypePriceRequestModel> _prices = [
+    for (final p in widget.initialRestorationType?.prices ?? const [])
+      if (p.currencyId != null)
+        SaveRestorationTypePriceRequestModel(
+          currencyId: p.currencyId!,
+          price: p.price,
+        ),
   ];
 
+  List<CurrencyModel> _currencies = [];
+  bool _loadingCurrencies = true;
+
   bool get _isEditing => widget.initialRestorationType != null;
+
+  /// Replaces the picture the **doctor-facing website** shows for this type.
+  ///
+  /// Its own action rather than a field in the form, because it is its own
+  /// request: it uploads immediately and does not wait for save, so a user who
+  /// picks a photo and then backs out still changed the photo. Offered only
+  /// while editing — there is no id to attach it to before the type exists.
+  Future<void> _changeWebsiteImage() async {
+    final id = widget.initialRestorationType?.id;
+    if (id == null) return;
+
+    final result = await FilePicker.pickFiles(type: FileType.image);
+    final path = result?.files.single.path;
+    if (path == null) return;
+
+    final uploaded = await getIt<RestorationTypesRepo>().uploadWebsiteImage(
+      id: id,
+      filePath: path,
+    );
+    if (!mounted) return;
+
+    uploaded.fold(
+      (failure) =>
+          showToast(message: failure.errorMessage, state: ToastState.error),
+      (_) => showToast(
+        message: 'تم تحديث صورة الموقع',
+        state: ToastState.success,
+      ),
+    );
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _loadCurrencies();
+  }
+
+  Future<void> _loadCurrencies() async {
+    final result = await getIt<AccountingRepo>().getCurrencies();
+    if (!mounted) return;
+    result.fold(
+      (_) => setState(() => _loadingCurrencies = false),
+      (currencies) => setState(() {
+        _currencies = currencies;
+        _loadingCurrencies = false;
+      }),
+    );
+  }
+
+  Future<void> _addPrice() async {
+    final alreadyPriced = _prices.map((p) => p.currencyId).toSet();
+    final choices = _currencies
+        .where((c) => !alreadyPriced.contains(c.id))
+        .toList();
+
+    if (choices.isEmpty) {
+      showToast(
+        message: 'كل العملات المتوفرة عندها سعر مسبقاً',
+        state: ToastState.error,
+      );
+      return;
+    }
+
+    final price = await showDialog<SaveRestorationTypePriceRequestModel>(
+      context: context,
+      builder: (_) => _CurrencyPriceFormDialog(currencies: choices),
+    );
+    if (price == null) return;
+
+    setState(() => _prices.add(price));
+  }
+
+  void _removePrice(int index) => setState(() => _prices.removeAt(index));
 
   @override
   void dispose() {
     _nameController.dispose();
     _nameArController.dispose();
     _descriptionController.dispose();
-    _defaultPriceController.dispose();
     _transparencyController.dispose();
-    _lowDurationController.dispose();
-    _normalDurationController.dispose();
-    _highDurationController.dispose();
-    _urgentDurationController.dispose();
+    for (final controller in _durationControllers.values) {
+      controller.dispose();
+    }
     super.dispose();
   }
 
@@ -129,107 +192,34 @@ class _RestorationTypeFormViewState extends State<_RestorationTypeFormView> {
     return value.isEmpty ? null : double.tryParse(value);
   }
 
-  int? _optionalInt(TextEditingController controller) {
-    final value = controller.text.trim();
-    return value.isEmpty ? null : int.tryParse(value);
-  }
-
-  Future<void> _onAddStage() async {
-    final name = await showDialog<String>(
-      context: context,
-      builder: (_) => const _AddStageDialog(),
-    );
-    if (name == null) return;
-
-    setState(() {
-      _stages.add(
-        CreateRestorationTypeStageRequestModel(
-          name: name,
-          order: _stages.length + 1,
+  /// Only the levels the user actually filled in. An empty box means "not
+  /// estimated yet" — sending it as zero would claim the work is instant.
+  /// The box holds a plain minute total; the model splits it into the
+  /// days-plus-remainder shape the API actually stores.
+  List<SavePriorityDurationRequestModel> get _durations => [
+    for (final entry in _durationControllers.entries)
+      if (int.tryParse(entry.value.text.trim()) case final minutes?)
+        SavePriorityDurationRequestModel.fromTotalMinutes(
+          casePriorityId: entry.key.id,
+          totalMinutes: minutes,
         ),
-      );
-    });
-  }
+  ];
 
-  void _onRemoveStage(int index) {
-    setState(() {
-      _stages.removeAt(index);
-      _reorderStages();
-    });
-  }
+  /// Builds a row per priority the moment the levels arrive, prefilled from
+  /// whatever this type already has for each.
+  void _syncDurationControllers(List<CasePriorityModel> priorities) {
+    final existing = {
+      for (final duration
+          in widget.initialRestorationType?.durations ?? const [])
+        duration.casePriorityId: duration.durationMinutes,
+    };
 
-  /// Only one stage can be the final one.
-  void _onToggleStageFinal(int index) {
-    setState(() {
-      final wasFinal = _stages[index].isFinal;
-      for (var i = 0; i < _stages.length; i++) {
-        _stages[i] = CreateRestorationTypeStageRequestModel(
-          name: _stages[i].name,
-          order: _stages[i].order,
-          isFinal: i == index ? !wasFinal : false,
-        );
-      }
-    });
-  }
-
-  void _reorderStages() {
-    for (var i = 0; i < _stages.length; i++) {
-      _stages[i] = CreateRestorationTypeStageRequestModel(
-        name: _stages[i].name,
-        order: i + 1,
-        isFinal: _stages[i].isFinal,
-      );
-    }
-  }
-
-  Future<void> _onAddEditStage() async {
-    final name = await showDialog<String>(
-      context: context,
-      builder: (_) => const _AddStageDialog(),
-    );
-    if (name == null) return;
-
-    setState(() {
-      _editStages.add(
-        UpdateRestorationTypeStageRequestModel(
-          name: name,
-          order: _editStages.length + 1,
+    for (final priority in priorities) {
+      _durationControllers.putIfAbsent(
+        priority,
+        () => TextEditingController(
+          text: existing[priority.id]?.toString() ?? '',
         ),
-      );
-    });
-  }
-
-  void _onRemoveEditStage(int index) {
-    setState(() {
-      _editStages.removeAt(index);
-      _reorderEditStages();
-    });
-  }
-
-  /// Only one stage can be the final one.
-  void _onToggleEditStageFinal(int index) {
-    setState(() {
-      final wasFinal = _editStages[index].isFinal;
-      for (var i = 0; i < _editStages.length; i++) {
-        _editStages[i] = UpdateRestorationTypeStageRequestModel(
-          id: _editStages[i].id,
-          name: _editStages[i].name,
-          order: _editStages[i].order,
-          isFinal: i == index ? !wasFinal : false,
-          isActive: _editStages[i].isActive,
-        );
-      }
-    });
-  }
-
-  void _reorderEditStages() {
-    for (var i = 0; i < _editStages.length; i++) {
-      _editStages[i] = UpdateRestorationTypeStageRequestModel(
-        id: _editStages[i].id,
-        name: _editStages[i].name,
-        order: i + 1,
-        isFinal: _editStages[i].isFinal,
-        isActive: _editStages[i].isActive,
       );
     }
   }
@@ -237,18 +227,18 @@ class _RestorationTypeFormViewState extends State<_RestorationTypeFormView> {
   void _onSavePressed() {
     if (!(_formKey.currentState?.validate() ?? false)) return;
 
-    final hasStages = _isEditing ? _editStages.isNotEmpty : _stages.isNotEmpty;
-    if (!hasStages) {
-      ShowToast(
-        message: 'يجب إضافة مرحلة واحدة على الأقل',
-        state: toastState.error,
+    // Not a form-field validator: the price rows live outside the `Form`
+    // widget's own fields, so the server's own rule — at least one price —
+    // is checked here instead of silently letting a 400 explain it.
+    if (_prices.isEmpty) {
+      showToast(
+        message: 'أضف سعراً واحداً على الأقل قبل الحفظ',
+        state: ToastState.error,
       );
       return;
     }
 
     final cubit = context.read<RestorationTypeFormCubit>();
-    final defaultPrice =
-        double.tryParse(_defaultPriceController.text.trim()) ?? 0;
 
     if (_isEditing) {
       cubit.updateRestorationType(
@@ -258,18 +248,10 @@ class _RestorationTypeFormViewState extends State<_RestorationTypeFormView> {
           nameAr: _optional(_nameArController),
           description: _optional(_descriptionController),
           transparency: _optionalDouble(_transparencyController),
-          defaultPrice: defaultPrice,
+          prices: _prices,
           pricingType: _pricingType,
           isActive: _isActive,
-          lowPriorityDurationMinutes: _optionalInt(_lowDurationController),
-          normalPriorityDurationMinutes: _optionalInt(
-            _normalDurationController,
-          ),
-          highPriorityDurationMinutes: _optionalInt(_highDurationController),
-          urgentPriorityDurationMinutes: _optionalInt(
-            _urgentDurationController,
-          ),
-          stages: _editStages,
+          durations: _durations,
         ),
       );
     } else {
@@ -279,17 +261,9 @@ class _RestorationTypeFormViewState extends State<_RestorationTypeFormView> {
           nameAr: _optional(_nameArController),
           description: _optional(_descriptionController),
           transparency: _optionalDouble(_transparencyController),
-          defaultPrice: defaultPrice,
+          prices: _prices,
           pricingType: _pricingType,
-          lowPriorityDurationMinutes: _optionalInt(_lowDurationController),
-          normalPriorityDurationMinutes: _optionalInt(
-            _normalDurationController,
-          ),
-          highPriorityDurationMinutes: _optionalInt(_highDurationController),
-          urgentPriorityDurationMinutes: _optionalInt(
-            _urgentDurationController,
-          ),
-          stages: _stages,
+          durations: _durations,
         ),
       );
     }
@@ -297,6 +271,14 @@ class _RestorationTypeFormViewState extends State<_RestorationTypeFormView> {
 
   @override
   Widget build(BuildContext context) {
+    // Rebuilt as the levels arrive: the form paints before the request lands,
+    // so the rows have to appear when it does rather than staying empty until
+    // the user reopens the screen.
+    final prioritiesState = context.watch<CasePrioritiesCubit>().state;
+    if (prioritiesState is CasePrioritiesLoaded) {
+      _syncDurationControllers(prioritiesState.priorities);
+    }
+
     return GlassScaffold(
       appBar: GlassAppBar(
         title: Text(
@@ -305,21 +287,29 @@ class _RestorationTypeFormViewState extends State<_RestorationTypeFormView> {
             color: context.glass.onGlass,
           ),
         ),
+        actions: [
+          if (_isEditing)
+            IconButton(
+              tooltip: 'صورة الموقع',
+              onPressed: _changeWebsiteImage,
+              icon: const Icon(Icons.image_outlined),
+            ),
+        ],
       ),
       body: SafeArea(
         child: BlocConsumer<RestorationTypeFormCubit, RestorationTypeFormState>(
           listener: (context, state) {
             switch (state) {
               case RestorationTypeFormSuccess():
-                ShowToast(
+                showToast(
                   message: _isEditing
                       ? 'تم حفظ التعديلات'
                       : 'تمت إضافة التعويض',
-                  state: toastState.success,
+                  state: ToastState.success,
                 );
                 Navigator.of(context).pop(true);
               case RestorationTypeFormError(:final message):
-                ShowToast(message: message, state: toastState.error);
+                showToast(message: message, state: ToastState.error);
               default:
                 break;
             }
@@ -343,27 +333,20 @@ class _RestorationTypeFormViewState extends State<_RestorationTypeFormView> {
                         nameController: _nameController,
                         nameArController: _nameArController,
                         descriptionController: _descriptionController,
-                        defaultPriceController: _defaultPriceController,
                         transparencyController: _transparencyController,
-                        lowDurationController: _lowDurationController,
-                        normalDurationController: _normalDurationController,
-                        highDurationController: _highDurationController,
-                        urgentDurationController: _urgentDurationController,
+                        durationControllers: _durationControllers,
                         pricingType: _pricingType,
                         onPricingTypeChanged: (value) =>
                             setState(() => _pricingType = value),
+                        currencies: _currencies,
+                        loadingCurrencies: _loadingCurrencies,
+                        prices: _prices,
+                        onAddPrice: _addPrice,
+                        onRemovePrice: _removePrice,
                         isEditing: _isEditing,
                         isActive: _isActive,
                         onActiveChanged: (value) =>
                             setState(() => _isActive = value),
-                        stages: _stages,
-                        onAddStage: _onAddStage,
-                        onRemoveStage: _onRemoveStage,
-                        onToggleStageFinal: _onToggleStageFinal,
-                        editStages: _editStages,
-                        onAddEditStage: _onAddEditStage,
-                        onRemoveEditStage: _onRemoveEditStage,
-                        onToggleEditStageFinal: _onToggleEditStageFinal,
                         isSubmitting: state is RestorationTypeFormSubmitting,
                         onSave: _onSavePressed,
                       ),
@@ -429,6 +412,105 @@ class _AddStageDialogState extends State<_AddStageDialog> {
           child: const Text('إلغاء'),
         ),
         TextButton(onPressed: _onAdd, child: const Text('إضافة')),
+      ],
+    );
+  }
+}
+
+/// Picks one currency (from those this type is not already priced in) and a
+/// price for it.
+class _CurrencyPriceFormDialog extends StatefulWidget {
+  const _CurrencyPriceFormDialog({required this.currencies});
+
+  final List<CurrencyModel> currencies;
+
+  @override
+  State<_CurrencyPriceFormDialog> createState() =>
+      _CurrencyPriceFormDialogState();
+}
+
+class _CurrencyPriceFormDialogState extends State<_CurrencyPriceFormDialog> {
+  final _formKey = GlobalKey<FormState>();
+  final _priceController = TextEditingController();
+  String? _currencyId;
+
+  @override
+  void dispose() {
+    _priceController.dispose();
+    super.dispose();
+  }
+
+  void _onConfirm() {
+    if (!(_formKey.currentState?.validate() ?? false)) return;
+    final currencyId = _currencyId;
+    if (currencyId == null) {
+      showToast(message: 'اختر العملة', state: ToastState.error);
+      return;
+    }
+
+    Navigator.of(context).pop(
+      SaveRestorationTypePriceRequestModel(
+        currencyId: currencyId,
+        price: double.tryParse(_priceController.text.trim()) ?? 0,
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: Text('إضافة سعر لعملة', style: AppTextStyles.font18MediumText),
+      content: SizedBox(
+        width: MediaQuery.sizeOf(context).width * 0.85,
+        child: SingleChildScrollView(
+          child: Form(
+            key: _formKey,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                CaseLookupDropdown(
+                  value: _currencyId,
+                  icon: Icons.currency_exchange_outlined,
+                  hintText: 'اختر العملة',
+                  items: widget.currencies
+                      .map(
+                        (c) => DropdownMenuItem(
+                          value: c.id,
+                          child: Text(c.name ?? c.code ?? '—'),
+                        ),
+                      )
+                      .toList(),
+                  onChanged: (value) => setState(() => _currencyId = value),
+                ),
+                const SizedBox(height: 12),
+                AppTextFormField(
+                  controller: _priceController,
+                  hintText: 'السعر',
+                  keyboardType: const TextInputType.numberWithOptions(
+                    decimal: true,
+                  ),
+                  prefixIcon: Icon(
+                    Icons.attach_money_outlined,
+                    color: context.glass.onGlassMuted,
+                  ),
+                  validator: (value) {
+                    final price = double.tryParse(value?.trim() ?? '');
+                    if (price == null || price < 0) return 'أدخل سعراً صحيحاً';
+                    return null;
+                  },
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('إلغاء'),
+        ),
+        TextButton(onPressed: _onConfirm, child: const Text('إضافة')),
       ],
     );
   }

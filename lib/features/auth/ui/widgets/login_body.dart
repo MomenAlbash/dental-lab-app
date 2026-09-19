@@ -46,14 +46,14 @@ class _LoginBodyState extends State<LoginBody> {
     return BlocConsumer<LoginCubit, LoginState>(
       listener: (context, state) {
         if (state is LoginSuccess) {
-          ShowToast(
+          showToast(
             message: 'تم تسجيل الدخول بنجاح',
-            state: toastState.success,
+            state: ToastState.success,
           );
           GoRouter.of(context).go(Routes.laboratorySelectionScreen);
         }
         if (state is LoginError) {
-          ShowToast(message: state.message, state: toastState.error);
+          showToast(message: state.message, state: ToastState.error);
         }
       },
       builder: (context, state) {

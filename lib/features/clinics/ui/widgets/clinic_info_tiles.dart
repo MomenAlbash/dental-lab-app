@@ -16,9 +16,9 @@ class ClinicInfoTiles extends StatelessWidget {
     final glass = context.glass;
     final tiles = <_InfoTileData>[
       _InfoTileData(
-        icon: Icons.tag_outlined,
-        label: 'الرمز',
-        value: clinic.code,
+        icon: Icons.map_outlined,
+        label: 'المنطقة',
+        value: clinic.zoneDisplayName.isEmpty ? null : clinic.zoneDisplayName,
         color: Theme.of(context).colorScheme.primary,
       ),
       _InfoTileData(
@@ -28,9 +28,9 @@ class ClinicInfoTiles extends StatelessWidget {
         color: context.glass.info,
       ),
       _InfoTileData(
-        icon: Icons.language_outlined,
-        label: 'الموقع الإلكتروني',
-        value: clinic.websiteUrl,
+        icon: Icons.medical_services_outlined,
+        label: 'عدد الأطباء',
+        value: '${clinic.doctorCount}',
         color: glass.primaryDark,
       ),
     ];

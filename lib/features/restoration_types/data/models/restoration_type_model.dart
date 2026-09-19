@@ -1,4 +1,6 @@
 import 'package:dental_lab_app/features/case_workflow_stages/data/models/case_workflow_stage_model.dart';
+import 'package:dental_lab_app/features/restoration_types/data/models/priority_duration_model.dart';
+import 'package:dental_lab_app/features/restoration_types/data/models/restoration_currency_price_model.dart';
 
 /*
 {
@@ -8,13 +10,10 @@ import 'package:dental_lab_app/features/case_workflow_stages/data/models/case_wo
   "nameAr": "تاج زيركون",
   "description": "...",
   "transparency": 0.5,
-  "defaultPrice": 250000.0,
+  "prices": [ { "currencyId": "...", "currency": {...}, "price": 250000.0 } ],
   "pricingType": 1,
   "isActive": true,
-  "lowPriorityDurationMinutes": 4320,
-  "normalPriorityDurationMinutes": 2880,
-  "highPriorityDurationMinutes": 1440,
-  "urgentPriorityDurationMinutes": 720,
+  "durations": [ { "casePriorityId": "...", "priorityNameAr": "عاجلة", "durationMinutes": 720 } ],
   "stages": [ { "id": "...", "name": "التصميم", "order": 1, ... } ]
 }
  */
@@ -22,6 +21,13 @@ import 'package:dental_lab_app/features/case_workflow_stages/data/models/case_wo
 /// A restoration type and the ordered workflow [stages] a restoration of this
 /// type moves through inside the lab. Stages belong to the type — they are
 /// not a separate lab-wide list.
+///
+/// There is no currency-less "default price": `ClinicRestorationTypeDto`
+/// carries [prices] alone, one row per currency the lab actually sells this
+/// type in, and a create/update needs at least one such row. A
+/// `defaultPrice` field used to live here, fed by nothing on the plain
+/// catalog response — it always read as zero, and the list card that showed
+/// it was always wrong.
 class RestorationTypeModel {
   final String id;
   final String? laboratoryId;
@@ -29,13 +35,21 @@ class RestorationTypeModel {
   final String? nameAr;
   final String? description;
   final double? transparency;
-  final double defaultPrice;
+
+  /// The list price stated per currency, one row per currency this type is
+  /// actually sold in. A restoration type the lab has not priced yet holds
+  /// this empty — a case's currency picker then has nothing to offer.
+  final List<RestorationCurrencyPriceModel> prices;
+
   final int? pricingType;
   final bool isActive;
-  final int? lowPriorityDurationMinutes;
-  final int? normalPriorityDurationMinutes;
-  final int? highPriorityDurationMinutes;
-  final int? urgentPriorityDurationMinutes;
+
+  /// One row per priority level the lab declared, not four fixed columns.
+  ///
+  /// The four `low/normal/high/urgent` fields this replaced belonged to the
+  /// retired `CasePriority` enum: a lab with two rush tiers got four boxes,
+  /// and a lab with six could only fill four of them.
+  final List<PriorityDurationModel> durations;
   final List<CaseWorkflowStageModel> stages;
 
   RestorationTypeModel({
@@ -45,19 +59,25 @@ class RestorationTypeModel {
     this.nameAr,
     this.description,
     this.transparency,
-    this.defaultPrice = 0,
+    this.prices = const [],
     this.pricingType,
     this.isActive = true,
-    this.lowPriorityDurationMinutes,
-    this.normalPriorityDurationMinutes,
-    this.highPriorityDurationMinutes,
-    this.urgentPriorityDurationMinutes,
+    this.durations = const [],
     this.stages = const [],
   });
 
   /// Prefers the Arabic name for display, falling back to the base name.
   String get displayName =>
       (nameAr != null && nameAr!.isNotEmpty) ? nameAr! : (name ?? '—');
+
+  /// The catalogue price, formatted from the first currency row — real data,
+  /// unlike the retired `defaultPrice`. Null when the lab has not priced this
+  /// type in any currency yet, so a card can say so instead of showing "0".
+  String? get catalogPriceLabel {
+    if (prices.isEmpty) return null;
+    final first = prices.first;
+    return '${first.price.toStringAsFixed(0)} ${first.currencyLabel}';
+  }
 
   factory RestorationTypeModel.fromJson(Map<String, dynamic> json) {
     final stages =
@@ -76,15 +96,20 @@ class RestorationTypeModel {
       nameAr: json['nameAr'] as String?,
       description: json['description'] as String?,
       transparency: (json['transparency'] as num?)?.toDouble(),
-      defaultPrice: (json['defaultPrice'] as num?)?.toDouble() ?? 0,
+      prices:
+          (json['prices'] as List<dynamic>?)
+              ?.whereType<Map<String, dynamic>>()
+              .map(RestorationCurrencyPriceModel.fromJson)
+              .toList() ??
+          const [],
       pricingType: json['pricingType'] as int?,
       isActive: json['isActive'] as bool? ?? true,
-      lowPriorityDurationMinutes: json['lowPriorityDurationMinutes'] as int?,
-      normalPriorityDurationMinutes:
-          json['normalPriorityDurationMinutes'] as int?,
-      highPriorityDurationMinutes: json['highPriorityDurationMinutes'] as int?,
-      urgentPriorityDurationMinutes:
-          json['urgentPriorityDurationMinutes'] as int?,
+      durations:
+          (json['durations'] as List<dynamic>?)
+              ?.whereType<Map<String, dynamic>>()
+              .map(PriorityDurationModel.fromJson)
+              .toList() ??
+          const [],
       stages: stages,
     );
   }

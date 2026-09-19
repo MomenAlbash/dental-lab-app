@@ -37,6 +37,7 @@ class PriceTiersListView extends StatelessWidget {
         isActive: tier.isActive,
         pricedRestorationCount: tier.pricedRestorationCount,
         totalRestorationTypeCount: tier.totalRestorationTypeCount,
+        doctorCount: tier.doctorCount,
         onTap: () async {
           await context.push(Routes.priceTierDetailsScreen, extra: tier);
           if (context.mounted) {

@@ -6,7 +6,9 @@ import 'package:dental_lab_app/core/helper/local/cache_keys.dart';
 import 'package:dental_lab_app/core/helper/local/cacheable_fetch.dart';
 import 'package:dental_lab_app/core/helper/local/cached_helper.dart';
 import 'package:dental_lab_app/core/helper/network_helper/api_service.dart';
+import 'package:dental_lab_app/core/helper/network_helper/lookup_api.dart';
 import 'package:dental_lab_app/features/laboratories/data/models/create_laboratory_request_model.dart';
+import 'package:dental_lab_app/features/laboratories/data/models/footer_contact_model.dart';
 import 'package:dental_lab_app/features/laboratories/data/models/laboratory_model.dart';
 import 'package:dental_lab_app/features/laboratories/data/models/update_laboratory_request_model.dart';
 import 'package:dio/dio.dart';
@@ -32,7 +34,7 @@ class LaboratoriesRepo {
       return fallbackToCache(
         cacheKey: CacheKeys.cachedLaboratoriesList,
         fromJson: LaboratoryModel.fromJson,
-        onFailure: () => ServerFailure.FromDioExecption(e),
+        onFailure: () => ServerFailure.fromDioException(e),
       );
     } catch (e) {
       log('General Exception while fetching laboratories: ${e.toString()}');
@@ -52,7 +54,7 @@ class LaboratoriesRepo {
       return right(laboratory);
     } on DioException catch (e) {
       log('DioException while fetching own laboratory: ${e.message}');
-      return left(ServerFailure.FromDioExecption(e));
+      return left(ServerFailure.fromDioException(e));
     } catch (e) {
       log('General Exception while fetching own laboratory: ${e.toString()}');
       return left(ServerFailure.fromException(e));
@@ -70,7 +72,7 @@ class LaboratoriesRepo {
       return right(laboratory);
     } on DioException catch (e) {
       log('DioException while fetching laboratory: ${e.message}');
-      return left(ServerFailure.FromDioExecption(e));
+      return left(ServerFailure.fromDioException(e));
     } catch (e) {
       log('General Exception while fetching laboratory: ${e.toString()}');
       return left(ServerFailure.fromException(e));
@@ -90,7 +92,7 @@ class LaboratoriesRepo {
       return right(laboratory);
     } on DioException catch (e) {
       log('DioException while creating laboratory: ${e.message}');
-      return left(ServerFailure.FromDioExecption(e));
+      return left(ServerFailure.fromDioException(e));
     } catch (e) {
       log('General Exception while creating laboratory: ${e.toString()}');
       return left(ServerFailure.fromException(e));
@@ -121,7 +123,7 @@ class LaboratoriesRepo {
       return right(laboratory);
     } on DioException catch (e) {
       log('DioException while updating laboratory: ${e.message}');
-      return left(ServerFailure.FromDioExecption(e));
+      return left(ServerFailure.fromDioException(e));
     } catch (e) {
       log('General Exception while updating laboratory: ${e.toString()}');
       return left(ServerFailure.fromException(e));
@@ -136,12 +138,65 @@ class LaboratoriesRepo {
       return right(null);
     } on DioException catch (e) {
       log('DioException while deleting laboratory: ${e.message}');
-      return left(ServerFailure.FromDioExecption(e));
+      return left(ServerFailure.fromDioException(e));
     } catch (e) {
       log('General Exception while deleting laboratory: ${e.toString()}');
       return left(ServerFailure.fromException(e));
     }
   }
+
+  // ---- Printed identity -------------------------------------------------
+
+  Future<Either<Failure, T>> _guard<T>(
+    String what,
+    Future<T> Function() request,
+  ) async {
+    try {
+      return right(await request());
+    } on DioException catch (e) {
+      log('DioException while $what: ${e.message}');
+      return left(ServerFailure.fromDioException(e));
+    } catch (e) {
+      log('General Exception while $what: $e');
+      return left(ServerFailure.fromException(e));
+    }
+  }
+
+  /// Replaces the contact lines printed at the foot of reports and invoices.
+  ///
+  /// The whole list is sent every time: a row left out is deleted, which is
+  /// what makes reordering and removing possible in one save.
+  Future<Either<Failure, void>> setFooterContacts({
+    required String id,
+    required List<SaveFooterContactModel> contacts,
+  }) => _guard(
+    'setting laboratory footer contacts',
+    () => _apiService.setLaboratoryFooterContacts(
+      id: id,
+      contacts: contacts,
+      token: _token,
+    ),
+  );
+
+  Future<Either<Failure, void>> uploadLogo({
+    required String id,
+    required String filePath,
+  }) => _guard(
+    'uploading a laboratory logo',
+    () => _apiService.uploadLaboratoryLogo(
+      id: id,
+      filePath: filePath,
+      token: _token,
+    ),
+  );
+
+  /// Back to no logo at all — not the same as uploading a blank one, since
+  /// reports lay out differently with no logo than with an empty box where one
+  /// should be.
+  Future<Either<Failure, void>> deleteLogo(String id) => _guard(
+    'deleting a laboratory logo',
+    () => _apiService.deleteLaboratoryLogo(id: id, token: _token),
+  );
 
   /// Switches the laboratory every subsequent request is scoped to (sent as
   /// the `X-Laboratory-Id` header by the [Api] interceptor).

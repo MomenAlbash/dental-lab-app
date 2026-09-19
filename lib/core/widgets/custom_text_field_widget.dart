@@ -42,6 +42,7 @@ class AppTextFormField extends StatefulWidget {
     this.enabled = true,
     this.focusNode,
     this.obscureToggle = false,
+    this.textDirection,
   });
 
   final EdgeInsets? contentPadding;
@@ -71,6 +72,16 @@ class AppTextFormField extends StatefulWidget {
 
   /// Adds a show/hide eye button. Only meaningful with [isObscureText].
   final bool obscureToggle;
+
+  /// Overrides the direction the *content* is laid out in.
+  ///
+  /// Left null it is derived from [keyboardType]: a field that can only hold
+  /// digits or Latin — a number, a phone, an email, a URL — is forced LTR.
+  /// Inheriting the app's RTL there is what made backspace look broken: digits
+  /// are bidi-weak, so in an RTL paragraph their logical order runs opposite
+  /// to what is on screen, the caret at the visual left sits at the *start* of
+  /// the text, and there is nothing before it to delete.
+  final TextDirection? textDirection;
 
   @override
   State<AppTextFormField> createState() => _AppTextFormFieldState();
@@ -117,6 +128,33 @@ class _AppTextFormFieldState extends State<AppTextFormField>
   void _onFocusChanged() {
     if (!mounted) return;
     setState(() => _focused = _focusNode.hasFocus);
+    if (_focusNode.hasFocus) _moveCaretToEnd();
+  }
+
+  /// Puts the caret after the last character when the field is entered.
+  ///
+  /// Backspace deletes what is *before* the caret, and tapping a short value
+  /// — a quota of "5", a price of "40" — usually lands the caret at position
+  /// zero, where there is nothing before it. The field then looks broken:
+  /// pressing delete does nothing at all until you happen to tap on the far
+  /// side of the digits. Entering a field to edit its value means wanting to
+  /// be at the end of it.
+  ///
+  /// Deferred by a frame because focus arrives before the framework applies
+  /// its own selection, which would otherwise overwrite this.
+  void _moveCaretToEnd() {
+    final controller = widget.controller;
+    if (controller == null) return;
+
+    // Only ever on focus *gain*, so a user who taps mid-number in a field they
+    // are already editing keeps the caret where they put it.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_focusNode.hasFocus) return;
+
+      controller.selection = TextSelection.collapsed(
+        offset: controller.text.length,
+      );
+    });
   }
 
   @override
@@ -150,11 +188,37 @@ class _AppTextFormFieldState extends State<AppTextFormField>
     return math.sin(t * math.pi * 6) * 6 * (1 - t);
   }
 
+  /// Keyboards whose content is never Arabic, so the field's own direction
+  /// must not follow the surrounding page.
+  static bool _isLatinOnly(TextInputType? type) {
+    if (type == null) return false;
+    return type == TextInputType.number ||
+        type == TextInputType.phone ||
+        type == TextInputType.emailAddress ||
+        type == TextInputType.url ||
+        type == TextInputType.datetime ||
+        type == TextInputType.visiblePassword ||
+        // `numberWithOptions` builds a fresh instance per call, so it never
+        // matches by identity — compare the name instead.
+        type.toString().contains('number');
+  }
+
   @override
   Widget build(BuildContext context) {
     final glass = context.glass;
     final accent = Theme.of(context).colorScheme.primary;
     final radius = BorderRadius.circular(AppRadius.glass);
+
+    final isRtlPage = Directionality.of(context) == TextDirection.rtl;
+    final direction =
+        widget.textDirection ??
+        (_isLatinOnly(widget.keyboardType) ? TextDirection.ltr : null);
+
+    // Alignment is pinned to the *page*, not to the field's content direction.
+    // Only the bidi order needed fixing; letting an LTR number field also jump
+    // to the left edge would rearrange every form in the app for a bug that is
+    // about deletion.
+    final align = isRtlPage ? TextAlign.right : TextAlign.left;
 
     Widget field = AnimatedContainer(
       duration: AppMotion.fast,
@@ -175,7 +239,8 @@ class _AppTextFormFieldState extends State<AppTextFormField>
         controller: widget.controller,
         focusNode: _focusNode,
         enabled: widget.enabled,
-        textAlign: TextAlign.start,
+        textAlign: align,
+        textDirection: direction,
         textInputAction: widget.textInputAction,
         keyboardType: widget.keyboardType,
         inputFormatters: widget.inputFormatters,

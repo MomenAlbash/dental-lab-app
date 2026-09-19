@@ -1,16 +1,23 @@
 import 'package:dental_lab_app/core/di/dependency_injection.dart';
+import 'package:dental_lab_app/core/helper/api_time_helper.dart';
 import 'package:dental_lab_app/core/helper/network_helper/media_url.dart';
 import 'package:dental_lab_app/core/router/routes.dart';
 import 'package:dental_lab_app/core/theming/glass.dart';
 import 'package:dental_lab_app/core/theming/styles.dart';
+import 'package:dental_lab_app/core/widgets/confirm_dialog_widget.dart';
 import 'package:dental_lab_app/core/widgets/custom_circle_progress_indiacator_widget.dart';
 import 'package:dental_lab_app/core/widgets/glass/glass_app_bar.dart';
 import 'package:dental_lab_app/core/widgets/glass/glass_scaffold.dart';
 import 'package:dental_lab_app/core/widgets/show_toast_widget.dart';
+import 'package:dental_lab_app/features/employees/data/models/employee_model.dart';
 import 'package:dental_lab_app/features/employees/logic/employee_details/employee_details_cubit.dart';
+import 'package:dental_lab_app/features/employees/logic/employee_hr/employee_hr_cubit.dart';
 import 'package:dental_lab_app/features/employees/logic/employee_details/employee_details_state.dart';
 import 'package:dental_lab_app/features/employees/ui/widgets/employee_details_body.dart';
+import 'package:dental_lab_app/features/employees/ui/widgets/employee_notes_sheet.dart';
+import 'package:dental_lab_app/features/employees/ui/widgets/employee_work_sheet.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:dental_lab_app/features/details_questions/ui/widgets/person_answers_sheet.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
@@ -42,17 +49,100 @@ class _EmployeeDetailView extends StatelessWidget {
       final path = result?.files.single.path;
       if (path != null) await cubit.uploadFile(path);
     } catch (e) {
-      ShowToast(
+      showToast(
         message: 'تعذّر فتح منتقي الملفات: $e',
-        state: toastState.error,
+        state: ToastState.error,
       );
+    }
+  }
+
+  /// Replaces the employee's photo.
+  ///
+  /// The detail cubit refetches afterwards rather than the HR cubit's answer
+  /// being spliced in: the two hold the same employee, and one of them
+  /// quietly holding a newer copy is how a screen starts disagreeing with
+  /// itself.
+  Future<void> _changePhoto(BuildContext context, EmployeeModel employee) async {
+    final detailsCubit = context.read<EmployeeDetailsCubit>();
+    final hrCubit = getIt<EmployeeHrCubit>();
+
+    final result = await FilePicker.pickFiles(type: FileType.image);
+    final path = result?.files.single.path;
+    if (path == null) return;
+
+    await hrCubit.uploadImage(employeeId: employee.id, filePath: path);
+    final state = hrCubit.state;
+
+    if (state is EmployeeHrError) {
+      showToast(message: state.message, state: ToastState.error);
+      return;
+    }
+    if (state is EmployeeHrSaved) {
+      showToast(message: state.message, state: ToastState.success);
+      await detailsCubit.getEmployee(employee.id);
+    }
+  }
+
+  /// Ends the employment, dated — and says plainly that the person stays.
+  Future<void> _terminate(BuildContext context, EmployeeModel employee) async {
+    final detailsCubit = context.read<EmployeeDetailsCubit>();
+
+    final date = await showDatePicker(
+      context: context,
+      initialDate: DateTime.now(),
+      firstDate: DateTime(DateTime.now().year - 2),
+      lastDate: DateTime.now().add(const Duration(days: 365)),
+      helpText: 'تاريخ إنهاء العمل',
+    );
+    if (date == null || !context.mounted) return;
+
+    final confirmed = await ConfirmDialogWidget.show(
+      context,
+      title: 'إنهاء عمل الموظف',
+      message:
+          'سيُسجَّل انتهاء العمل بتاريخ ${ApiTime.formatDate(date)}. '
+          'يبقى الموظف وسجلّه (الحضور، الرواتب، الحالات) كما هو، '
+          'ويمكن إعادة تعيينه لاحقاً.',
+      confirmText: 'إنهاء العمل',
+      isDestructive: true,
+    );
+    if (confirmed != true) return;
+
+    final hrCubit = getIt<EmployeeHrCubit>();
+    await hrCubit.terminate(employeeId: employee.id, terminationDate: date);
+
+    final state = hrCubit.state;
+    if (state is EmployeeHrError) {
+      showToast(message: state.message, state: ToastState.error);
+      return;
+    }
+    if (state is EmployeeHrSaved) {
+      showToast(message: state.message, state: ToastState.success);
+      await detailsCubit.getEmployee(employee.id);
+    }
+  }
+
+  Future<void> _reinstate(BuildContext context, EmployeeModel employee) async {
+    final detailsCubit = context.read<EmployeeDetailsCubit>();
+    final hrCubit = getIt<EmployeeHrCubit>();
+
+    await hrCubit.reinstate(employee.id);
+
+    final state = hrCubit.state;
+    if (state is EmployeeHrError) {
+      showToast(message: state.message, state: ToastState.error);
+      return;
+    }
+    if (state is EmployeeHrSaved) {
+      showToast(message: state.message, state: ToastState.success);
+      await detailsCubit.getEmployee(employee.id);
     }
   }
 
   Future<void> _openFile(String? filePath) async {
     final url = resolveMediaUrl(filePath);
     if (url == null) {
-      ShowToast(message: 'لا يوجد ملف للفتح', state: toastState.error);
+      showToast(message: 'لا يوجد ملف للفتح', state: ToastState.error);
       return;
     }
 
@@ -62,7 +152,7 @@ class _EmployeeDetailView extends StatelessWidget {
     );
 
     if (!launched) {
-      ShowToast(message: 'تعذّر فتح الملف', state: toastState.error);
+      showToast(message: 'تعذّر فتح الملف', state: ToastState.error);
     }
   }
 
@@ -75,9 +165,9 @@ class _EmployeeDetailView extends StatelessWidget {
       listener: (context, state) {
         switch (state) {
           case EmployeeDetailsActionSuccess(:final message):
-            ShowToast(message: message, state: toastState.success);
+            showToast(message: message, state: ToastState.success);
           case EmployeeDetailsActionError(:final message):
-            ShowToast(message: message, state: toastState.error);
+            showToast(message: message, state: ToastState.error);
           default:
             break;
         }
@@ -122,6 +212,25 @@ class _EmployeeDetailView extends StatelessWidget {
                 onDeleteFile: (fileId) =>
                     context.read<EmployeeDetailsCubit>().deleteFile(fileId),
                 onOpenFile: (file) => _openFile(file.filePath),
+                onChangePhoto: () => _changePhoto(context, employee),
+                onOpenAnswers: () => showPersonAnswersSheet(
+                  context,
+                  personId: employee.id,
+                  isDoctor: false,
+                  personName: employee.fullName,
+                ),
+                onTerminate: () => _terminate(context, employee),
+                onReinstate: () => _reinstate(context, employee),
+                onOpenNotes: () => showEmployeeNotesSheet(
+                  context,
+                  employeeId: employee.id,
+                  employeeName: employee.fullName,
+                ),
+                onOpenWorkAndPay: () => showEmployeeWorkSheet(
+                  context,
+                  employeeId: employee.id,
+                  employeeName: employee.fullName,
+                ),
               ),
             EmployeeDetailsError(:final message) => Center(
               child: Padding(

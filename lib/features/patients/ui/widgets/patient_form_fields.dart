@@ -4,6 +4,8 @@ import 'package:dental_lab_app/core/theming/app_motion.dart';
 import 'package:dental_lab_app/core/theming/glass.dart';
 import 'package:dental_lab_app/core/theming/styles.dart';
 import 'package:dental_lab_app/core/widgets/custom_text_field_widget.dart';
+import 'package:dental_lab_app/core/widgets/quick_add_field.dart';
+import 'package:dental_lab_app/features/doctors/data/models/doctor_model.dart';
 import 'package:dental_lab_app/features/doctors/logic/doctors/doctors_cubit.dart';
 import 'package:dental_lab_app/features/doctors/logic/doctors/doctors_state.dart';
 import 'package:dental_lab_app/features/patients/data/models/patient_gender.dart';
@@ -649,64 +651,81 @@ class _DoctorPicker extends StatelessWidget {
         if (doctors != null && doctors.isEmpty) {
           return _NoDoctorsNotice(
             onAddDoctor: () async {
-              final added = await context.push<bool>(Routes.doctorFormScreen);
-              if (added == true && context.mounted) {
-                context.read<DoctorsCubit>().getDoctors();
-              }
+              final doctor = await context.push<DoctorModel>(
+                Routes.doctorFormScreen,
+              );
+              if (doctor == null || !context.mounted) return;
+              context.read<DoctorsCubit>().getDoctors();
+              onChanged(doctor.id);
             },
           );
         }
 
-        final glass = context.glass;
-        final border = OutlineInputBorder(
-          borderRadius: BorderRadius.circular(AppRadius.glass),
-          borderSide: BorderSide(color: glass.strokeColor),
-        );
-
-        return DropdownButtonFormField<String>(
-          initialValue: value,
-          isExpanded: true,
-          style: AppTextStyles.font14MediumText.copyWith(color: glass.onGlass),
-          dropdownColor: Theme.of(context).colorScheme.surface,
-          borderRadius: BorderRadius.circular(AppRadius.glass),
-          icon: Icon(Icons.keyboard_arrow_down, color: glass.onGlassMuted),
-          decoration: InputDecoration(
-            filled: true,
-            fillColor: glass.fillColor,
-            prefixIcon: Icon(
-              Icons.medical_services_outlined,
-              color: glass.onGlassMuted,
-            ),
-            contentPadding: const EdgeInsets.symmetric(
-              horizontal: 18,
-              vertical: AppSpacing.xs,
-            ),
-            border: border,
-            enabledBorder: border,
-            focusedBorder: border.copyWith(
-              borderSide: BorderSide(
-                color: Theme.of(context).colorScheme.primary,
-                width: 1.6,
-              ),
-            ),
-          ),
-          hint: Text(
-            state is DoctorsLoading ? 'جارٍ تحميل الأطباء...' : 'اختر الطبيب',
-            style: AppTextStyles.font14RegularSecondary.copyWith(
-              color: glass.onGlassMuted,
-            ),
-          ),
-          items:
-              doctors
-                  ?.map(
-                    (d) =>
-                        DropdownMenuItem(value: d.id, child: Text(d.fullName)),
-                  )
-                  .toList() ??
-              const [],
-          onChanged: doctors == null ? null : onChanged,
+        return QuickAddField<DoctorModel>(
+          tooltip: 'إضافة طبيب جديد',
+          onAdd: () => context.push<DoctorModel>(Routes.doctorFormScreen),
+          onAdded: (doctor) {
+            context.read<DoctorsCubit>().getDoctors();
+            onChanged(doctor.id);
+          },
+          field: _buildDropdown(context, doctors, state),
         );
       },
+    );
+  }
+
+  Widget _buildDropdown(
+    BuildContext context,
+    List<DoctorModel>? doctors,
+    DoctorsState state,
+  ) {
+    final glass = context.glass;
+    final border = OutlineInputBorder(
+      borderRadius: BorderRadius.circular(AppRadius.glass),
+      borderSide: BorderSide(color: glass.strokeColor),
+    );
+
+    return DropdownButtonFormField<String>(
+      initialValue: value,
+      isExpanded: true,
+      style: AppTextStyles.font14MediumText.copyWith(color: glass.onGlass),
+      dropdownColor: Theme.of(context).colorScheme.surface,
+      borderRadius: BorderRadius.circular(AppRadius.glass),
+      icon: Icon(Icons.keyboard_arrow_down, color: glass.onGlassMuted),
+      decoration: InputDecoration(
+        filled: true,
+        fillColor: glass.fillColor,
+        prefixIcon: Icon(
+          Icons.medical_services_outlined,
+          color: glass.onGlassMuted,
+        ),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 18,
+          vertical: AppSpacing.xs,
+        ),
+        border: border,
+        enabledBorder: border,
+        focusedBorder: border.copyWith(
+          borderSide: BorderSide(
+            color: Theme.of(context).colorScheme.primary,
+            width: 1.6,
+          ),
+        ),
+      ),
+      hint: Text(
+        state is DoctorsLoading ? 'جارٍ تحميل الأطباء...' : 'اختر الطبيب',
+        style: AppTextStyles.font14RegularSecondary.copyWith(
+          color: glass.onGlassMuted,
+        ),
+      ),
+      items:
+          doctors
+              ?.map(
+                (d) => DropdownMenuItem(value: d.id, child: Text(d.fullName)),
+              )
+              .toList() ??
+          const [],
+      onChanged: doctors == null ? null : onChanged,
     );
   }
 }

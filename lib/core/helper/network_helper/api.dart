@@ -5,15 +5,34 @@ import 'package:dental_lab_app/core/di/dependency_injection.dart';
 import 'package:dental_lab_app/core/helper/local/cache_keys.dart';
 import 'package:dental_lab_app/core/helper/local/cached_helper.dart';
 import 'package:dio/dio.dart';
-import 'package:flutter/cupertino.dart';
+
+/// Where the API lives.
+///
+/// A compile-time constant rather than a literal in the transport layer: a
+/// build can be pointed at another deployment without a code edit —
+/// `flutter build apk --dart-define=API_ORIGIN=https://other-host`.
+const String apiOrigin = String.fromEnvironment(
+  'API_ORIGIN',
+  defaultValue: 'https://dental-lab.runasp.net',
+);
 
 class Api {
   static late Dio dio;
 
-  static init() {
+  /// Invoked once for any `401` from any request.
+  ///
+  /// A hook rather than a direct call into the router or a cubit: this file is
+  /// the transport layer and must stay free of UI and feature imports. `main`
+  /// wires it to "clear the session and hard-route to login".
+  static void Function()? onSessionExpired;
+
+  static void init() {
     dio = Dio(
       BaseOptions(
-        baseUrl: 'https://dental-lab.runasp.net/api/clinic/',
+        // Overridable at build time so a staging or on-prem host does not need
+        // a code edit:
+        //   flutter build apk --dart-define=API_ORIGIN=https://host
+        baseUrl: '$apiOrigin/api/clinic/',
         receiveDataWhenStatusError: true,
         headers: {'Content-Type': 'application/json'},
       ),
@@ -59,6 +78,18 @@ class Api {
             log('Marking offline due to: ${error.type} - ${error.message}');
             getIt<ConnectivityCubit>().markOffline();
           }
+
+          // A 401 means the token the interceptor just attached is no longer
+          // accepted — expired, revoked, or issued against a database the
+          // server no longer has. Every screen from here on would fail the
+          // same way, so the session is dropped centrally rather than letting
+          // each screen render its own "unauthorized" error. `onSessionExpired`
+          // does the routing; this layer must not import UI.
+          if (error.response?.statusCode == 401) {
+            log('401 received — clearing the session');
+            onSessionExpired?.call();
+          }
+
           return handler.next(error);
         },
       ),
@@ -67,7 +98,7 @@ class Api {
 
   /// Whether [error] represents a real connectivity failure (no route to
   /// the server at all) rather than some other response-less error like a
-  /// cancelled request — mirrors the criteria `ServerFailure.FromDioExecption`
+  /// cancelled request — mirrors the criteria `ServerFailure.fromDioException`
   /// already trusts for its "No Internet Connection" message.
   static bool _isConnectivityError(DioException error) {
     switch (error.type) {
@@ -83,7 +114,7 @@ class Api {
     }
   }
 
-  Future<dynamic> get({required String Url, @required String? token}) async {
+  Future<dynamic> get({required String url, String? token}) async {
     try {
       final options = Options(
         headers: {
@@ -92,10 +123,10 @@ class Api {
         },
       );
 
-      log('GET Request: $Url');
+      log('GET Request: $url');
       if (token != null) log('Token: $token');
 
-      Response response = await dio.get(Url, options: options);
+      Response response = await dio.get(url, options: options);
       log('GET Response: ${response.statusCode} - ${response.data}');
       return response.data;
     } on DioException catch (e) {
@@ -169,7 +200,12 @@ class Api {
     if (fallback != null && fallback.trim().isNotEmpty) {
       return status != null ? '$fallback (HTTP $status)' : fallback;
     }
-    return status != null ? 'خطأ من الخادم (HTTP $status)' : 'خطأ غير متوقع';
+    if (status != null) return 'خطأ من الخادم (HTTP $status)';
+    // No response and no message at all — almost always a transport-level
+    // failure (DNS, TLS, connection refused) rather than a genuine mystery.
+    // Naming the DioException type turns the next occurrence into something
+    // diagnosable instead of a dead-end toast.
+    return 'تعذر الاتصال بالخادم (${e.type.name})';
   }
 
   static bool _looksLikeHtml(String text) {

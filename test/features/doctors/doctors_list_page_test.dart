@@ -17,6 +17,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../helpers/session.dart';
+
 class _MockDoctorsRepo extends Mock implements DoctorsRepo {}
 
 DoctorModel _doctor(String id, String first, String last) =>
@@ -35,6 +37,7 @@ void main() {
     // the ThemeCubit from it too.
     getIt.registerFactory<DoctorsCubit>(() => DoctorsCubit(repo));
     getIt.registerLazySingleton<ThemeCubit>(() => ThemeCubit());
+    registerTestSession();
   });
 
   tearDown(() => getIt.reset());

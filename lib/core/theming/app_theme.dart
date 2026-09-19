@@ -1,4 +1,4 @@
-import 'package:dental_lab_app/core/theming/app_dimensions.dart';
+﻿import 'package:dental_lab_app/core/theming/app_dimensions.dart';
 import 'package:dental_lab_app/core/theming/colors.dart';
 import 'package:dental_lab_app/core/theming/glass.dart';
 import 'package:dental_lab_app/core/theming/styles.dart';
@@ -31,6 +31,24 @@ class AppTheme {
   AppTheme._();
 
   static const String fontFamily = 'Tajawal';
+
+  /// Re-dresses a theme in one laboratory's own brand colour.
+  ///
+  /// Only the accent moves. The greys, the glass tokens and the surfaces stay
+  /// exactly as designed — a lab picking a brand colour is choosing an accent,
+  /// not redesigning the product, and letting the colour leak into surfaces is
+  /// how white-labelling turns into an unreadable screen.
+  ///
+  /// [primary] null (no brand set, or a malformed hex) returns [theme]
+  /// untouched, so the app simply looks like itself.
+  static ThemeData branded(ThemeData theme, Color? primary) {
+    if (primary == null) return theme;
+
+    return theme.copyWith(
+      primaryColor: primary,
+      colorScheme: theme.colorScheme.copyWith(primary: primary),
+    );
+  }
 
   static ThemeData get light {
     final base = ThemeData.light(useMaterial3: true);
@@ -104,6 +122,16 @@ class AppTheme {
       // by hand — and why an old screen could quietly drift off-palette.
       filledButtonTheme: FilledButtonThemeData(
         style: _primaryButtonStyle(AppColorsManger.primary, Colors.white),
+      ),
+      chipTheme: _chipTheme(
+        accent: AppColorsManger.primary,
+        onSurface: AppColorsManger.textPrimary,
+        border: AppColorsManger.border,
+      ),
+      segmentedButtonTheme: _segmentedButtonTheme(
+        accent: AppColorsManger.primary,
+        onSurface: AppColorsManger.textPrimary,
+        border: AppColorsManger.border,
       ),
       textButtonTheme: TextButtonThemeData(
         style: _flatButtonStyle(AppColorsManger.primary),
@@ -217,6 +245,16 @@ class AppTheme {
           AppColorsDark.primaryForeground,
         ),
       ),
+      chipTheme: _chipTheme(
+        accent: AppColorsDark.primary,
+        onSurface: AppColorsDark.textPrimary,
+        border: AppColorsDark.border,
+      ),
+      segmentedButtonTheme: _segmentedButtonTheme(
+        accent: AppColorsDark.primary,
+        onSurface: AppColorsDark.textPrimary,
+        border: AppColorsDark.border,
+      ),
       textButtonTheme: TextButtonThemeData(
         style: _flatButtonStyle(AppColorsDark.primary),
       ),
@@ -287,6 +325,66 @@ class AppTheme {
       shape: WidgetStatePropertyAll(
         RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(AppRadius.glass),
+        ),
+      ),
+    );
+  }
+
+  /// Selection chips (`ChoiceChip`, `FilterChip`).
+  ///
+  /// Themed centrally because Material's default paints a selected chip with
+  /// `secondaryContainer`, which on this app's scheme is a muted tone with no
+  /// relation to the brand — so every chip in the app read as a different
+  /// product from the buttons beside it. One definition here fixes the badge
+  /// pickers, the intake picker and every filter chip at once.
+  static ChipThemeData _chipTheme({
+    required Color accent,
+    required Color onSurface,
+    required Color border,
+  }) {
+    return ChipThemeData(
+      backgroundColor: Colors.transparent,
+      selectedColor: accent.withValues(alpha: 0.12),
+      checkmarkColor: accent,
+      labelStyle: AppTextStyles.font13MediumPrimary.copyWith(color: onSurface),
+      secondaryLabelStyle: AppTextStyles.font13MediumPrimary.copyWith(
+        color: accent,
+      ),
+      side: WidgetStateBorderSide.resolveWith(
+        (states) => states.contains(WidgetState.selected)
+            ? BorderSide(color: accent, width: 1.5)
+            : BorderSide(color: border),
+      ),
+      shape: const StadiumBorder(),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      showCheckmark: false,
+    );
+  }
+
+  /// Segmented buttons, matched to the chips above so a two-option control and
+  /// a three-option one do not read as different widgets.
+  static SegmentedButtonThemeData _segmentedButtonTheme({
+    required Color accent,
+    required Color onSurface,
+    required Color border,
+  }) {
+    return SegmentedButtonThemeData(
+      style: ButtonStyle(
+        backgroundColor: WidgetStateProperty.resolveWith(
+          (states) => states.contains(WidgetState.selected)
+              ? accent.withValues(alpha: 0.12)
+              : Colors.transparent,
+        ),
+        foregroundColor: WidgetStateProperty.resolveWith(
+          (states) =>
+              states.contains(WidgetState.selected) ? accent : onSurface,
+        ),
+        side: WidgetStatePropertyAll(BorderSide(color: border)),
+        textStyle: WidgetStatePropertyAll(AppTextStyles.font13MediumPrimary),
+        shape: WidgetStatePropertyAll(
+          RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(AppRadius.glass),
+          ),
         ),
       ),
     );

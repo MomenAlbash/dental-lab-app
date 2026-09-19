@@ -1,18 +1,24 @@
+import 'package:dental_lab_app/core/router/routes.dart';
 import 'package:dental_lab_app/core/theming/glass.dart';
 import 'package:dental_lab_app/core/theming/styles.dart';
 import 'package:dental_lab_app/core/widgets/custom_button_widget.dart';
 import 'package:dental_lab_app/core/widgets/custom_circle_progress_indiacator_widget.dart';
 import 'package:dental_lab_app/core/widgets/custom_text_field_widget.dart';
+import 'package:dental_lab_app/core/widgets/quick_add_field.dart';
+import 'package:dental_lab_app/features/cases/ui/widgets/case_lookup_dropdown.dart';
+import 'package:dental_lab_app/features/doctors/data/models/doctor_model.dart';
 import 'package:dental_lab_app/features/doctors/logic/doctors/doctors_cubit.dart';
 import 'package:dental_lab_app/features/doctors/logic/doctors/doctors_state.dart';
+import 'package:dental_lab_app/features/employees/data/models/employee_model.dart';
 import 'package:dental_lab_app/features/employees/logic/employees/employees_cubit.dart';
 import 'package:dental_lab_app/features/employees/logic/employees/employees_state.dart';
+import 'package:dental_lab_app/features/roles/data/models/role_model.dart';
 import 'package:dental_lab_app/features/roles/logic/roles/roles_cubit.dart';
 import 'package:dental_lab_app/features/roles/logic/roles/roles_state.dart';
 import 'package:dental_lab_app/features/users/data/models/user_model.dart';
-import 'package:dental_lab_app/features/users/ui/widgets/labeled_dropdown.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:go_router/go_router.dart';
 
 /// The create-user form section: account type, the linked doctor/employee
 /// picker, credentials, role and the admin flag. State is owned by the page.
@@ -26,6 +32,8 @@ class UserFormFields extends StatelessWidget {
     required this.onEmployeeChanged,
     required this.doctorId,
     required this.onDoctorChanged,
+    required this.isRepresentative,
+    required this.onRepresentativeChanged,
     required this.usernameController,
     required this.passwordController,
     required this.emailController,
@@ -46,6 +54,11 @@ class UserFormFields extends StatelessWidget {
   final ValueChanged<String?> onEmployeeChanged;
   final String? doctorId;
   final ValueChanged<String?> onDoctorChanged;
+
+  /// Only meaningful when [type] is [UserType.employee] — whether this
+  /// employee is also a sales representative.
+  final bool isRepresentative;
+  final ValueChanged<bool> onRepresentativeChanged;
   final TextEditingController usernameController;
   final TextEditingController passwordController;
   final TextEditingController emailController;
@@ -79,6 +92,11 @@ class UserFormFields extends StatelessWidget {
           if (type == UserType.employee) ...[
             const _Label('الموظف'),
             _EmployeeDropdown(value: employeeId, onChanged: onEmployeeChanged),
+            const SizedBox(height: 12),
+            _RepresentativeSwitch(
+              value: isRepresentative,
+              onChanged: onRepresentativeChanged,
+            ),
           ] else ...[
             const _Label('الطبيب'),
             _DoctorDropdown(value: doctorId, onChanged: onDoctorChanged),
@@ -167,6 +185,35 @@ class _Label extends StatelessWidget {
   }
 }
 
+class _RepresentativeSwitch extends StatelessWidget {
+  const _RepresentativeSwitch({required this.value, required this.onChanged});
+
+  final bool value;
+  final ValueChanged<bool> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      decoration: BoxDecoration(
+        color: context.glass.surfaceColor,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: context.glass.strokeColor),
+      ),
+      child: Row(
+        children: [
+          Expanded(child: Text('مندوب', style: AppTextStyles.font14MediumText)),
+          Switch(
+            value: value,
+            activeThumbColor: Theme.of(context).colorScheme.primary,
+            onChanged: onChanged,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _AdminSwitch extends StatelessWidget {
   const _AdminSwitch({required this.value, required this.onChanged});
 
@@ -207,21 +254,30 @@ class _RoleDropdown extends StatelessWidget {
     return BlocBuilder<RolesCubit, RolesState>(
       builder: (context, state) {
         final roles = state is RolesLoaded ? state.roles : null;
-        return LabeledDropdown(
-          value: value,
-          icon: Icons.security_outlined,
-          hintText: state is RolesLoading
-              ? 'جارٍ تحميل الأدوار...'
-              : 'اختر الدور (اختياري)',
-          items: roles
-              ?.map(
-                (role) => DropdownMenuItem(
-                  value: role.id,
-                  child: Text(role.name ?? '—'),
-                ),
-              )
-              .toList(),
-          onChanged: onChanged,
+        return QuickAddField<RoleModel>(
+          tooltip: 'إضافة دور جديد',
+          onAdd: () => context.push<RoleModel>(Routes.roleFormScreen),
+          onAdded: (role) {
+            context.read<RolesCubit>().getRoles();
+            onChanged(role.id);
+          },
+          onDismissed: () => context.read<RolesCubit>().getRoles(),
+          field: CaseLookupDropdown(
+            value: value,
+            icon: Icons.security_outlined,
+            hintText: state is RolesLoading
+                ? 'جارٍ تحميل الأدوار...'
+                : 'اختر الدور (اختياري)',
+            items: roles
+                ?.map(
+                  (role) => DropdownMenuItem(
+                    value: role.id,
+                    child: Text(role.name ?? '—'),
+                  ),
+                )
+                .toList(),
+            onChanged: onChanged,
+          ),
         );
       },
     );
@@ -239,21 +295,29 @@ class _EmployeeDropdown extends StatelessWidget {
     return BlocBuilder<EmployeesCubit, EmployeesState>(
       builder: (context, state) {
         final employees = state is EmployeesLoaded ? state.employees : null;
-        return LabeledDropdown(
-          value: value,
-          icon: Icons.badge_outlined,
-          hintText: state is EmployeesLoading
-              ? 'جارٍ تحميل الموظفين...'
-              : 'اختر الموظف',
-          items: employees
-              ?.map(
-                (employee) => DropdownMenuItem(
-                  value: employee.id,
-                  child: Text(employee.fullName),
-                ),
-              )
-              .toList(),
-          onChanged: onChanged,
+        return QuickAddField<EmployeeModel>(
+          tooltip: 'إضافة موظف جديد',
+          onAdd: () => context.push<EmployeeModel>(Routes.employeeFormScreen),
+          onAdded: (employee) {
+            context.read<EmployeesCubit>().getEmployees();
+            onChanged(employee.id);
+          },
+          field: CaseLookupDropdown(
+            value: value,
+            icon: Icons.badge_outlined,
+            hintText: state is EmployeesLoading
+                ? 'جارٍ تحميل الموظفين...'
+                : 'اختر الموظف',
+            items: employees
+                ?.map(
+                  (employee) => DropdownMenuItem(
+                    value: employee.id,
+                    child: Text(employee.fullName),
+                  ),
+                )
+                .toList(),
+            onChanged: onChanged,
+          ),
         );
       },
     );
@@ -271,21 +335,29 @@ class _DoctorDropdown extends StatelessWidget {
     return BlocBuilder<DoctorsCubit, DoctorsState>(
       builder: (context, state) {
         final doctors = state is DoctorsLoaded ? state.doctors : null;
-        return LabeledDropdown(
-          value: value,
-          icon: Icons.medical_services_outlined,
-          hintText: state is DoctorsLoading
-              ? 'جارٍ تحميل الأطباء...'
-              : 'اختر الطبيب',
-          items: doctors
-              ?.map(
-                (doctor) => DropdownMenuItem(
-                  value: doctor.id,
-                  child: Text(doctor.fullName),
-                ),
-              )
-              .toList(),
-          onChanged: onChanged,
+        return QuickAddField<DoctorModel>(
+          tooltip: 'إضافة طبيب جديد',
+          onAdd: () => context.push<DoctorModel>(Routes.doctorFormScreen),
+          onAdded: (doctor) {
+            context.read<DoctorsCubit>().getDoctors();
+            onChanged(doctor.id);
+          },
+          field: CaseLookupDropdown(
+            value: value,
+            icon: Icons.medical_services_outlined,
+            hintText: state is DoctorsLoading
+                ? 'جارٍ تحميل الأطباء...'
+                : 'اختر الطبيب',
+            items: doctors
+                ?.map(
+                  (doctor) => DropdownMenuItem(
+                    value: doctor.id,
+                    child: Text(doctor.fullName),
+                  ),
+                )
+                .toList(),
+            onChanged: onChanged,
+          ),
         );
       },
     );

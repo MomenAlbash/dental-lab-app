@@ -1,3 +1,5 @@
+import 'package:dental_lab_app/core/auth/session.dart';
+import 'package:dental_lab_app/core/di/dependency_injection.dart';
 import 'package:dental_lab_app/core/theming/app_dimensions.dart';
 import 'package:dental_lab_app/core/theming/app_motion.dart';
 import 'package:dental_lab_app/core/theming/glass.dart';
@@ -9,6 +11,8 @@ import 'package:dental_lab_app/core/widgets/glass/glass_section_title.dart';
 import 'package:dental_lab_app/features/cases/data/models/case_detail_model.dart';
 import 'package:dental_lab_app/features/cases/data/models/case_file_model.dart';
 import 'package:dental_lab_app/features/cases/data/models/case_restoration_model.dart';
+import 'package:dental_lab_app/features/cases/ui/widgets/case_barcode_section.dart';
+import 'package:dental_lab_app/features/cases/ui/widgets/restoration_detail_sheet.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 
@@ -88,6 +92,9 @@ class CaseDetailsBody extends StatelessWidget {
                 // sits alongside the restorations on a tablet instead of
                 // pushing them below the fold.
                 side: [
+                  // The travelling paper's code, on screen: the piece in
+                  // someone's hand is matched against this.
+                  CaseBarcodeSection(caseId: caseDetail.id),
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
@@ -214,11 +221,18 @@ class _HeroHeader extends StatelessWidget {
                     runSpacing: AppSpacing.sm,
                     alignment: WrapAlignment.center,
                     children: [
-                      _HeroPill(label: caseDetail.caseStatusLabel),
-                      // Hidden rather than shown as a dash: a case without a
-                      // priority has nothing to say here.
+                      // Each pill is hidden rather than shown as a dash: a
+                      // case without a stage or a priority has nothing to say
+                      // here, and inventing a label is the bug this migration
+                      // exists to fix.
+                      if (caseDetail.stageLabel.isNotEmpty)
+                        _HeroPill(label: caseDetail.stageLabel)
+                      else if (caseDetail.stage.isInProduction)
+                        const _HeroPill(label: 'في الإنتاج'),
                       if (caseDetail.priorityLabel.isNotEmpty)
                         _HeroPill(label: caseDetail.priorityLabel),
+                      if (caseDetail.stage.isLate)
+                        const _HeroPill(label: 'متأخرة'),
                     ],
                   ),
                 ],
@@ -327,6 +341,14 @@ class _InfoTiles extends StatelessWidget {
           value: caseDetail.referenceNumber,
           color: glass.primaryDark,
         ),
+        // The server's own estimate from the priority's turnaround. Tinted by
+        // whether the case has already passed it.
+        GlassInfoTile(
+          icon: Icons.schedule_outlined,
+          label: 'الإنجاز المتوقع',
+          value: _date(caseDetail.stage.expectedCompletionAt),
+          color: caseDetail.stage.isLate ? glass.error : glass.info,
+        ),
       ],
     );
   }
@@ -363,106 +385,147 @@ class _RestorationCard extends StatelessWidget {
         'القاطع: ${restoration.shadeIncisal}',
     ];
 
-    return Container(
-      margin: const EdgeInsets.only(bottom: AppSpacing.sm),
-      padding: const EdgeInsets.all(AppSpacing.md),
-      decoration: BoxDecoration(
-        gradient: context.glass.surfaceGradient,
-        borderRadius: BorderRadius.circular(AppRadius.glass),
-        border: Border.all(color: context.glass.strokeColor),
-        boxShadow: context.glass.shadows,
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                width: 38,
-                height: 38,
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  gradient: context.glass.brandGradient,
+    return InkWell(
+      // The card is a summary; everything recorded about the piece — teeth,
+      // shades, alloy, the doctor.s note, its own barcode — is one tap away
+      // rather than crammed into a row.
+      onTap: () =>
+          showRestorationDetailSheet(context, restoration: restoration),
+      borderRadius: BorderRadius.circular(AppRadius.glass),
+      child: Container(
+        margin: const EdgeInsets.only(bottom: AppSpacing.sm),
+        padding: const EdgeInsets.all(AppSpacing.md),
+        decoration: BoxDecoration(
+          gradient: context.glass.surfaceGradient,
+          borderRadius: BorderRadius.circular(AppRadius.glass),
+          border: Border.all(color: context.glass.strokeColor),
+          boxShadow: context.glass.shadows,
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  width: 38,
+                  height: 38,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    gradient: context.glass.brandGradient,
+                  ),
+                  child: const Icon(
+                    Icons.category_outlined,
+                    color: Colors.white,
+                    size: 18,
+                  ),
                 ),
-                child: const Icon(
-                  Icons.category_outlined,
-                  color: Colors.white,
-                  size: 18,
-                ),
-              ),
-              const SizedBox(width: AppSpacing.md),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      restoration.restorationName,
-                      style: AppTextStyles.font14MediumText.copyWith(
-                        color: context.glass.onGlass,
+                const SizedBox(width: AppSpacing.md),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        restoration.restorationName,
+                        style: AppTextStyles.font14MediumText.copyWith(
+                          color: context.glass.onGlass,
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      'الكمية: ${restoration.quantity}'
-                      '${restoration.unitPrice != null ? ' • ${restoration.unitPrice!.toStringAsFixed(0)} ${restoration.currencyName ?? ''}' : ''}',
+                      const SizedBox(height: 2),
+                      Text(
+                        // Price only for an administrator — the same rule the
+                        // add-restoration form follows, so a technician cannot
+                        // read on the detail screen what the form hid from them.
+                        '${[
+                          // The piece's own number, because that is what is
+                          // printed on its label and what someone holding it
+                          // reads back to you.
+                          if (restoration.restorationNumber?.isNotEmpty == true) 'رقم: ${restoration.restorationNumber}',
+                          'عدد القطع: ${restoration.quantity}',
+                        ].join(' • ')}${getIt<SessionCubit>().state.isAdmin && restoration.unitPrice != null ? ' • ${restoration.unitPrice!.toStringAsFixed(0)} ${restoration.currencyName ?? ''}' : ''}',
+                        style: AppTextStyles.font12RegularHint.copyWith(
+                          color: context.glass.onGlassMuted,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                if (restoration.currentStageName != null)
+                  _Badge(
+                    label: restoration.currentStageName!,
+                    color: context.glass.success,
+                  ),
+                const Spacer(),
+                TextButton.icon(
+                  onPressed: isBusy ? null : onChangeStage,
+                  icon: const Icon(Icons.swap_horiz, size: 18),
+                  label: const Text('تغيير المرحلة'),
+                ),
+              ],
+            ),
+            if (restoration.teeth.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 6,
+                runSpacing: 6,
+                children: restoration.teeth
+                    .map(
+                      (t) => _Badge(
+                        label: t.connectedToToothNumber != null
+                            ? '${t.toothNumber} ↔ ${t.connectedToToothNumber}'
+                            : '${t.toothNumber}',
+                        color: context.glass.info,
+                      ),
+                    )
+                    .toList(),
+              ),
+            ],
+            if (restoration.notes?.isNotEmpty == true) ...[
+              const SizedBox(height: 8),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Icon(
+                    Icons.notes_outlined,
+                    size: 14,
+                    color: context.glass.onGlassMuted,
+                  ),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      // The doctor's own instruction for this piece. It was
+                      // fetched and then never drawn, which is the one field a
+                      // technician most needs to read off the screen.
+                      restoration.notes!,
                       style: AppTextStyles.font12RegularHint.copyWith(
                         color: context.glass.onGlassMuted,
                       ),
                     ),
-                  ],
+                  ),
+                ],
+              ),
+            ],
+            if (shadeParts.isNotEmpty ||
+                restoration.baseToothColor?.isNotEmpty == true) ...[
+              const SizedBox(height: 8),
+              Text(
+                [
+                  if (shadeParts.isNotEmpty) shadeParts.join(' • '),
+                  if (restoration.baseToothColor?.isNotEmpty == true)
+                    'لون الأساس: ${restoration.baseToothColor}',
+                ].join('  •  '),
+                style: AppTextStyles.font12RegularHint.copyWith(
+                  color: context.glass.onGlassMuted,
                 ),
               ),
             ],
-          ),
-          const SizedBox(height: 8),
-          Row(
-            children: [
-              if (restoration.currentStageName != null)
-                _Badge(
-                  label: restoration.currentStageName!,
-                  color: context.glass.success,
-                ),
-              const Spacer(),
-              TextButton.icon(
-                onPressed: isBusy ? null : onChangeStage,
-                icon: const Icon(Icons.swap_horiz, size: 18),
-                label: const Text('تغيير المرحلة'),
-              ),
-            ],
-          ),
-          if (restoration.teeth.isNotEmpty) ...[
-            const SizedBox(height: 8),
-            Wrap(
-              spacing: 6,
-              runSpacing: 6,
-              children: restoration.teeth
-                  .map(
-                    (t) => _Badge(
-                      label: t.connectedToToothNumber != null
-                          ? '${t.toothNumber} ↔ ${t.connectedToToothNumber}'
-                          : '${t.toothNumber}',
-                      color: context.glass.info,
-                    ),
-                  )
-                  .toList(),
-            ),
           ],
-          if (shadeParts.isNotEmpty ||
-              restoration.baseToothColor?.isNotEmpty == true) ...[
-            const SizedBox(height: 8),
-            Text(
-              [
-                if (shadeParts.isNotEmpty) shadeParts.join(' • '),
-                if (restoration.baseToothColor?.isNotEmpty == true)
-                  'لون الأساس: ${restoration.baseToothColor}',
-              ].join('  •  '),
-              style: AppTextStyles.font12RegularHint.copyWith(
-                color: context.glass.onGlassMuted,
-              ),
-            ),
-          ],
-        ],
+        ),
       ),
     );
   }

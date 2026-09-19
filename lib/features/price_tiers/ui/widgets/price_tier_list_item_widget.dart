@@ -14,6 +14,7 @@ class PriceTierListItemWidget extends StatelessWidget {
     required this.isActive,
     required this.pricedRestorationCount,
     required this.totalRestorationTypeCount,
+    required this.doctorCount,
     required this.onEdit,
     required this.onEditPrices,
     required this.onDelete,
@@ -25,6 +26,10 @@ class PriceTierListItemWidget extends StatelessWidget {
   final bool isActive;
   final int pricedRestorationCount;
   final int totalRestorationTypeCount;
+
+  /// How many doctors are billed at this tier. Zero is worth showing: a tier
+  /// assigned to nobody looks identical to a working one.
+  final int doctorCount;
   final VoidCallback onEdit;
   final VoidCallback onEditPrices;
   final VoidCallback onDelete;
@@ -124,6 +129,14 @@ class PriceTierListItemWidget extends StatelessWidget {
                                             label:
                                                 '$pricedRestorationCount/$totalRestorationTypeCount مسعّرة',
                                             color: glass.info,
+                                          ),
+                                          _Badge(
+                                            label: doctorCount == 0
+                                                ? 'بلا أطباء'
+                                                : '$doctorCount طبيب',
+                                            color: doctorCount == 0
+                                                ? glass.warning
+                                                : glass.onGlassMuted,
                                           ),
                                         ],
                                       ),

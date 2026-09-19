@@ -13,13 +13,15 @@ import 'package:dental_lab_app/features/clinics/data/models/update_clinic_reques
 import 'package:dental_lab_app/features/clinics/logic/clinic_form/clinic_form_cubit.dart';
 import 'package:dental_lab_app/features/clinics/logic/clinic_form/clinic_form_state.dart';
 import 'package:dental_lab_app/features/clinics/ui/widgets/clinic_form_fields.dart';
+import 'package:dental_lab_app/features/zones/logic/zones/zones_cubit.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 /// Add/edit clinic screen. Pass [initialClinic] to open in edit mode.
 ///
-/// The form submission is driven by [ClinicFormCubit]; the city dropdown is
-/// fed by the standalone [CitiesCubit] — the two concerns stay separate.
+/// The form submission is driven by [ClinicFormCubit]; the city/zone
+/// dropdowns are fed by the standalone [CitiesCubit]/[ZonesCubit] — the
+/// concerns stay separate.
 class ClinicFormPage extends StatelessWidget {
   const ClinicFormPage({super.key, this.initialClinic});
 
@@ -31,6 +33,7 @@ class ClinicFormPage extends StatelessWidget {
       providers: [
         BlocProvider(create: (_) => getIt<ClinicFormCubit>()),
         BlocProvider(create: (_) => getIt<CitiesCubit>()..getCities()),
+        BlocProvider(create: (_) => getIt<ZonesCubit>()..getZones()),
       ],
       child: _ClinicFormView(initialClinic: initialClinic),
     );
@@ -51,9 +54,6 @@ class _ClinicFormViewState extends State<_ClinicFormView> {
   late final _nameController = TextEditingController(
     text: widget.initialClinic?.name ?? '',
   );
-  late final _codeController = TextEditingController(
-    text: widget.initialClinic?.code ?? '',
-  );
   late final _phoneController = TextEditingController(
     text: widget.initialClinic?.phoneNumber ?? '',
   );
@@ -63,20 +63,17 @@ class _ClinicFormViewState extends State<_ClinicFormView> {
   late final _addressController = TextEditingController(
     text: widget.initialClinic?.address ?? '',
   );
-  late final _websiteController = TextEditingController(
-    text: widget.initialClinic?.websiteUrl ?? '',
-  );
 
   late String? _cityId = widget.initialClinic?.cityId;
+  late String? _zoneId = widget.initialClinic?.zoneId;
 
   bool get _isEditing => widget.initialClinic != null;
 
   @override
   void initState() {
     super.initState();
-    // The preview mirrors the name and code as they are typed.
+    // The preview mirrors the name as it is typed.
     _nameController.addListener(_onPreviewFieldChanged);
-    _codeController.addListener(_onPreviewFieldChanged);
   }
 
   void _onPreviewFieldChanged() => setState(() {});
@@ -84,13 +81,10 @@ class _ClinicFormViewState extends State<_ClinicFormView> {
   @override
   void dispose() {
     _nameController.removeListener(_onPreviewFieldChanged);
-    _codeController.removeListener(_onPreviewFieldChanged);
     _nameController.dispose();
-    _codeController.dispose();
     _phoneController.dispose();
     _emailController.dispose();
     _addressController.dispose();
-    _websiteController.dispose();
     super.dispose();
   }
 
@@ -99,12 +93,11 @@ class _ClinicFormViewState extends State<_ClinicFormView> {
   bool get _isDirty {
     final initial = widget.initialClinic;
     return isTextDirty(_nameController, initial?.name) ||
-        isTextDirty(_codeController, initial?.code) ||
         isTextDirty(_phoneController, initial?.phoneNumber) ||
         isTextDirty(_emailController, initial?.email) ||
         isTextDirty(_addressController, initial?.address) ||
-        isTextDirty(_websiteController, initial?.websiteUrl) ||
-        _cityId != initial?.cityId;
+        _cityId != initial?.cityId ||
+        _zoneId != initial?.zoneId;
   }
 
   /// Optional fields are sent as `null` rather than an empty string so the
@@ -120,28 +113,32 @@ class _ClinicFormViewState extends State<_ClinicFormView> {
     final cubit = context.read<ClinicFormCubit>();
 
     if (_isEditing) {
+      // Only sent when it actually changed: a plain `null` here means "leave
+      // the assignment alone", so re-sending the clinic's own current zone
+      // id every save would work by accident today but is the wrong intent
+      // to encode — and would misfire the moment the clear-zone sentinel
+      // (an empty guid, not null) is ever involved.
+      final zoneChanged = _zoneId != widget.initialClinic?.zoneId;
+
       cubit.updateClinic(
         id: widget.initialClinic!.id,
         updateClinicRequestBody: UpdateClinicRequestModel(
           name: _nameController.text.trim(),
-          code: _optional(_codeController),
           phoneNumber: _optional(_phoneController),
           email: _optional(_emailController),
           address: _optional(_addressController),
           cityId: _cityId,
-          websiteUrl: _optional(_websiteController),
+          zoneId: zoneChanged ? _zoneId : null,
         ),
       );
     } else {
       cubit.createClinic(
         CreateClinicRequestModel(
           name: _nameController.text.trim(),
-          code: _optional(_codeController),
           phoneNumber: _optional(_phoneController),
           email: _optional(_emailController),
           address: _optional(_addressController),
           cityId: _cityId,
-          websiteUrl: _optional(_websiteController),
         ),
       );
     }
@@ -172,16 +169,19 @@ class _ClinicFormViewState extends State<_ClinicFormView> {
           child: BlocConsumer<ClinicFormCubit, ClinicFormState>(
             listener: (context, state) {
               switch (state) {
-                case ClinicFormSuccess():
-                  ShowToast(
+                case ClinicFormSuccess(:final clinic):
+                  showToast(
                     message: _isEditing
                         ? 'تم حفظ التعديلات'
                         : 'تمت إضافة العيادة',
-                    state: toastState.success,
+                    state: ToastState.success,
                   );
-                  Navigator.of(context).pop(true);
+                  // The saved clinic is handed back, not just a "yes": a
+                  // caller that opened this screen from a clinic field needs
+                  // the record itself so it can select it.
+                  Navigator.of(context).pop(clinic);
                 case ClinicFormError(:final message):
-                  ShowToast(message: message, state: toastState.error);
+                  showToast(message: message, state: ToastState.error);
                 default:
                   break;
               }
@@ -207,14 +207,16 @@ class _ClinicFormViewState extends State<_ClinicFormView> {
                         child: ClinicFormFields(
                           formKey: _formKey,
                           nameController: _nameController,
-                          codeController: _codeController,
                           addressController: _addressController,
                           phoneController: _phoneController,
                           emailController: _emailController,
-                          websiteController: _websiteController,
                           cityId: _cityId,
                           onCityChanged: (value) =>
                               setState(() => _cityId = value),
+                          zoneId: _zoneId,
+                          onZoneChanged: _isEditing
+                              ? (value) => setState(() => _zoneId = value)
+                              : null,
                           isEditing: _isEditing,
                         ),
                       ),

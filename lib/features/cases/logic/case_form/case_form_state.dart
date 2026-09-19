@@ -13,8 +13,16 @@ class CaseFormSubmitting extends CaseFormState {
 }
 
 class CaseFormSuccess extends CaseFormState {
-  const CaseFormSuccess(this.caseDetail);
+  const CaseFormSuccess(this.caseDetail, {this.failedAttachmentCount = 0});
   final CaseDetailModel caseDetail;
+
+  /// The case itself is safely saved either way — this only counts how many
+  /// of the picked files' own follow-up uploads failed, so the page can say
+  /// so without treating the whole submission as a failure. Zero means every
+  /// attachment (if any were picked) made it.
+  final int failedAttachmentCount;
+
+  bool get attachmentFailed => failedAttachmentCount > 0;
 }
 
 class CaseFormError extends CaseFormState {

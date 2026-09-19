@@ -38,7 +38,7 @@ class _LaboratorySelectionView extends StatelessWidget {
           case LaboratorySelectionSkipped():
             context.go(Routes.homeScreen);
           case LaboratorySelectionError(:final message):
-            ShowToast(message: message, state: toastState.error);
+            showToast(message: message, state: ToastState.error);
           default:
             break;
         }
@@ -50,7 +50,7 @@ class _LaboratorySelectionView extends StatelessWidget {
           appBar: showsPicker
               ? GlassAppBar(
                   title: Text(
-                    'اختيار المخبر',
+                    'اختيار الفرع',
                     style: AppTextStyles.font18MediumText.copyWith(
                       color: context.glass.onGlass,
                     ),
@@ -117,7 +117,7 @@ class _LaboratoryList extends StatelessWidget {
                     8,
                   ),
                   child: Text(
-                    'اختر المخبر الذي تريد العمل عليه',
+                    'اختر الفرع الذي تريد العمل عليه',
                     style: AppTextStyles.font14RegularSecondary.copyWith(
                       color: context.glass.onGlassMuted,
                     ),

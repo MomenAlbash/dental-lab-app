@@ -3,8 +3,14 @@ import 'package:dental_lab_app/features/employees/data/models/employee_model.dar
 import 'package:dental_lab_app/features/roles/data/models/role_model.dart';
 
 /// Whether the account is bound to an employee or a doctor record. Encoded by
-/// the API as `0` / `1` (`UserType`). The names are undocumented, so the
-/// mapping is kept here as the single source of truth.
+/// the API as `0` / `1` (`UserType`). Whether an employee is *also* a sales
+/// representative is a separate boolean on the DTO ([UserModel.isRepresentative]
+/// / `CreateUserRequest.isRepresentative`) — confirmed against the real
+/// `CreateUserRequest`/`UserDto` schemas, both of which keep `type` at 0/1
+/// and carry `isRepresentative` alongside it. `type: 2` is rejected by the
+/// server ("unsupported user type") even though the shared `UserType` schema
+/// enum itself lists a third value — that value belongs to the
+/// Roles-permission-catalogue endpoints, not to a user's own `type`.
 enum UserType {
   employee, // 0
   doctor; // 1
@@ -41,6 +47,10 @@ class UserModel {
   final bool isActive;
   final bool isAdmin;
   final UserType type;
+
+  /// Only meaningful when [type] is [UserType.employee] — whether that
+  /// employee is also a sales representative.
+  final bool isRepresentative;
   final String? roleId;
   final RoleModel? role;
   final String? employeeId;
@@ -55,6 +65,7 @@ class UserModel {
     this.isActive = true,
     this.isAdmin = false,
     this.type = UserType.employee,
+    this.isRepresentative = false,
     this.roleId,
     this.role,
     this.employeeId,
@@ -100,6 +111,7 @@ class UserModel {
       isActive: json['isActive'] as bool? ?? true,
       isAdmin: json['isAdmin'] as bool? ?? false,
       type: UserType.fromApi(json['type'] as int?),
+      isRepresentative: json['isRepresentative'] as bool? ?? false,
       roleId: json['roleId'] as String?,
       role: json['role'] == null
           ? null

@@ -1,12 +1,20 @@
 import 'package:dental_lab_app/core/theming/app_theme.dart';
 import 'package:dental_lab_app/features/cases/data/models/case_detail_model.dart';
-import 'package:dental_lab_app/features/cases/data/models/case_status.dart';
+import 'package:dental_lab_app/features/cases/data/models/case_stage_summary.dart';
 import 'package:dental_lab_app/features/cases/ui/widgets/case_details_body.dart';
 import 'package:dental_lab_app/features/clinics/data/models/clinic_model.dart';
 import 'package:dental_lab_app/features/doctors/data/models/doctor_model.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:dartz/dartz.dart';
+import 'package:dental_lab_app/core/di/dependency_injection.dart';
+import 'package:dental_lab_app/features/cases/data/models/case_barcode_models.dart';
+import 'package:dental_lab_app/features/cases/data/repos/cases_repo.dart';
+import 'package:mocktail/mocktail.dart';
+
+/// The barcode section fetches the case's print ticket as soon as it builds.
+class _MockCasesRepo extends Mock implements CasesRepo {}
 
 CaseDetailModel _caseDetail() => CaseDetailModel(
   id: '1',
@@ -16,7 +24,11 @@ CaseDetailModel _caseDetail() => CaseDetailModel(
   priorityId: 'p1',
   priorityNameAr: 'عاجلة',
   priorityName: 'Urgent',
-  caseStatus: CaseStatus.inProgress,
+  stage: const CaseStageSummary(
+    stageId: 's1',
+    stageNameAr: 'قيد التنفيذ',
+    stageBadgeVariant: 'warning',
+  ),
   doctor: DoctorModel(id: 'd1', firstName: 'أحمد', lastName: 'الخطيب'),
   clinic: ClinicModel(id: 'c1', name: 'عيادة النور'),
   dueDate: '2026-09-01T00:00:00',
@@ -46,6 +58,21 @@ Widget _wrap(CaseDetailModel caseDetail) {
 }
 
 void main() {
+  setUp(() {
+    final repo = _MockCasesRepo();
+    when(() => repo.getCasePrintTicket(any())).thenAnswer(
+      (_) async => right(
+        const CasePrintTicketModel(
+          caseNumber: 'C-1001',
+          qrPayload: 'CASE-C-1001',
+        ),
+      ),
+    );
+    getIt.registerLazySingleton<CasesRepo>(() => repo);
+  });
+
+  tearDown(() => getIt.reset());
+
   testWidgets('shows the identity panel and info tiles at 360dp', (
     tester,
   ) async {

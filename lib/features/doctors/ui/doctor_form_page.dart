@@ -9,6 +9,7 @@ import 'package:dental_lab_app/core/widgets/unsaved_changes_guard.dart';
 import 'package:dental_lab_app/features/cities/logic/cities/cities_cubit.dart';
 import 'package:dental_lab_app/features/clinics/logic/clinics/clinics_cubit.dart';
 import 'package:dental_lab_app/features/doctors/data/models/create_doctor_request_model.dart';
+import 'package:dental_lab_app/features/doctors/data/repos/doctors_repo.dart';
 import 'package:dental_lab_app/features/doctors/data/models/doctor_model.dart';
 import 'package:dental_lab_app/features/doctors/data/models/update_doctor_request_model.dart';
 import 'package:dental_lab_app/features/doctors/logic/doctor_form/doctor_form_cubit.dart';
@@ -75,12 +76,31 @@ class _DoctorFormViewState extends State<_DoctorFormView> {
 
   bool get _isEditing => widget.initialDoctor != null;
 
+  /// The number this doctor will be given on save, shown as a subtitle.
+  ///
+  /// Read from the server rather than counted from the list: the lab numbers
+  /// doctors in one sequence, and two people on the form at once must not both
+  /// be told they are getting 47. It is a preview, not a promise — whoever
+  /// saves first gets it — so it is never sent back, only displayed.
+  int? _nextNumber;
+
   @override
   void initState() {
     super.initState();
     // The header preview mirrors the name as it is typed.
     _firstNameController.addListener(_onNameChanged);
     _lastNameController.addListener(_onNameChanged);
+
+    // Only on create: an existing doctor already has its number.
+    if (!_isEditing) _loadNextNumber();
+  }
+
+  Future<void> _loadNextNumber() async {
+    final result = await getIt<DoctorsRepo>().getNextNumber();
+    if (!mounted) return;
+
+    // A failure just leaves the subtitle off — the form works without it.
+    result.fold((_) {}, (number) => setState(() => _nextNumber = number));
   }
 
   void _onNameChanged() => setState(() {});
@@ -190,11 +210,24 @@ class _DoctorFormViewState extends State<_DoctorFormView> {
       isDirty: () => _isDirty,
       child: GlassScaffold(
         appBar: GlassAppBar(
-          title: Text(
-            _isEditing ? 'تعديل الدكتور' : 'إضافة دكتور',
-            style: AppTextStyles.font18MediumText.copyWith(
-              color: context.glass.onGlass,
-            ),
+          title: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                _isEditing ? 'تعديل الدكتور' : 'إضافة دكتور',
+                style: AppTextStyles.font18MediumText.copyWith(
+                  color: context.glass.onGlass,
+                ),
+              ),
+              if (_nextNumber != null)
+                Text(
+                  'سيأخذ الرقم $_nextNumber',
+                  style: AppTextStyles.font12RegularHint.copyWith(
+                    color: context.glass.onGlassMuted,
+                  ),
+                ),
+            ],
           ),
         ),
         // Save stays reachable without scrolling to the bottom of the form.
@@ -209,16 +242,19 @@ class _DoctorFormViewState extends State<_DoctorFormView> {
           child: BlocConsumer<DoctorFormCubit, DoctorFormState>(
             listener: (context, state) {
               switch (state) {
-                case DoctorFormSuccess():
-                  ShowToast(
+                case DoctorFormSuccess(:final doctor):
+                  showToast(
                     message: _isEditing
                         ? 'تم حفظ التعديلات'
                         : 'تمت إضافة الدكتور',
-                    state: toastState.success,
+                    state: ToastState.success,
                   );
-                  Navigator.of(context).pop(true);
+                  // The saved doctor is handed back, not just a "yes": a caller
+                  // that opened this screen from a doctor field needs the new
+                  // record itself so it can select it.
+                  Navigator.of(context).pop(doctor);
                 case DoctorFormError(:final message):
-                  ShowToast(message: message, state: toastState.error);
+                  showToast(message: message, state: ToastState.error);
                 default:
                   break;
               }

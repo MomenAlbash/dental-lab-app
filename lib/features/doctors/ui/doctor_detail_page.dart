@@ -1,3 +1,5 @@
+import 'package:dental_lab_app/core/auth/permissions.dart';
+import 'package:dental_lab_app/core/auth/session.dart';
 import 'package:dental_lab_app/core/di/dependency_injection.dart';
 import 'package:dental_lab_app/core/helper/network_helper/media_url.dart';
 import 'package:dental_lab_app/core/router/routes.dart';
@@ -7,10 +9,12 @@ import 'package:dental_lab_app/core/widgets/custom_circle_progress_indiacator_wi
 import 'package:dental_lab_app/core/widgets/glass/glass_app_bar.dart';
 import 'package:dental_lab_app/core/widgets/glass/glass_scaffold.dart';
 import 'package:dental_lab_app/core/widgets/show_toast_widget.dart';
+import 'package:dental_lab_app/features/doctors/data/repos/doctors_repo.dart';
 import 'package:dental_lab_app/features/doctors/logic/doctor_details/doctor_details_cubit.dart';
 import 'package:dental_lab_app/features/doctors/logic/doctor_details/doctor_details_state.dart';
 import 'package:dental_lab_app/features/doctors/ui/widgets/doctor_details_body.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:dental_lab_app/features/details_questions/ui/widgets/person_answers_sheet.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
@@ -38,7 +42,7 @@ class _DoctorDetailView extends StatelessWidget {
   Future<void> _openFile(String? filePath) async {
     final url = resolveMediaUrl(filePath);
     if (url == null) {
-      ShowToast(message: 'لا يوجد ملف للفتح', state: toastState.error);
+      showToast(message: 'لا يوجد ملف للفتح', state: ToastState.error);
       return;
     }
 
@@ -48,7 +52,7 @@ class _DoctorDetailView extends StatelessWidget {
     );
 
     if (!launched) {
-      ShowToast(message: 'تعذّر فتح الملف', state: toastState.error);
+      showToast(message: 'تعذّر فتح الملف', state: ToastState.error);
     }
   }
 
@@ -59,11 +63,39 @@ class _DoctorDetailView extends StatelessWidget {
       final path = result?.files.single.path;
       if (path != null) await cubit.uploadFile(path);
     } catch (e) {
-      ShowToast(
+      showToast(
         message: 'تعذّر فتح منتقي الملفات: $e',
-        state: toastState.error,
+        state: ToastState.error,
       );
     }
+  }
+
+  /// Replaces the doctor's photo, then refetches.
+  ///
+  /// The upload answers with the updated doctor, but the detail cubit is
+  /// asked again rather than the answer being spliced in: two holders of the
+  /// same record, one quietly newer, is how a screen starts disagreeing with
+  /// itself.
+  Future<void> _changePhoto(BuildContext context, String doctorId) async {
+    final cubit = context.read<DoctorDetailsCubit>();
+
+    final result = await FilePicker.pickFiles(type: FileType.image);
+    final path = result?.files.single.path;
+    if (path == null) return;
+
+    final uploaded = await getIt<DoctorsRepo>().uploadImage(
+      id: doctorId,
+      filePath: path,
+    );
+
+    await uploaded.fold(
+      (failure) async =>
+          showToast(message: failure.errorMessage, state: ToastState.error),
+      (_) async {
+        showToast(message: 'تم تحديث الصورة', state: ToastState.success);
+        await cubit.getDoctor(doctorId);
+      },
+    );
   }
 
   @override
@@ -75,9 +107,9 @@ class _DoctorDetailView extends StatelessWidget {
       listener: (context, state) {
         switch (state) {
           case DoctorDetailsActionSuccess(:final message):
-            ShowToast(message: message, state: toastState.success);
+            showToast(message: message, state: ToastState.success);
           case DoctorDetailsActionError(:final message):
-            ShowToast(message: message, state: toastState.error);
+            showToast(message: message, state: ToastState.error);
           default:
             break;
         }
@@ -114,13 +146,27 @@ class _DoctorDetailView extends StatelessWidget {
                   }
                 },
                 onAddFile: () => _pickAndUploadFile(context),
+                onOpenAnswers: () => showPersonAnswersSheet(
+                  context,
+                  personId: doctor.id,
+                  isDoctor: true,
+                  personName: doctor.fullName,
+                ),
+                onChangePhoto:
+                    getIt<SessionCubit>().state.canEdit(PermissionName.doctor)
+                    ? () => _changePhoto(context, doctor.id)
+                    : null,
                 onDeleteFile: (fileId) =>
                     context.read<DoctorDetailsCubit>().deleteFile(fileId),
                 onOpenFile: (file) => _openFile(file.filePath),
+                onPriceTierChanged: (tierId) =>
+                    context.read<DoctorDetailsCubit>().setPriceTier(tierId),
                 onApprove: (choice) =>
                     context.read<DoctorDetailsCubit>().approve(
                       clinicId: choice.clinicId,
                       newClinicName: choice.newClinicName,
+                      zoneId: choice.zoneId,
+                      newZoneName: choice.newZoneName,
                     ),
                 onReject: (reason) =>
                     context.read<DoctorDetailsCubit>().reject(reason),

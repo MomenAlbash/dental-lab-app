@@ -1,5 +1,7 @@
 import 'dart:ui';
 
+import 'package:dental_lab_app/core/auth/permissions.dart';
+import 'package:dental_lab_app/core/auth/session.dart';
 import 'package:dental_lab_app/core/di/dependency_injection.dart';
 import 'package:dental_lab_app/core/router/routes.dart';
 import 'package:dental_lab_app/core/theming/app_motion.dart';
@@ -15,6 +17,74 @@ import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
+
+/// The drawer's own colours, resolved from the active theme.
+///
+/// The sidebar used to be pinned to the logo's charcoal in both themes, with
+/// every label hardcoded white on top of it. That made it the one surface in
+/// the app that ignored the user's choice: a dark panel beside a light page
+/// reads as a different product pasted in, and the white labels only worked
+/// because the panel underneath was always dark.
+///
+/// Every colour here comes from the glass tokens, so the drawer follows the
+/// theme the way the rest of the app does. The accent stays the brand's in
+/// both, because that is the one thing the theme is not allowed to change.
+class _DrawerPalette {
+  const _DrawerPalette({
+    required this.background,
+    required this.hairline,
+    required this.onSurface,
+    required this.onSurfaceMuted,
+    required this.selectedFill,
+    required this.accent,
+    required this.wellFill,
+  });
+
+  final Gradient background;
+
+  /// Borders and dividers — the same value for both so the drawer's edges are
+  /// one weight.
+  final Color hairline;
+
+  final Color onSurface;
+  final Color onSurfaceMuted;
+
+  /// Behind the row for the screen the user is on.
+  final Color selectedFill;
+
+  /// The brand colour, for the selected row and the logo badge.
+  final Color accent;
+
+  /// Recessed panels — the theme switcher's track, the avatar's disc.
+  final Color wellFill;
+
+  factory _DrawerPalette.of(BuildContext context) {
+    final glass = context.glass;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final accent = Theme.of(context).colorScheme.primary;
+
+    return _DrawerPalette(
+      // Dark keeps the charcoal the logo badge uses; light takes the app's own
+      // pane so the drawer reads as part of the page rather than on top of it.
+      background: isDark
+          ? LinearGradient(
+              begin: Alignment.topRight,
+              end: Alignment.bottomLeft,
+              colors: [
+                AppColorsManger.brandCharcoal.withValues(alpha: 0.88),
+                AppColorsManger.brandCharcoalLight.withValues(alpha: 0.78),
+              ],
+            )
+          : glass.surfaceGradient,
+      hairline: glass.strokeColor,
+      onSurface: isDark ? const Color(0xE6FFFFFF) : glass.onGlass,
+      onSurfaceMuted: isDark ? const Color(0x8AFFFFFF) : glass.onGlassMuted,
+      selectedFill: accent.withValues(alpha: isDark ? 0.22 : 0.12),
+      accent: isDark ? AppColorsManger.primaryLight : accent,
+      wellFill: isDark ? const Color(0x1AFFFFFF) : glass.fillColor,
+    );
+  }
+}
 
 Future<void> _confirmLogout(
   BuildContext context, {
@@ -42,11 +112,19 @@ class _Destination {
     required this.icon,
     required this.label,
     required this.route,
+    this.requires,
   });
 
   final IconData icon;
   final String label;
   final String route;
+
+  /// Module the user must hold at least `Read` on. Null means the destination
+  /// is open to any authenticated user.
+  final PermissionName? requires;
+
+  bool isVisibleTo(Permissions permissions) =>
+      requires == null || permissions.canRead(requires!);
 }
 
 /// A group of related destinations, shown as a single row that opens into its
@@ -64,10 +142,22 @@ class _DrawerGroup {
 
   bool contains(String? route) =>
       destinations.any((destination) => destination.route == route);
+
+  /// The rows this user may see. A group whose every destination is gated away
+  /// disappears with them — an empty group is a dead end that still costs a tap
+  /// to discover.
+  List<_Destination> visibleTo(Permissions permissions) =>
+      destinations.where((d) => d.isVisibleTo(permissions)).toList();
 }
 
 /// The drawer's second level. Everything that is not a daily destination —
 /// currencies, countries, cities — lives behind the settings screen instead.
+/// Permission mapping follows the spec's module list (§2): `Cases` covers the
+/// case list and the restoration catalogue, `CaseWorkflow` the priority and
+/// stage editors, `Finance` the price tiers, `Doctor` the doctor/patient/clinic
+/// screens, `Users` the login and employee screens,
+/// `Roles` the role editor, `Branches` the laboratories, and `ScannerControl`
+/// the scanner calendar.
 const List<_DrawerGroup> _groups = [
   _DrawerGroup(
     icon: Icons.folder_outlined,
@@ -77,21 +167,67 @@ const List<_DrawerGroup> _groups = [
         icon: Icons.folder_outlined,
         label: 'الحالات',
         route: Routes.casesListScreen,
+        requires: PermissionName.cases,
+      ),
+      _Destination(
+        icon: Icons.account_tree_outlined,
+        label: 'مسار العمل',
+        route: Routes.caseWorkflowEditorScreen,
+        requires: PermissionName.caseWorkflow,
       ),
       _Destination(
         icon: Icons.flag_outlined,
         label: 'أولويات الحالات',
         route: Routes.casePrioritiesListScreen,
+        requires: PermissionName.caseWorkflow,
+      ),
+      _Destination(
+        icon: Icons.workspace_premium_outlined,
+        label: 'حصص الأولويات',
+        route: Routes.priorityOverviewScreen,
+        requires: PermissionName.caseWorkflow,
+      ),
+      _Destination(
+        icon: Icons.upload_file_outlined,
+        label: 'استيراد من Excel',
+        route: Routes.excelImportScreen,
+        requires: PermissionName.users,
+      ),
+      _Destination(
+        icon: Icons.quiz_outlined,
+        label: 'أسئلة إضافية',
+        route: Routes.detailsQuestionsScreen,
+        requires: PermissionName.users,
+      ),
+      _Destination(
+        icon: Icons.insights_outlined,
+        label: 'نشاط الفريق',
+        route: Routes.employeeActivityScreen,
+        requires: PermissionName.statistics,
+      ),
+      _Destination(
+        icon: Icons.storage_outlined,
+        label: 'مساحة المسوحات',
+        route: Routes.scanStorageScreen,
+        requires: PermissionName.branches,
+      ),
+      _Destination(
+        icon: Icons.apartment_outlined,
+        label: 'الأقسام',
+        route: Routes.departmentsScreen,
+        requires: PermissionName.caseWorkflow,
       ),
       _Destination(
         icon: Icons.category_outlined,
         label: 'التعويضات السنية',
         route: Routes.restorationTypesListScreen,
+        requires: PermissionName.restorationType,
       ),
       _Destination(
         icon: Icons.sell_outlined,
         label: 'الشرائح السعرية',
         route: Routes.priceTiersListScreen,
+        requires: PermissionName.finance,
       ),
     ],
   ),
@@ -103,6 +239,13 @@ const List<_DrawerGroup> _groups = [
         icon: Icons.document_scanner_outlined,
         label: 'مواعيد السكنر',
         route: Routes.scannerAvailabilityScreen,
+        requires: PermissionName.scannerControl,
+      ),
+      _Destination(
+        icon: Icons.groups_2_outlined,
+        label: 'جلسات السكنر',
+        route: Routes.scannerSessionsScreen,
+        requires: PermissionName.scannerControl,
       ),
     ],
   ),
@@ -114,16 +257,19 @@ const List<_DrawerGroup> _groups = [
         icon: Icons.people_outline,
         label: 'المرضى',
         route: Routes.patientsListScreen,
+        requires: PermissionName.doctor,
       ),
       _Destination(
         icon: Icons.person_outline,
         label: 'الدكاترة',
         route: Routes.doctorsListScreen,
+        requires: PermissionName.doctor,
       ),
       _Destination(
         icon: Icons.local_hospital_outlined,
         label: 'العيادات',
         route: Routes.clinicsListScreen,
+        requires: PermissionName.doctor,
       ),
     ],
   ),
@@ -135,32 +281,157 @@ const List<_DrawerGroup> _groups = [
         icon: Icons.manage_accounts_outlined,
         label: 'المستخدمين',
         route: Routes.usersListScreen,
+        requires: PermissionName.users,
       ),
       _Destination(
         icon: Icons.groups_outlined,
         label: 'الموظفين',
         route: Routes.employeesListScreen,
+        requires: PermissionName.users,
       ),
       _Destination(
         icon: Icons.badge_outlined,
         label: 'الأدوار',
         route: Routes.rolesListScreen,
+        requires: PermissionName.roles,
       ),
     ],
   ),
   _DrawerGroup(
     icon: Icons.apartment_outlined,
-    title: 'المخابر',
+    title: 'الفروع',
     destinations: [
       _Destination(
         icon: Icons.science_outlined,
         label: 'مختبري',
         route: Routes.myLaboratoryScreen,
+        requires: PermissionName.branches,
       ),
       _Destination(
         icon: Icons.apartment_outlined,
-        label: 'المخابر',
+        label: 'الفروع',
         route: Routes.laboratoriesListScreen,
+        requires: PermissionName.branches,
+      ),
+    ],
+  ),
+  _DrawerGroup(
+    icon: Icons.pin_drop_outlined,
+    title: 'المندوبون',
+    destinations: [
+      _Destination(
+        icon: Icons.holiday_village_outlined,
+        label: 'الأحياء',
+        route: Routes.areasListScreen,
+        requires: PermissionName.users,
+      ),
+      _Destination(
+        icon: Icons.map_outlined,
+        label: 'المناطق',
+        route: Routes.zonesListScreen,
+        requires: PermissionName.users,
+      ),
+    ],
+  ),
+  _DrawerGroup(
+    icon: Icons.receipt_long_outlined,
+    title: 'المحاسبة',
+    destinations: [
+      _Destination(
+        icon: Icons.bar_chart_outlined,
+        label: 'نظرة عامة',
+        route: Routes.accountingOverviewScreen,
+        requires: PermissionName.finance,
+      ),
+      _Destination(
+        icon: Icons.receipt_long_outlined,
+        label: 'الفواتير',
+        route: Routes.invoicesListScreen,
+        requires: PermissionName.finance,
+      ),
+      _Destination(
+        icon: Icons.payments_outlined,
+        label: 'المدفوعات',
+        route: Routes.paymentsListScreen,
+        requires: PermissionName.finance,
+      ),
+      _Destination(
+        icon: Icons.hourglass_empty_outlined,
+        label: 'بانتظار التحقق',
+        route: Routes.pendingPaymentsScreen,
+        requires: PermissionName.finance,
+      ),
+      _Destination(
+        icon: Icons.savings_outlined,
+        label: 'المصاريف',
+        route: Routes.expensesListScreen,
+        requires: PermissionName.finance,
+      ),
+      _Destination(
+        icon: Icons.account_balance_wallet_outlined,
+        label: 'كشف حساب طبيب',
+        route: Routes.doctorStatementScreen,
+        requires: PermissionName.finance,
+      ),
+      _Destination(
+        icon: Icons.point_of_sale_outlined,
+        label: 'الصندوق',
+        route: Routes.cashboxScreen,
+        requires: PermissionName.finance,
+      ),
+    ],
+  ),
+  _DrawerGroup(
+    icon: Icons.badge_outlined,
+    title: 'الحضور والرواتب',
+    destinations: [
+      _Destination(
+        icon: Icons.how_to_reg_outlined,
+        label: 'الحضور',
+        route: Routes.attendanceHubScreen,
+        requires: PermissionName.attendance,
+      ),
+      _Destination(
+        icon: Icons.schedule_outlined,
+        label: 'ورديات العمل',
+        route: Routes.workShiftsScreen,
+        requires: PermissionName.attendance,
+      ),
+      _Destination(
+        icon: Icons.receipt_long_outlined,
+        label: 'الرواتب',
+        route: Routes.payrollScreen,
+        requires: PermissionName.payroll,
+      ),
+    ],
+  ),
+  _DrawerGroup(
+    icon: Icons.inventory_2_outlined,
+    title: 'المخزون',
+    destinations: [
+      _Destination(
+        icon: Icons.inventory_2_outlined,
+        label: 'المخزون',
+        route: Routes.inventoryListScreen,
+        requires: PermissionName.inventory,
+      ),
+      _Destination(
+        icon: Icons.local_shipping_outlined,
+        label: 'الموردون',
+        route: Routes.suppliersListScreen,
+        requires: PermissionName.suppliers,
+      ),
+      _Destination(
+        icon: Icons.shopping_cart_outlined,
+        label: 'مشتريات المخزون',
+        route: Routes.purchasesListScreen,
+        requires: PermissionName.inventory,
+      ),
+      _Destination(
+        icon: Icons.trending_up_outlined,
+        label: 'الجدوى الاقتصادية',
+        route: Routes.feasibilityReportScreen,
+        requires: PermissionName.inventory,
       ),
     ],
   ),
@@ -203,6 +474,17 @@ class _AppDrawerWidgetState extends State<AppDrawerWidget> {
 
   @override
   Widget build(BuildContext context) {
+    // Rebuilds when the session lands, so the menu reflects the signed-in user
+    // rather than whatever the previous one cached.
+    return BlocBuilder<SessionCubit, Permissions>(
+      bloc: getIt<SessionCubit>(),
+      builder: (context, permissions) => _buildDrawer(context, permissions),
+    );
+  }
+
+  Widget _buildDrawer(BuildContext context, Permissions permissions) {
+    final palette = _DrawerPalette.of(context);
+
     return PopScope(
       // Inside a group, back should step out to the root rather than close the
       // drawer — the level is where the user is, so it is what back undoes.
@@ -226,36 +508,28 @@ class _AppDrawerWidgetState extends State<AppDrawerWidget> {
             sigmaY: context.glass.blurSigma,
           ),
           child: Container(
-            // The sidebar mirrors the logo's dark charcoal badge — the app's
-            // signature element, kept dark in both light and dark theme. Now
-            // translucent so the page behind it shows through the glass.
+            // Follows the theme rather than staying charcoal in both: see
+            // [_DrawerPalette].
             decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topRight,
-                end: Alignment.bottomLeft,
-                colors: [
-                  AppColorsManger.brandCharcoal.withValues(alpha: 0.88),
-                  AppColorsManger.brandCharcoalLight.withValues(alpha: 0.78),
-                ],
-              ),
-              border: const Border(right: BorderSide(color: Color(0x1FFFFFFF))),
+              gradient: palette.background,
+              border: Border(right: BorderSide(color: palette.hairline)),
             ),
             child: SafeArea(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   const _DrawerHeader(),
-                  const Divider(height: 1, color: Color(0x1FFFFFFF)),
+                  Divider(height: 1, color: palette.hairline),
                   Expanded(
                     child: _LevelSwitcher(
                       openGroup: _openGroup,
-                      root: _buildRoot(context),
+                      root: _buildRoot(context, permissions),
                       group: _openGroup == null
                           ? const SizedBox.shrink()
-                          : _buildGroup(_openGroup!),
+                          : _buildGroup(_openGroup!, permissions),
                     ),
                   ),
-                  const Divider(height: 1, color: Color(0x1FFFFFFF)),
+                  Divider(height: 1, color: palette.hairline),
                   const _ThemeModeSwitcher(),
                 ],
               ),
@@ -267,7 +541,7 @@ class _AppDrawerWidgetState extends State<AppDrawerWidget> {
   }
 
   /// The root level: home, the four groups, settings, then account actions.
-  Widget _buildRoot(BuildContext context) {
+  Widget _buildRoot(BuildContext context, Permissions permissions) {
     return ListView(
       key: const ValueKey('drawer-root'),
       padding: EdgeInsets.zero,
@@ -280,14 +554,18 @@ class _AppDrawerWidgetState extends State<AppDrawerWidget> {
                   isSelected: currentRoute == Routes.homeScreen,
                   isPinned: _isPinned,
                 ),
+                // A group the user has no rows in is dropped entirely — the
+                // spec's rule is hidden, not disabled, so an empty level never
+                // gets a tap.
                 for (final group in _groups)
-                  _GroupTile(
-                    group: group,
-                    // Highlighted when the page being viewed lives inside it, so the
-                    // user can see where they are without opening anything.
-                    isCurrent: group.contains(currentRoute),
-                    onTap: () => _open(group),
-                  ),
+                  if (group.visibleTo(permissions).isNotEmpty)
+                    _GroupTile(
+                      group: group,
+                      // Highlighted when the page being viewed lives inside it, so the
+                      // user can see where they are without opening anything.
+                      isCurrent: group.contains(currentRoute),
+                      onTap: () => _open(group),
+                    ),
                 _DrawerItem(
                   icon: Icons.settings_outlined,
                   label: 'الإعدادات',
@@ -295,11 +573,11 @@ class _AppDrawerWidgetState extends State<AppDrawerWidget> {
                   isSelected: currentRoute == Routes.settingsScreen,
                   isPinned: _isPinned,
                 ),
-                const Divider(
+                Divider(
                   height: 24,
                   indent: 20,
                   endIndent: 20,
-                  color: Color(0x1FFFFFFF),
+                  color: _DrawerPalette.of(context).hairline,
                 ),
                 _DrawerActionItem(
                   icon: Icons.lock_reset_outlined,
@@ -328,14 +606,14 @@ class _AppDrawerWidgetState extends State<AppDrawerWidget> {
   }
 
   /// One group's destinations, headed by a row that goes back to the root.
-  Widget _buildGroup(_DrawerGroup group) {
+  Widget _buildGroup(_DrawerGroup group, Permissions permissions) {
     return ListView(
       key: ValueKey('drawer-group-${group.title}'),
       padding: EdgeInsets.zero,
       children:
           [
                 _GroupBackHeader(title: group.title, onBack: _backToRoot),
-                for (final destination in group.destinations)
+                for (final destination in group.visibleTo(permissions))
                   _DrawerItem(
                     icon: destination.icon,
                     label: destination.label,
@@ -365,6 +643,8 @@ class _DrawerHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final palette = _DrawerPalette.of(context);
+
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 24, 20, 20),
       child: Row(
@@ -373,9 +653,9 @@ class _DrawerHeader extends StatelessWidget {
             width: 48,
             height: 48,
             decoration: BoxDecoration(
-              color: const Color(0x33FFFFFF),
+              color: palette.wellFill,
               shape: BoxShape.circle,
-              border: Border.all(color: const Color(0x40FFFFFF)),
+              border: Border.all(color: palette.hairline),
               boxShadow: [
                 BoxShadow(
                   color: AppColorsManger.primary.withValues(alpha: 0.35),
@@ -383,10 +663,7 @@ class _DrawerHeader extends StatelessWidget {
                 ),
               ],
             ),
-            child: const Icon(
-              Icons.medical_services_outlined,
-              color: AppColorsManger.primaryLight,
-            ),
+            child: Icon(Icons.medical_services_outlined, color: palette.accent),
           ),
           const SizedBox(width: 12),
           // Expanded so the title cannot push past the drawer's fixed width —
@@ -397,7 +674,7 @@ class _DrawerHeader extends StatelessWidget {
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: AppTextStyles.font18MediumText.copyWith(
-                color: Colors.white,
+                color: palette.onSurface,
               ),
             ),
           ),
@@ -426,12 +703,14 @@ class _ThemeModeSwitcher extends StatelessWidget {
     return BlocBuilder<ThemeCubit, ThemeMode>(
       bloc: getIt<ThemeCubit>(),
       builder: (context, current) {
+        final palette = _DrawerPalette.of(context);
+
         return Padding(
           padding: const EdgeInsets.all(12),
           child: Container(
             padding: const EdgeInsets.all(4),
             decoration: BoxDecoration(
-              color: const Color(0x1AFFFFFF),
+              color: palette.wellFill,
               borderRadius: BorderRadius.circular(10),
             ),
             child: Row(
@@ -447,7 +726,7 @@ class _ThemeModeSwitcher extends StatelessWidget {
                       padding: const EdgeInsets.symmetric(vertical: 8),
                       decoration: BoxDecoration(
                         color: isSelected
-                            ? AppColorsManger.primary.withValues(alpha: 0.22)
+                            ? palette.selectedFill
                             : Colors.transparent,
                         borderRadius: BorderRadius.circular(8),
                       ),
@@ -461,8 +740,8 @@ class _ThemeModeSwitcher extends StatelessWidget {
                               key: ValueKey(isSelected),
                               size: 18,
                               color: isSelected
-                                  ? AppColorsManger.primaryLight
-                                  : const Color(0xE6FFFFFF),
+                                  ? palette.accent
+                                  : palette.onSurface,
                             ),
                           ),
                           const SizedBox(height: 2),
@@ -470,8 +749,8 @@ class _ThemeModeSwitcher extends StatelessWidget {
                             option.label,
                             style: AppTextStyles.font12RegularHint.copyWith(
                               color: isSelected
-                                  ? AppColorsManger.primaryLight
-                                  : const Color(0xE6FFFFFF),
+                                  ? palette.accent
+                                  : palette.onSurface,
                             ),
                           ),
                         ],
@@ -546,9 +825,8 @@ class _GroupTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final Color contentColor = isCurrent
-        ? AppColorsManger.primaryLight
-        : const Color(0xE6FFFFFF); // white 90%
+    final palette = _DrawerPalette.of(context);
+    final Color contentColor = isCurrent ? palette.accent : palette.onSurface;
 
     return ListTile(
       leading: Row(
@@ -560,9 +838,7 @@ class _GroupTile extends StatelessWidget {
             width: 3,
             height: 22,
             decoration: BoxDecoration(
-              color: isCurrent
-                  ? AppColorsManger.primaryLight
-                  : Colors.transparent,
+              color: isCurrent ? palette.accent : Colors.transparent,
               borderRadius: BorderRadius.circular(2),
             ),
           ),
@@ -580,15 +856,15 @@ class _GroupTile extends StatelessWidget {
           Text(
             '${group.destinations.length}',
             style: AppTextStyles.font12RegularHint.copyWith(
-              color: const Color(0x8AFFFFFF),
+              color: palette.onSurfaceMuted,
             ),
           ),
           const SizedBox(width: 4),
-          Icon(Icons.chevron_left, size: 20, color: const Color(0x8AFFFFFF)),
+          Icon(Icons.chevron_left, size: 20, color: palette.onSurfaceMuted),
         ],
       ),
       selected: isCurrent,
-      selectedTileColor: AppColorsManger.primary.withValues(alpha: 0.18),
+      selectedTileColor: palette.selectedFill,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
       onTap: onTap,
     );
@@ -611,9 +887,9 @@ class _GroupBackHeader extends StatelessWidget {
           IconButton(
             onPressed: onBack,
             tooltip: 'رجوع',
-            icon: const Icon(
+            icon: Icon(
               Icons.arrow_forward,
-              color: Color(0xE6FFFFFF),
+              color: _DrawerPalette.of(context).onSurface,
               size: 20,
             ),
           ),
@@ -623,7 +899,7 @@ class _GroupBackHeader extends StatelessWidget {
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: AppTextStyles.font16MediumText.copyWith(
-                color: AppColorsManger.primaryLight,
+                color: _DrawerPalette.of(context).accent,
                 fontWeight: FontWeight.w700,
               ),
             ),
@@ -651,9 +927,10 @@ class _DrawerActionItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final palette = _DrawerPalette.of(context);
     final Color contentColor = isDestructive
-        ? AppColorsManger.error
-        : const Color(0xE6FFFFFF); // white 90%
+        ? context.glass.error
+        : palette.onSurface;
 
     return ListTile(
       // Left-padded by the width of the selection bar + gap in [_DrawerItem]
@@ -697,11 +974,10 @@ class _DrawerItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // The active item picks up the brand orange; everything else stays a
-    // plain white overlay for contrast against the charcoal background.
-    final Color contentColor = isSelected
-        ? AppColorsManger.primaryLight
-        : const Color(0xE6FFFFFF); // white 90%
+    // The active item picks up the brand accent; everything else takes the
+    // drawer's own label colour, which follows the theme.
+    final palette = _DrawerPalette.of(context);
+    final Color contentColor = isSelected ? palette.accent : palette.onSurface;
 
     return ListTile(
       // An accent bar that grows in on the selected row, so the active
@@ -715,7 +991,7 @@ class _DrawerItem extends StatelessWidget {
             width: 3,
             height: isSelected ? 22 : 0,
             decoration: BoxDecoration(
-              color: AppColorsManger.primaryLight,
+              color: palette.accent,
               borderRadius: BorderRadius.circular(2),
             ),
           ),
@@ -728,7 +1004,7 @@ class _DrawerItem extends StatelessWidget {
         style: AppTextStyles.font16MediumText.copyWith(color: contentColor),
       ),
       selected: isSelected,
-      selectedTileColor: AppColorsManger.primary.withValues(alpha: 0.18),
+      selectedTileColor: palette.selectedFill,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
       onTap: () {
         // Read before popping the drawer, while this context is still under

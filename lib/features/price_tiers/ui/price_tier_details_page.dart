@@ -9,7 +9,12 @@ import 'package:dental_lab_app/core/widgets/glass/glass_scaffold.dart';
 import 'package:dental_lab_app/core/widgets/glass/glass_section_title.dart';
 import 'package:dental_lab_app/core/widgets/show_toast_widget.dart';
 import 'package:dental_lab_app/features/price_tiers/data/models/price_tier_model.dart';
+import 'package:dental_lab_app/features/doctors/data/models/doctor_model.dart';
+import 'package:dental_lab_app/features/doctors/data/repos/doctors_repo.dart';
+import 'package:dental_lab_app/features/price_tiers/logic/price_tier_doctors/price_tier_doctors_cubit.dart';
+import 'package:dental_lab_app/features/price_tiers/logic/price_tier_doctors/price_tier_doctors_state.dart';
 import 'package:dental_lab_app/features/price_tiers/logic/price_tier_prices/price_tier_prices_cubit.dart';
+import 'package:dental_lab_app/core/widgets/doctor_audience_sheet.dart';
 import 'package:dental_lab_app/features/price_tiers/logic/price_tier_prices/price_tier_prices_state.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -32,8 +37,15 @@ class PriceTierDetailsPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return BlocProvider(
-      create: (_) => getIt<PriceTierPricesCubit>()..load(priceTier.id),
+    return MultiBlocProvider(
+      providers: [
+        BlocProvider(
+          create: (_) => getIt<PriceTierPricesCubit>()..load(priceTier.id),
+        ),
+        BlocProvider(
+          create: (_) => getIt<PriceTierDoctorsCubit>()..load(priceTier.id),
+        ),
+      ],
       child: _PriceTierDetailsView(priceTier: priceTier),
     );
   }
@@ -60,9 +72,9 @@ class _PriceTierDetailsView extends StatelessWidget {
           listener: (context, state) {
             switch (state) {
               case PriceTierPricesActionSuccess(:final message):
-                ShowToast(message: message, state: toastState.success);
+                showToast(message: message, state: ToastState.success);
               case PriceTierPricesActionError(:final message):
-                ShowToast(message: message, state: toastState.error);
+                showToast(message: message, state: ToastState.error);
               default:
                 break;
             }
@@ -97,6 +109,128 @@ class _PriceTierDetailsView extends StatelessWidget {
   }
 }
 
+/// The doctors billed at this tier, and the button that changes them.
+class _DoctorsSection extends StatefulWidget {
+  const _DoctorsSection();
+
+  @override
+  State<_DoctorsSection> createState() => _DoctorsSectionState();
+}
+
+class _DoctorsSectionState extends State<_DoctorsSection> {
+  /// The lab's whole book, loaded once for the picker. The cities come out of
+  /// this same list — a doctor carries their own city, so grouping needs no
+  /// second request.
+  List<DoctorModel> _allDoctors = const [];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadDoctors();
+  }
+
+  Future<void> _loadDoctors() async {
+    final result = await getIt<DoctorsRepo>().getDoctors();
+    if (!mounted) return;
+
+    // A failure here is not worth an error screen: the assigned list still
+    // reads, and only the picker is poorer for it.
+    result.fold((_) {}, (doctors) {
+      setState(() {
+        _allDoctors = [
+          for (final doctor in doctors)
+            if (doctor.isActive) doctor,
+        ];
+      });
+    });
+  }
+
+  Future<void> _assign(List<PriceTierDoctorModel> assigned) async {
+    final cubit = context.read<PriceTierDoctorsCubit>();
+
+    final result = await showDoctorAudienceSheet(
+      context,
+      doctors: _allDoctors,
+      title: 'إسناد الشريحة السعرية',
+      assignedIds: {for (final doctor in assigned) doctor.id},
+    );
+    if (result == null) return;
+
+    await cubit.setDoctors(result);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final glass = context.glass;
+
+    return BlocConsumer<PriceTierDoctorsCubit, PriceTierDoctorsState>(
+      listener: (context, state) {
+        if (state is PriceTierDoctorsMessage) {
+          showToast(
+            message: state.message,
+            state: state.isError ? ToastState.error : ToastState.success,
+          );
+        }
+      },
+      buildWhen: (_, current) => current is! PriceTierDoctorsMessage,
+      builder: (context, state) {
+        final loaded = state is PriceTierDoctorsLoaded ? state : null;
+        final doctors = loaded?.doctors ?? const <PriceTierDoctorModel>[];
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            GlassSectionTitle('الأطباء', count: doctors.length),
+            const SizedBox(height: 8),
+
+            if (state is PriceTierDoctorsError)
+              Text(
+                state.message,
+                style: AppTextStyles.font12RegularHint.copyWith(
+                  color: glass.error,
+                ),
+              )
+            else if (doctors.isEmpty)
+              Text(
+                'لم تُسنَد هذه الشريحة إلى أي طبيب — لن تُطبَّق أسعارها على أحد.',
+                style: AppTextStyles.font12RegularHint.copyWith(
+                  color: glass.warning,
+                ),
+              )
+            else
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  for (final doctor in doctors)
+                    Chip(
+                      label: Text(
+                        doctor.number == null
+                            ? doctor.displayName
+                            : '${doctor.number} · ${doctor.displayName}',
+                      ),
+                    ),
+                ],
+              ),
+
+            const SizedBox(height: 12),
+            Align(
+              alignment: AlignmentDirectional.centerStart,
+              child: OutlinedButton.icon(
+                onPressed: (loaded?.isBusy ?? false)
+                    ? null
+                    : () => _assign(doctors),
+                icon: const Icon(Icons.person_add_alt),
+                label: const Text('إسناد الشريحة'),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+}
+
 class _DetailsList extends StatelessWidget {
   const _DetailsList({required this.priceTier, required this.items});
 
@@ -122,6 +256,11 @@ class _DetailsList extends StatelessWidget {
               ),
               children: [
                 _DetailsHeader(priceTier: priceTier),
+                const SizedBox(height: 16),
+                // Who pays these prices comes before the prices themselves: a
+                // tier assigned to nobody is a price list that bills no one,
+                // and it looks identical to a working one until you ask.
+                const _DoctorsSection(),
                 const SizedBox(height: 16),
                 const GlassSectionTitle('الأسعار'),
                 const SizedBox(height: 8),

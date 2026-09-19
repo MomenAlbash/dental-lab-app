@@ -11,15 +11,18 @@ class RoleListItemWidget extends StatelessWidget {
     required this.name,
     required this.description,
     required this.permissionsCount,
-    required this.onEdit,
-    required this.onDelete,
+    this.onEdit,
+    this.onDelete,
   });
 
   final String name;
   final String description;
   final int permissionsCount;
-  final VoidCallback onEdit;
-  final VoidCallback onDelete;
+
+  /// Null hides the button rather than disabling it — a row the user cannot
+  /// act on advertises nothing it cannot deliver.
+  final VoidCallback? onEdit;
+  final VoidCallback? onDelete;
 
   @override
   Widget build(BuildContext context) {
@@ -92,28 +95,32 @@ class RoleListItemWidget extends StatelessWidget {
                             ],
                           ),
                         ),
-                        const SizedBox(width: AppSpacing.xs),
-                        Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            IconButton(
-                              tooltip: 'تعديل',
-                              onPressed: onEdit,
-                              icon: Icon(
-                                Icons.edit_outlined,
-                                color: glass.onGlassMuted,
-                              ),
-                            ),
-                            IconButton(
-                              tooltip: 'حذف',
-                              onPressed: onDelete,
-                              icon: Icon(
-                                Icons.delete_outline,
-                                color: glass.error,
-                              ),
-                            ),
-                          ],
-                        ),
+                        if (onEdit != null || onDelete != null) ...[
+                          const SizedBox(width: AppSpacing.xs),
+                          Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              if (onEdit != null)
+                                IconButton(
+                                  tooltip: 'تعديل',
+                                  onPressed: onEdit,
+                                  icon: Icon(
+                                    Icons.edit_outlined,
+                                    color: glass.onGlassMuted,
+                                  ),
+                                ),
+                              if (onDelete != null)
+                                IconButton(
+                                  tooltip: 'حذف',
+                                  onPressed: onDelete,
+                                  icon: Icon(
+                                    Icons.delete_outline,
+                                    color: glass.error,
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ],
                       ],
                     ),
                   ),

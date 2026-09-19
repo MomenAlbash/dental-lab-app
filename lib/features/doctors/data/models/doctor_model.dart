@@ -78,6 +78,26 @@ class DoctorModel {
   final CityModel? city;
   final String? clinicId;
   final ClinicModel? clinic;
+
+  /// The zone this doctor resolves to for the calling laboratory — their
+  /// explicit pin if they have one, otherwise the zone covering their area.
+  /// Null for a doctor with no area and no pin, or one whose area no zone
+  /// covers yet. This is what decides which representatives may take their
+  /// scanner sessions, and who a "قبول منطقة" pick sets during approval.
+  final String? zoneId;
+  final String? zoneName;
+  final String? zoneNameAr;
+
+  /// The price list this doctor is billed at. Null means the laboratory has
+  /// not put them on one, which is not the same as being on a free tier —
+  /// nothing prices their cases.
+  final String? priceTierId;
+  final String? priceTierName;
+
+  /// When they moved onto it, so a change is visibly recent rather than
+  /// looking like it was always so.
+  final String? priceTierSince;
+
   final List<DoctorAttachmentFileModel> files;
 
   final DoctorApprovalStatus approvalStatus;
@@ -104,6 +124,12 @@ class DoctorModel {
     this.city,
     this.clinicId,
     this.clinic,
+    this.zoneId,
+    this.zoneName,
+    this.zoneNameAr,
+    this.priceTierId,
+    this.priceTierName,
+    this.priceTierSince,
     this.files = const [],
     this.approvalStatus = DoctorApprovalStatus.approved,
     this.requestedClinicName,
@@ -137,6 +163,12 @@ class DoctorModel {
 
   String? get clinicName => clinic?.name;
 
+  String? get zoneDisplayName {
+    final ar = zoneNameAr?.trim();
+    if (ar != null && ar.isNotEmpty) return ar;
+    return zoneName?.trim();
+  }
+
   factory DoctorModel.fromJson(Map<String, dynamic> json) {
     return DoctorModel(
       id: json['id'] as String,
@@ -157,6 +189,12 @@ class DoctorModel {
       clinic: json['clinic'] == null
           ? null
           : ClinicModel.fromJson(json['clinic'] as Map<String, dynamic>),
+      zoneId: json['zoneId'] as String?,
+      zoneName: json['zoneName'] as String?,
+      zoneNameAr: json['zoneNameAr'] as String?,
+      priceTierId: json['priceTierId'] as String?,
+      priceTierName: json['priceTierName'] as String?,
+      priceTierSince: json['priceTierSince'] as String?,
       approvalStatus: DoctorApprovalStatus.fromApi(
         json['approvalStatus'] as int?,
       ),

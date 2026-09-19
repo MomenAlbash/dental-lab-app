@@ -3,12 +3,15 @@ import 'package:dental_lab_app/core/theming/app_motion.dart';
 import 'package:dental_lab_app/core/theming/glass.dart';
 import 'package:dental_lab_app/core/theming/styles.dart';
 import 'package:dental_lab_app/core/widgets/adaptive_detail_sections.dart';
+import 'package:dental_lab_app/features/case_priorities/ui/widgets/doctor_quota_section.dart';
 import 'package:dental_lab_app/features/doctors/data/models/doctor_attachment_file_model.dart';
 import 'package:dental_lab_app/features/doctors/data/models/doctor_model.dart';
 import 'package:dental_lab_app/features/doctors/ui/widgets/doctor_approval_panel.dart';
 import 'package:dental_lab_app/features/doctors/ui/widgets/doctor_attachments_section.dart';
+import 'package:dental_lab_app/features/doctors/ui/widgets/doctor_excluded_representatives_section.dart';
 import 'package:dental_lab_app/features/doctors/ui/widgets/doctor_hero_header.dart';
 import 'package:dental_lab_app/features/doctors/ui/widgets/doctor_info_tiles.dart';
+import 'package:dental_lab_app/features/doctors/ui/widgets/doctor_price_tier_section.dart';
 import 'package:dental_lab_app/features/doctors/ui/widgets/doctor_quick_actions.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
@@ -24,16 +27,22 @@ class DoctorDetailsBody extends StatelessWidget {
     required this.doctor,
     required this.isBusy,
     required this.onEdit,
+    required this.onOpenAnswers,
     required this.onAddFile,
     required this.onDeleteFile,
     required this.onOpenFile,
     required this.onApprove,
     required this.onReject,
+    required this.onPriceTierChanged,
+    this.onChangePhoto,
   });
 
   final DoctorModel doctor;
   final bool isBusy;
   final VoidCallback onEdit;
+
+  /// Opens the laboratory's own custom questions for this doctor.
+  final VoidCallback onOpenAnswers;
 
   /// Decisions on a self-registered doctor's application.
   final ValueChanged<ApprovalChoice> onApprove;
@@ -42,13 +51,24 @@ class DoctorDetailsBody extends StatelessWidget {
   final ValueChanged<String> onDeleteFile;
   final ValueChanged<DoctorAttachmentFileModel> onOpenFile;
 
+  /// Moves the doctor onto a price tier, or off one when null.
+  final ValueChanged<String?> onPriceTierChanged;
+
+  /// Replaces the doctor's photo. Null without permission to edit them.
+  final VoidCallback? onChangePhoto;
+
   @override
   Widget build(BuildContext context) {
     return Stack(
       children: [
         CustomScrollView(
           slivers: [
-            DoctorSliverHeader(doctor: doctor, onEdit: onEdit),
+            DoctorSliverHeader(
+              doctor: doctor,
+              onEdit: onEdit,
+              onOpenAnswers: onOpenAnswers,
+              onChangePhoto: onChangePhoto,
+            ),
             SliverToBoxAdapter(
               child: AdaptiveDetailSections(
                 // What the doctor *is*.
@@ -67,6 +87,20 @@ class DoctorDetailsBody extends StatelessWidget {
                             curve: AppMotion.enter,
                           ),
                     ],
+                  ),
+                  // Both are part of what the doctor *is*, not actions: a
+                  // standing pricing arrangement the lab reads as often as it
+                  // edits. The tier comes first — it decides what a case
+                  // costs at all, while the quota only decides what is free.
+                  DoctorPriceTierSection(
+                    doctor: doctor,
+                    isBusy: isBusy,
+                    onChanged: onPriceTierChanged,
+                  ),
+                  DoctorQuotaSection(doctorId: doctor.id),
+                  DoctorExcludedRepresentativesSection(
+                    doctorId: doctor.id,
+                    zoneId: doctor.zoneId,
                   ),
                   DoctorAttachmentsSection(
                     files: doctor.files,

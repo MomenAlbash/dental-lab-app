@@ -57,6 +57,34 @@ class EmployeeModel {
   final String? bankAccountNumber;
   final List<EmployeeAttachmentFileModel> files;
 
+  /// Still employed. False is a **terminated** employee, who stays listed
+  /// rather than disappearing: their attendance, payslips and case history
+  /// are all still real, and hiding the person would orphan every one of them.
+  final bool isActive;
+
+  /// A field representative — the pool scanner sessions are assigned from.
+  /// Only a flagged employee can be put on a zone.
+  final bool isRepresentative;
+
+  /// When they came off probation.
+  final DateTime? stabilizationDate;
+
+  /// Null while they are still employed; set once terminated, which is what
+  /// [isActive] reflects.
+  final DateTime? terminationDate;
+
+  /// The linked login, when there is one.
+  final String? userId;
+  final String? username;
+
+  /// Whether that login may sign in. **Null means there is no login at all** —
+  /// a different thing from a login that exists but is suspended, and the two
+  /// are shown differently.
+  final bool? userIsActive;
+
+  final String? userRoleName;
+  final bool userIsAdmin;
+
   EmployeeModel({
     required this.id,
     this.firstName,
@@ -73,7 +101,20 @@ class EmployeeModel {
     this.bankName,
     this.bankAccountNumber,
     this.files = const [],
+    this.isActive = true,
+    this.isRepresentative = false,
+    this.stabilizationDate,
+    this.terminationDate,
+    this.userId,
+    this.username,
+    this.userIsActive,
+    this.userRoleName,
+    this.userIsAdmin = false,
   });
+
+  /// Whether this employee has a login at all — distinct from having one that
+  /// is currently suspended.
+  bool get hasLogin => userId != null;
 
   String get fullName => '${firstName ?? ''} ${lastName ?? ''}'.trim();
 
@@ -122,6 +163,56 @@ class EmployeeModel {
               )
               .toList() ??
           const [],
+      isActive: json['isActive'] as bool? ?? true,
+      isRepresentative: json['isRepresentative'] as bool? ?? false,
+      stabilizationDate: DateTime.tryParse(
+        json['stabilizationDate'] as String? ?? '',
+      ),
+      terminationDate: DateTime.tryParse(
+        json['terminationDate'] as String? ?? '',
+      ),
+      userId: json['userId'] as String?,
+      username: json['username'] as String?,
+      userIsActive: json['userIsActive'] as bool?,
+      userRoleName: json['userRoleName'] as String?,
+      userIsAdmin: json['userIsAdmin'] as bool? ?? false,
+    );
+  }
+}
+
+/// One note somebody left on an employee's file (`EmployeeNoteDto`).
+///
+/// Append-only in practice: a note carries who wrote it and when, and the way
+/// to correct one is another note rather than an edit — which is why there is
+/// no update endpoint for it.
+class EmployeeNoteModel {
+  const EmployeeNoteModel({
+    required this.id,
+    required this.employeeId,
+    this.employeeName,
+    this.authorId,
+    this.authorName,
+    this.note,
+    this.createdAt,
+  });
+
+  final String id;
+  final String employeeId;
+  final String? employeeName;
+  final String? authorId;
+  final String? authorName;
+  final String? note;
+  final DateTime? createdAt;
+
+  factory EmployeeNoteModel.fromJson(Map<String, dynamic> json) {
+    return EmployeeNoteModel(
+      id: json['id'] as String? ?? '',
+      employeeId: json['employeeId'] as String? ?? '',
+      employeeName: json['employeeName'] as String?,
+      authorId: json['authorId'] as String?,
+      authorName: json['authorName'] as String?,
+      note: json['note'] as String?,
+      createdAt: DateTime.tryParse(json['createdAt'] as String? ?? ''),
     );
   }
 }

@@ -107,7 +107,7 @@ class LaboratoryListItemWidget extends StatelessWidget {
                                       ),
                                       if (isCurrent)
                                         _Badge(
-                                          label: 'المخبر الحالي',
+                                          label: 'الفرع الحالي',
                                           color: accent,
                                         ),
                                     ],
