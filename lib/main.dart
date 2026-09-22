@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:developer';
 
 import 'package:dental_lab_app/core/di/dependency_injection.dart';
 import 'package:dental_lab_app/core/helper/local/cache_keys.dart';
@@ -23,13 +24,28 @@ Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   Api.init();
   await CacheHelper.init();
-  await Firebase.initializeApp();
-  FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
-  await setupGetIt();
-  await getIt<PushNotificationService>().initialize();
+  // Push is a convenience, not the app. A Firebase that fails to configure —
+  // a missing GoogleService-Info.plist on iOS being the classic cause — used
+  // to throw right here, which meant `runApp` below was never reached and the
+  // user got a blank screen instead of an app. Losing notifications is the
+  // cheaper failure.
+  var firebaseReady = false;
+  try {
+    await Firebase.initializeApp();
+    FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
+    firebaseReady = true;
+  } catch (e) {
+    log('Firebase init failed — push notifications disabled: $e');
+  }
 
-  if (CacheHelper.getData(key: CacheKeys.token) != null) {
-    getIt<PushNotificationService>().requestPermissionAndRegister();
+  await setupGetIt();
+
+  if (firebaseReady) {
+    await getIt<PushNotificationService>().initialize();
+
+    if (CacheHelper.getData(key: CacheKeys.token) != null) {
+      getIt<PushNotificationService>().requestPermissionAndRegister();
+    }
   }
 
   Api.onSessionExpired = () async {

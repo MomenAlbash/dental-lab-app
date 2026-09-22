@@ -119,6 +119,16 @@ class PushNotificationService {
       final granted = await ensureNotificationPermission();
       if (!granted) return;
 
+      // iOS registers with APNs only after permission is granted, and hands
+      // Firebase the resulting token a moment later. Asking for the FCM token
+      // before it lands returns null — or throws — so the device silently
+      // never registers. Android has no equivalent step.
+      if (defaultTargetPlatform == TargetPlatform.iOS &&
+          await _awaitApnsToken() == null) {
+        log('APNS token never arrived — skipping FCM registration');
+        return;
+      }
+
       final token = await FirebaseMessaging.instance.getToken();
       // Printed so it can be pasted into Firebase Console → Cloud Messaging
       // → "Send test message" while the server side isn't storing it yet.
@@ -136,6 +146,18 @@ class PushNotificationService {
     } catch (e) {
       log('Push permission/registration failed: $e');
     }
+  }
+
+  /// Polls for the APNs token iOS delivers shortly after registration, and
+  /// gives up rather than hanging the caller: a device that cannot reach APNs
+  /// is a device that gets no push, and waiting forever would not change that.
+  Future<String?> _awaitApnsToken() async {
+    for (var attempt = 0; attempt < 6; attempt++) {
+      final apnsToken = await FirebaseMessaging.instance.getAPNSToken();
+      if (apnsToken != null) return apnsToken;
+      await Future.delayed(const Duration(milliseconds: 500));
+    }
+    return null;
   }
 
   DevicePlatform get _platform => defaultTargetPlatform == TargetPlatform.iOS
