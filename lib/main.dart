@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:developer';
 
 import 'package:dental_lab_app/core/di/dependency_injection.dart';
+import 'package:dental_lab_app/core/helper/laboratory_scope.dart';
 import 'package:dental_lab_app/core/helper/local/cache_keys.dart';
 import 'package:dental_lab_app/core/helper/local/cached_helper.dart';
 import 'package:dental_lab_app/core/helper/network_helper/api.dart';
@@ -13,6 +14,7 @@ import 'package:dental_lab_app/features/branding/logic/branding_cubit.dart';
 import 'package:dental_lab_app/core/theming/app_theme.dart';
 import 'package:dental_lab_app/core/theming/font_scale_cubit.dart';
 import 'package:dental_lab_app/core/theming/theme_cubit.dart';
+import 'package:dental_lab_app/core/widgets/laboratory_picker_dialog.dart';
 import 'package:dental_lab_app/core/widgets/offline_banner_wrapper.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
@@ -51,6 +53,15 @@ Future<void> main() async {
   Api.onSessionExpired = () async {
     await getIt<LoginRepo>().logout();
     AppRouter.router.go(Routes.loginScreen);
+  };
+
+  // A create while several laboratories are in view has to name one; the
+  // network layer asks, and the answer comes from a dialog over whatever
+  // screen is showing.
+  LaboratoryScope.chooseForCreate = (options) async {
+    final context = AppRouter.router.routerDelegate.navigatorKey.currentContext;
+    if (context == null) return null;
+    return showLaboratoryPickerDialog(context, options);
   };
 
   // Before the first frame, and deliberately not awaited-into-a-spinner: the

@@ -2,6 +2,7 @@ import 'dart:developer';
 
 import 'package:dartz/dartz.dart';
 import 'package:dental_lab_app/core/errors/failures.dart';
+import 'package:dental_lab_app/core/helper/laboratory_scope.dart';
 import 'package:dental_lab_app/core/helper/local/cache_keys.dart';
 import 'package:dental_lab_app/core/helper/local/cacheable_fetch.dart';
 import 'package:dental_lab_app/core/helper/local/cached_helper.dart';
@@ -198,17 +199,16 @@ class LaboratoriesRepo {
     () => _apiService.deleteLaboratoryLogo(id: id, token: _token),
   );
 
-  /// Switches the laboratory every subsequent request is scoped to (sent as
-  /// the `X-Laboratory-Id` header by the [Api] interceptor).
-  Future<void> selectLaboratory(LaboratoryModel laboratory) async {
-    await CacheHelper.saveData(
-      key: CacheKeys.laboratoryId,
-      value: laboratory.id,
-    );
-    await CacheHelper.saveData(
-      key: CacheKeys.laboratoryName,
-      value: laboratory.name ?? '',
-    );
-    log('Active laboratory switched to: ${laboratory.name} (${laboratory.id})');
+  /// The laboratories the session is currently scoped to.
+  List<String> get selectedLaboratoryIds => LaboratoryScope.ids;
+
+  /// Switches the laboratories every subsequent request is scoped to — one,
+  /// or several viewed together (see [LaboratoryScope]).
+  Future<void> selectLaboratories(List<LaboratoryModel> laboratories) async {
+    await LaboratoryScope.save([
+      for (final laboratory in laboratories)
+        (id: laboratory.id, name: laboratory.name ?? ''),
+    ]);
+    log('Scope switched to ${laboratories.length} laboratories');
   }
 }

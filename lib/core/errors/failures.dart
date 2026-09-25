@@ -56,6 +56,10 @@ class ServerFailure extends Failure {
           dioException.response?.data,
         );
       case DioExceptionType.cancel:
+        // A request the app itself stopped carries its reason as the error —
+        // e.g. no laboratory picked for a create — and that is what to show.
+        final reason = dioException.error;
+        if (reason is String && reason.isNotEmpty) return ServerFailure(reason);
         return ServerFailure('Request From ApiServer was cancelled');
       case DioExceptionType.connectionError:
         return ServerFailure('Connection Error with Api');

@@ -2,6 +2,7 @@ import 'dart:developer';
 import 'dart:convert';
 import 'package:dental_lab_app/core/connectivity/connectivity_cubit.dart';
 import 'package:dental_lab_app/core/di/dependency_injection.dart';
+import 'package:dental_lab_app/core/helper/laboratory_scope.dart';
 import 'package:dental_lab_app/core/helper/local/cache_keys.dart';
 import 'package:dental_lab_app/core/helper/local/cached_helper.dart';
 import 'package:dio/dio.dart';
@@ -39,12 +40,12 @@ class Api {
     );
 
     // Auth + laboratory scoping are injected centrally so every request
-    // carries them, instead of being threaded through each call site. The
-    // whole app is scoped to the active laboratory via the `X-Laboratory-Id`
-    // header, alongside the bearer token.
+    // carries them, instead of being threaded through each call site. See
+    // [LaboratoryScope] for which kind of request carries the laboratory
+    // where.
     dio.interceptors.add(
       InterceptorsWrapper(
-        onRequest: (options, handler) {
+        onRequest: (options, handler) async {
           final token = CacheHelper.getData(key: CacheKeys.token) as String?;
           if (token != null &&
               token.isNotEmpty &&
@@ -52,10 +53,37 @@ class Api {
             options.headers['Authorization'] = 'Bearer $token';
           }
 
-          final laboratoryId =
-              CacheHelper.getData(key: CacheKeys.laboratoryId) as String?;
-          if (laboratoryId != null && laboratoryId.isNotEmpty) {
-            options.headers['X-Laboratory-Id'] = laboratoryId;
+          final method = options.method.toUpperCase();
+          if (method == 'GET') {
+            // Every selected laboratory, always — even just one. The server
+            // answers 400 `laboratory_required` to a GET without it.
+            final ids = LaboratoryScope.ids;
+            if (ids.isNotEmpty) {
+              options.headers['X-Laboratory-Ids'] = ids.join(',');
+            }
+          } else if (method == 'POST' &&
+              LaboratoryScope.isCreatePath(options.path)) {
+            // A create names its laboratory in the body; the header is not
+            // read there. A caller that already chose one keeps it.
+            // [post] sends its body already JSON-encoded, so it arrives here
+            // as a string; decode it rather than miss every create.
+            final raw = options.data;
+            final wasEncoded = raw is String;
+            final body = wasEncoded ? _tryDecodeMap(raw) : raw;
+            if (body is Map<String, dynamic> && body['laboratoryId'] == null) {
+              final laboratoryId = await LaboratoryScope.resolveForCreate();
+              if (laboratoryId == null) {
+                return handler.reject(
+                  DioException(
+                    requestOptions: options,
+                    type: DioExceptionType.cancel,
+                    error: 'لم يُحدَّد المخبر الذي تُضاف إليه',
+                  ),
+                );
+              }
+              final scoped = {...body, 'laboratoryId': laboratoryId};
+              options.data = wasEncoded ? jsonEncode(scoped) : scoped;
+            }
           }
 
           return handler.next(options);
@@ -100,6 +128,17 @@ class Api {
   /// the server at all) rather than some other response-less error like a
   /// cancelled request — mirrors the criteria `ServerFailure.fromDioException`
   /// already trusts for its "No Internet Connection" message.
+  /// A JSON object body, or null when [raw] is anything else — a list, a
+  /// bare value, or not JSON at all.
+  static Map<String, dynamic>? _tryDecodeMap(String raw) {
+    try {
+      final decoded = jsonDecode(raw);
+      return decoded is Map<String, dynamic> ? decoded : null;
+    } on FormatException {
+      return null;
+    }
+  }
+
   static bool _isConnectivityError(DioException error) {
     switch (error.type) {
       case DioExceptionType.connectionError:

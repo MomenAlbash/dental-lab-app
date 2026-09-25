@@ -50,25 +50,22 @@ class _LaboratorySelectionView extends StatelessWidget {
           appBar: showsPicker
               ? GlassAppBar(
                   title: Text(
-                    'اختيار الفرع',
+                    'اختيار المخابر',
                     style: AppTextStyles.font18MediumText.copyWith(
                       color: context.glass.onGlass,
                     ),
                   ),
                   centerTitle: true,
-                  leading: const SizedBox.shrink(),
+                  // Opened again to change the scope, it can go back; right
+                  // after login there is nowhere to go back to.
+                  leading: context.canPop() ? null : const SizedBox.shrink(),
                 )
               : null,
           body: SafeArea(
             child: switch (state) {
-              LaboratorySelectionLoaded(
-                :final laboratories,
-                :final selectedId,
-              ) =>
-                _LaboratoryList(
-                  laboratories: laboratories,
-                  selectedId: selectedId,
-                ),
+              final LaboratorySelectionLoaded loaded => _LaboratoryList(
+                state: loaded,
+              ),
               LaboratorySelectionError(:final message) => Center(
                 child: Padding(
                   padding: const EdgeInsets.all(24),
@@ -91,10 +88,9 @@ class _LaboratorySelectionView extends StatelessWidget {
 }
 
 class _LaboratoryList extends StatelessWidget {
-  const _LaboratoryList({required this.laboratories, required this.selectedId});
+  const _LaboratoryList({required this.state});
 
-  final List<LaboratoryModel> laboratories;
-  final String? selectedId;
+  final LaboratorySelectionLoaded state;
 
   @override
   Widget build(BuildContext context) {
@@ -117,10 +113,23 @@ class _LaboratoryList extends StatelessWidget {
                     8,
                   ),
                   child: Text(
-                    'اختر الفرع الذي تريد العمل عليه',
+                    // Several at once is a view, not a merge: each record
+                    // still belongs to one laboratory, and adding one asks
+                    // which.
+                    'اختر مخبراً أو أكثر — تُعرض بيانات المخابر المختارة معاً',
                     style: AppTextStyles.font14RegularSecondary.copyWith(
                       color: context.glass.onGlassMuted,
                     ),
+                  ),
+                ),
+                Padding(
+                  padding: EdgeInsets.symmetric(horizontal: isWide ? 24 : 12),
+                  child: CheckboxListTile(
+                    value: state.allSelected,
+                    onChanged: (_) =>
+                        context.read<LaboratorySelectionCubit>().toggleAll(),
+                    title: const Text('كل المخابر'),
+                    controlAffinity: ListTileControlAffinity.leading,
                   ),
                 ),
                 Expanded(
@@ -129,17 +138,35 @@ class _LaboratoryList extends StatelessWidget {
                       horizontal: isWide ? 32 : 20,
                       vertical: 8,
                     ),
-                    itemCount: laboratories.length,
+                    itemCount: state.laboratories.length,
                     itemBuilder: (context, index) {
-                      final laboratory = laboratories[index];
+                      final laboratory = state.laboratories[index];
                       return _LaboratoryCard(
                         laboratory: laboratory,
-                        isSelected: laboratory.id == selectedId,
+                        isSelected: state.selectedIds.contains(laboratory.id),
                         onTap: () => context
                             .read<LaboratorySelectionCubit>()
-                            .selectLaboratory(laboratory),
+                            .toggle(laboratory.id),
                       );
                     },
+                  ),
+                ),
+                Padding(
+                  padding: EdgeInsets.fromLTRB(
+                    isWide ? 32 : 20,
+                    8,
+                    isWide ? 32 : 20,
+                    16,
+                  ),
+                  child: FilledButton(
+                    onPressed: state.canConfirm
+                        ? context.read<LaboratorySelectionCubit>().confirm
+                        : null,
+                    child: Text(
+                      state.canConfirm
+                          ? 'متابعة (${state.selectedIds.length})'
+                          : 'اختر مخبراً واحداً على الأقل',
+                    ),
                   ),
                 ),
               ],

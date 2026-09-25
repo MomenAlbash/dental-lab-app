@@ -15,12 +15,20 @@ class CacheKeys {
   /// message) can be shown or hidden without a refetch.
   static const String isAdmin = 'isAdmin';
 
-  /// The laboratory the user is currently operating as. Sent with every
-  /// request as the `X-Laboratory-Id` header.
+  /// The first of [laboratoryIds] — what older code reads as "the session's
+  /// laboratory". The headers are built from [laboratoryIds], not this.
   static const String laboratoryId = 'laboratoryId';
 
   /// Display name of [laboratoryId], so the UI can show it without a refetch.
   static const String laboratoryName = 'laboratoryName';
+
+  /// Every laboratory the session is scoped to, comma-separated — sent on
+  /// every GET as the `X-Laboratory-Ids` header. [laboratoryId] keeps the
+  /// first of them. Read and written only through `LaboratoryScope`.
+  static const String laboratoryIds = 'laboratoryIds';
+
+  /// The names of [laboratoryIds], JSON-encoded, in the same order.
+  static const String laboratoryNames = 'laboratoryNames';
 
   /// The signed-in user's permission grants, cached so a cold start draws the
   /// correct navigation before `/ClinicAuth/me` answers.

@@ -5,6 +5,7 @@ import 'package:dental_lab_app/core/auth/permissions.dart';
 import 'package:dental_lab_app/core/auth/session.dart';
 import 'package:dental_lab_app/core/di/dependency_injection.dart';
 import 'package:dental_lab_app/core/errors/failures.dart';
+import 'package:dental_lab_app/core/helper/laboratory_scope.dart';
 import 'package:dental_lab_app/core/helper/local/cache_keys.dart';
 import 'package:dental_lab_app/core/helper/local/cached_helper.dart';
 import 'package:dental_lab_app/core/helper/network_helper/api_service.dart';
@@ -65,14 +66,9 @@ class LoginRepo {
       final laboratory = response.data?.laboratory;
       final laboratoryId = response.data?.laboratoryId ?? laboratory?.id;
       if (laboratoryId != null) {
-        await CacheHelper.saveData(
-          key: CacheKeys.laboratoryId,
-          value: laboratoryId,
-        );
-        await CacheHelper.saveData(
-          key: CacheKeys.laboratoryName,
-          value: laboratory?.name ?? '',
-        );
+        await LaboratoryScope.save([
+          (id: laboratoryId, name: laboratory?.name ?? ''),
+        ]);
       }
 
       log('Login response successfully received');
@@ -115,7 +111,6 @@ class LoginRepo {
     await CacheHelper.removeData(key: CacheKeys.token);
     await CacheHelper.removeData(key: CacheKeys.userId);
     await CacheHelper.removeData(key: CacheKeys.isAdmin);
-    await CacheHelper.removeData(key: CacheKeys.laboratoryId);
-    await CacheHelper.removeData(key: CacheKeys.laboratoryName);
+    await LaboratoryScope.clear();
   }
 }

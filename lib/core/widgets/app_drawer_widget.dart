@@ -313,6 +313,12 @@ const List<_DrawerGroup> _groups = [
         requires: PermissionName.branches,
       ),
       _Destination(
+        icon: Icons.filter_alt_outlined,
+        label: 'المخابر المعروضة',
+        route: Routes.laboratorySelectionScreen,
+        requires: PermissionName.branches,
+      ),
+      _Destination(
         icon: Icons.apartment_outlined,
         label: 'الفروع',
         route: Routes.laboratoriesListScreen,
