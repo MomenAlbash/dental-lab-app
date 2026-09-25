@@ -12,9 +12,17 @@ import 'package:flutter/material.dart';
 /// distinguishes a patient: no status to show, so the case count takes that
 /// slot instead — it's the number a clinician actually wants at a glance.
 class PatientSliverHeader extends StatelessWidget {
-  const PatientSliverHeader({super.key, required this.patient});
+  const PatientSliverHeader({
+    super.key,
+    required this.patient,
+    required this.onEdit,
+  });
 
   final PatientModel patient;
+
+  /// Opens the edit form — placed here rather than in the body so it matches
+  /// where the doctor and clinic screens keep theirs.
+  final VoidCallback onEdit;
 
   static const double expandedHeight = 236;
 
@@ -33,6 +41,13 @@ class PatientSliverHeader extends StatelessWidget {
           bottom: Radius.circular(AppRadius.glassLg),
         ),
       ),
+      actions: [
+        IconButton(
+          tooltip: 'تعديل',
+          onPressed: onEdit,
+          icon: const Icon(Icons.edit_outlined),
+        ),
+      ],
       // `FlexibleSpaceBar.title` is not used: it stays mounted while expanded
       // too, which would render the name twice. The two placements are
       // cross-faded by scroll progress instead — see the doctor header for the

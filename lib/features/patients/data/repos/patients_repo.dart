@@ -86,6 +86,52 @@ class PatientsRepo {
     }
   }
 
+  /// Saves an edited patient.
+  ///
+  /// The request body is the create model: the API reuses one schema for both
+  /// verbs — see [ApiService.updatePatient].
+  Future<Either<Failure, PatientModel>> updatePatient({
+    required String id,
+    required CreatePatientRequestModel patientRequestBody,
+  }) async {
+    try {
+      final patient = await _apiService.updatePatient(
+        id: id,
+        patientRequestBody: patientRequestBody,
+        token: _token,
+      );
+
+      log('Updated patient: ${patient.fullName}');
+      return right(patient);
+    } on DioException catch (e) {
+      log('DioException while updating patient: ${e.message}');
+      return left(ServerFailure.fromDioException(e));
+    } catch (e) {
+      log('General Exception while updating patient: ${e.toString()}');
+      return left(ServerFailure.fromException(e));
+    }
+  }
+
+  /// Deletes a patient.
+  ///
+  /// `canDelete` on the record is guidance for the UI, never the authority —
+  /// the server refuses on its own terms, and that refusal's message is what
+  /// gets shown.
+  Future<Either<Failure, void>> deletePatient(String id) async {
+    try {
+      await _apiService.deletePatient(id: id, token: _token);
+
+      log('Deleted patient: $id');
+      return right(null);
+    } on DioException catch (e) {
+      log('DioException while deleting patient: ${e.message}');
+      return left(ServerFailure.fromDioException(e));
+    } catch (e) {
+      log('General Exception while deleting patient: ${e.toString()}');
+      return left(ServerFailure.fromException(e));
+    }
+  }
+
   /// Just enough of a patient to confirm the right one was picked.
   ///
   /// Deliberately not the full record: a case form needs to show who this is,
@@ -93,10 +139,7 @@ class PatientsRepo {
   /// makes a form feel slow.
   Future<Either<Failure, PatientLookupModel>> getLookup(String id) async {
     try {
-      final patient = await _apiService.getPatientLookup(
-        id: id,
-        token: _token,
-      );
+      final patient = await _apiService.getPatientLookup(id: id, token: _token);
 
       log('Fetched patient lookup: $id');
       return right(patient);

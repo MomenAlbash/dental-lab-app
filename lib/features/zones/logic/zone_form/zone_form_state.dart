@@ -1,3 +1,4 @@
+import 'package:dental_lab_app/features/accounting/data/models/currency_model.dart';
 import 'package:dental_lab_app/features/areas/data/models/area_model.dart';
 import 'package:dental_lab_app/features/users/data/models/user_model.dart';
 import 'package:dental_lab_app/features/zones/data/models/zone_model.dart';
@@ -24,9 +25,11 @@ class ZoneFormCatalogLoaded extends ZoneFormState {
   const ZoneFormCatalogLoaded({
     required this.areas,
     required this.representatives,
+    this.currencies = const [],
   });
   final List<AreaModel> areas;
   final List<UserModel> representatives;
+  final List<CurrencyModel> currencies;
 }
 
 class ZoneFormCatalogError extends ZoneFormState {

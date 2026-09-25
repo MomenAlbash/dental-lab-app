@@ -1,4 +1,7 @@
 /// `ClinicCreateZoneRequest`.
+///
+/// [returnDeliveryFee] is the zone's delivery fee (أجرة التوصيل) — despite
+/// the name, what shipping costs a doctor here — priced in [shippingCurrencyId].
 class CreateZoneRequestModel {
   const CreateZoneRequestModel({
     required this.name,
@@ -8,6 +11,8 @@ class CreateZoneRequestModel {
     this.areaIds = const [],
     this.representativeUserIds = const [],
     this.returnDeliveryFee,
+    this.shippingCurrencyId,
+    this.shippingMinutes = 0,
   });
 
   final String name;
@@ -17,6 +22,10 @@ class CreateZoneRequestModel {
   final List<String> areaIds;
   final List<String> representativeUserIds;
   final double? returnDeliveryFee;
+  final String? shippingCurrencyId;
+
+  /// How long shipping adds to delivery, in minutes (0–525600, a year).
+  final int shippingMinutes;
 
   Map<String, dynamic> toJson() => {
     'name': name,
@@ -26,6 +35,8 @@ class CreateZoneRequestModel {
     'areaIds': areaIds,
     'representativeUserIds': representativeUserIds,
     'returnDeliveryFee': returnDeliveryFee,
+    'shippingCurrencyId': shippingCurrencyId,
+    'shippingMinutes': shippingMinutes,
   };
 }
 
@@ -42,6 +53,9 @@ class UpdateZoneRequestModel {
     this.areaIds = const [],
     this.representativeUserIds = const [],
     this.returnDeliveryFee,
+    this.shippingCurrencyId,
+    this.shippingMinutes = 0,
+    this.clearReturnDeliveryFee = false,
   });
 
   final String? name;
@@ -51,6 +65,14 @@ class UpdateZoneRequestModel {
   final List<String> areaIds;
   final List<String> representativeUserIds;
   final double? returnDeliveryFee;
+  final String? shippingCurrencyId;
+
+  /// How long shipping adds to delivery, in minutes (0–525600, a year).
+  final int shippingMinutes;
+
+  /// Removes the delivery fee. A null [returnDeliveryFee] alone leaves the
+  /// old one in place, so emptying the field has to say so explicitly.
+  final bool clearReturnDeliveryFee;
 
   Map<String, dynamic> toJson() => {
     'name': name,
@@ -60,5 +82,8 @@ class UpdateZoneRequestModel {
     'areaIds': areaIds,
     'representativeUserIds': representativeUserIds,
     'returnDeliveryFee': returnDeliveryFee,
+    'shippingCurrencyId': shippingCurrencyId,
+    'shippingMinutes': shippingMinutes,
+    if (clearReturnDeliveryFee) 'clearReturnDeliveryFee': true,
   };
 }

@@ -67,38 +67,44 @@ void main() {
   tearDown(() => cubit.close());
 
   group('counts', () {
-    test('the badges come from the server, not from counting the page', () async {
-      // The list is one page; the counts are the whole laboratory under the
-      // same filters. Counting the rows would have made "متأخرة: 3" mean
-      // "3 of the 200 I happen to have".
-      await cubit.getCases();
+    test(
+      'the badges come from the server, not from counting the page',
+      () async {
+        // The list is one page; the counts are the whole laboratory under the
+        // same filters. Counting the rows would have made "متأخرة: 3" mean
+        // "3 of the 200 I happen to have".
+        await cubit.getCases();
 
-      final state = cubit.state as CasesLoaded;
-      expect(state.cases.length, 1);
-      expect(state.phaseCounts.all, 9);
-      expect(state.slaCounts.late$, 3);
-    });
+        final state = cubit.state as CasesLoaded;
+        expect(state.cases.length, 1);
+        expect(state.phaseCounts.all, 9);
+        expect(state.slaCounts.late$, 3);
+      },
+    );
 
-    test('a failed count keeps the last badges and never fails the list', () async {
-      await cubit.getCases();
+    test(
+      'a failed count keeps the last badges and never fails the list',
+      () async {
+        await cubit.getCases();
 
-      when(
-        () => repo.getPhaseCounts(
-          search: any(named: 'search'),
-          filters: any(named: 'filters'),
-        ),
-      ).thenAnswer(
-        (_) async => Left<Failure, CasePhaseCountsModel>(
-          ServerFailure('انقطع الاتصال'),
-        ),
-      );
+        when(
+          () => repo.getPhaseCounts(
+            search: any(named: 'search'),
+            filters: any(named: 'filters'),
+          ),
+        ).thenAnswer(
+          (_) async => Left<Failure, CasePhaseCountsModel>(
+            ServerFailure('انقطع الاتصال'),
+          ),
+        );
 
-      await cubit.getCases();
+        await cubit.getCases();
 
-      final state = cubit.state as CasesLoaded;
-      expect(state.phaseCounts.all, 9);
-      expect(state.cases, isNotEmpty);
-    });
+        final state = cubit.state as CasesLoaded;
+        expect(state.phaseCounts.all, 9);
+        expect(state.cases, isNotEmpty);
+      },
+    );
   });
 
   group('phase tab', () {
@@ -210,6 +216,86 @@ void main() {
       expect(filters.stageIds, isEmpty);
       expect(filters.restorationStageIds, isEmpty);
       expect(cubit.isMyTasks, isFalse);
+    });
+
+    test('a temporary override alone still reaches the queue', () async {
+      // Someone handed one restoration outside their department has no stage
+      // ids at all — before, that read as "nothing assigned".
+      when(() => repo.getMyWorkflowAssignments()).thenAnswer(
+        (_) async => Right<Failure, MyWorkflowAssignmentsModel>(
+          const MyWorkflowAssignmentsModel(
+            overriddenCaseRestorationIds: ['cr1'],
+          ),
+        ),
+      );
+
+      await cubit.setMyTasks(true);
+
+      expect(lastFilters().overriddenRestorationIds, {'cr1'});
+    });
+
+    test('matches a case on any assigned stage, not all of them', () async {
+      when(() => repo.getMyWorkflowAssignments()).thenAnswer(
+        (_) async => Right<Failure, MyWorkflowAssignmentsModel>(
+          const MyWorkflowAssignmentsModel(
+            caseStageIds: ['cs1'],
+            restorationStageIds: ['rs1'],
+          ),
+        ),
+      );
+
+      await cubit.setMyTasks(true);
+
+      expect(lastFilters().matchAnyAssignedStage, isTrue);
+    });
+
+    test('an admin gets the whole list, not "nothing assigned"', () async {
+      // The server leaves the lists empty for an admin and sets allStages.
+      when(() => repo.getMyWorkflowAssignments()).thenAnswer(
+        (_) async => Right<Failure, MyWorkflowAssignmentsModel>(
+          const MyWorkflowAssignmentsModel(allStages: true),
+        ),
+      );
+
+      await cubit.setMyTasks(true);
+
+      final filters = lastFilters();
+      expect(cubit.state, isA<CasesLoaded>());
+      expect(filters.stageIds, isEmpty);
+      expect(filters.restorationStageIds, isEmpty);
+      expect(filters.matchAnyAssignedStage, isFalse);
+    });
+
+    test('switching back off drops the overrides too', () async {
+      when(() => repo.getMyWorkflowAssignments()).thenAnswer(
+        (_) async => Right<Failure, MyWorkflowAssignmentsModel>(
+          const MyWorkflowAssignmentsModel(
+            overriddenCaseRestorationIds: ['cr1'],
+          ),
+        ),
+      );
+
+      await cubit.setMyTasks(true);
+      await cubit.setMyTasks(false);
+
+      final filters = lastFilters();
+      expect(filters.overriddenRestorationIds, isEmpty);
+      expect(filters.matchAnyAssignedStage, isFalse);
+    });
+  });
+
+  group('MyWorkflowAssignmentsModel', () {
+    test('reads the override ids and the admin flag', () {
+      final model = MyWorkflowAssignmentsModel.fromJson({
+        'allStages': true,
+        'caseStageIds': null,
+        'restorationStageIds': null,
+        'overriddenCaseRestorationIds': ['cr1', 'cr2'],
+      });
+
+      expect(model.allStages, isTrue);
+      expect(model.overriddenCaseRestorationIds, ['cr1', 'cr2']);
+      expect(model.isEmpty, isFalse);
     });
   });
 }

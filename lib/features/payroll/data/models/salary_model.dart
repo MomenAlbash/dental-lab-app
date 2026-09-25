@@ -1,5 +1,6 @@
 import 'package:dental_lab_app/core/helper/api_time_helper.dart';
 import 'package:dental_lab_app/features/accounting/data/models/currency_model.dart';
+import 'package:dental_lab_app/features/attendance/data/models/attendance_enums.dart';
 import 'package:dental_lab_app/features/payroll/data/models/payroll_enums.dart';
 
 /// One spell of an employee's pay configuration (`EmployeeSalarySystemDto`).
@@ -8,8 +9,10 @@ import 'package:dental_lab_app/features/payroll/data/models/payroll_enums.dart';
 /// spell and opens a new one, so a statement for last March is still computed
 /// against March's rate rather than today's.
 ///
-/// **Money only.** The attendance and deduction rules live on the shift, which
-/// is why two people on the same shift can be paid completely differently.
+/// **All the money lives here** — the pay itself and what a minute of delay,
+/// early leave, gap or a day's absence costs. The shift only holds the week
+/// and the grace minutes those are judged against, which is why two people on
+/// the same shift can be docked completely differently.
 class EmployeeSalarySystemModel {
   const EmployeeSalarySystemModel({
     required this.id,
@@ -22,6 +25,16 @@ class EmployeeSalarySystemModel {
     this.payRate = 0,
     this.currencyId,
     this.currencyCode,
+    this.absentDeductionType = AbsentDeductionType.none,
+    this.absentDeductionValue = 0,
+    this.minutePenaltyBasis = MinutePenaltyBasis.fixedAmount,
+    this.delayDeductionPerMinute = 0,
+    this.earlyLeaveDeductionPerMinute = 0,
+    this.gapDeductionPerMinute = 0,
+    this.dailyRateDivisor = 30,
+    this.workHoursPerDay = 8,
+    this.overtimePayPerMinute,
+    this.includeStagePay = false,
     this.note,
   });
 
@@ -42,6 +55,28 @@ class EmployeeSalarySystemModel {
 
   final String? currencyId;
   final String? currencyCode;
+
+  final AbsentDeductionType absentDeductionType;
+  final double absentDeductionValue;
+
+  final MinutePenaltyBasis minutePenaltyBasis;
+  final double delayDeductionPerMinute;
+  final double earlyLeaveDeductionPerMinute;
+  final double gapDeductionPerMinute;
+
+  /// How many days a month's salary is divided into to get a daily rate — 26
+  /// and 30 are both common, and they are not the same answer.
+  final int dailyRateDivisor;
+
+  final double workHoursPerDay;
+
+  /// Null means overtime is not paid at all — different from a rate of zero,
+  /// which is a lab that decided an extra minute is worth nothing.
+  final double? overtimePayPerMinute;
+
+  /// Stage earnings are added on top of this pay.
+  final bool includeStagePay;
+
   final String? note;
 
   /// `1,200.00 USD`. The currency is never dropped: this app is multi-currency
@@ -67,6 +102,24 @@ class EmployeeSalarySystemModel {
       payRate: (json['payRate'] as num?)?.toDouble() ?? 0,
       currencyId: json['currencyId'] as String?,
       currencyCode: json['currencyCode'] as String?,
+      absentDeductionType:
+          AbsentDeductionType.fromValue(json['absentDeductionType'] as int?) ??
+          AbsentDeductionType.none,
+      absentDeductionValue:
+          (json['absentDeductionValue'] as num?)?.toDouble() ?? 0,
+      minutePenaltyBasis:
+          MinutePenaltyBasis.fromValue(json['minutePenaltyBasis'] as int?) ??
+          MinutePenaltyBasis.fixedAmount,
+      delayDeductionPerMinute:
+          (json['delayDeductionPerMinute'] as num?)?.toDouble() ?? 0,
+      earlyLeaveDeductionPerMinute:
+          (json['earlyLeaveDeductionPerMinute'] as num?)?.toDouble() ?? 0,
+      gapDeductionPerMinute:
+          (json['gapDeductionPerMinute'] as num?)?.toDouble() ?? 0,
+      dailyRateDivisor: json['dailyRateDivisor'] as int? ?? 30,
+      workHoursPerDay: (json['workHoursPerDay'] as num?)?.toDouble() ?? 8,
+      overtimePayPerMinute: (json['overtimePayPerMinute'] as num?)?.toDouble(),
+      includeStagePay: json['includeStagePay'] as bool? ?? false,
       note: json['note'] as String?,
     );
   }
@@ -80,6 +133,16 @@ class SaveEmployeeSalarySystemRequestModel {
     this.payType = PayType.attendance,
     this.payPeriod = PayPeriod.monthly,
     this.payRate = 0,
+    this.absentDeductionType = AbsentDeductionType.none,
+    this.absentDeductionValue = 0,
+    this.minutePenaltyBasis = MinutePenaltyBasis.fixedAmount,
+    this.delayDeductionPerMinute = 0,
+    this.earlyLeaveDeductionPerMinute = 0,
+    this.gapDeductionPerMinute = 0,
+    this.dailyRateDivisor = 30,
+    this.workHoursPerDay = 8,
+    this.overtimePayPerMinute,
+    this.includeStagePay = false,
     this.note,
     this.startDate,
   });
@@ -89,6 +152,16 @@ class SaveEmployeeSalarySystemRequestModel {
   final PayType payType;
   final PayPeriod payPeriod;
   final double payRate;
+  final AbsentDeductionType absentDeductionType;
+  final double absentDeductionValue;
+  final MinutePenaltyBasis minutePenaltyBasis;
+  final double delayDeductionPerMinute;
+  final double earlyLeaveDeductionPerMinute;
+  final double gapDeductionPerMinute;
+  final int dailyRateDivisor;
+  final double workHoursPerDay;
+  final double? overtimePayPerMinute;
+  final bool includeStagePay;
   final String? note;
 
   /// Null dates it now; back-dating records an arrangement already in effect.
@@ -100,6 +173,18 @@ class SaveEmployeeSalarySystemRequestModel {
     'payType': payType.value,
     'payPeriod': payPeriod.value,
     'payRate': payRate,
+    'absentDeductionType': absentDeductionType.value,
+    'absentDeductionValue': absentDeductionValue,
+    'minutePenaltyBasis': minutePenaltyBasis.value,
+    'delayDeductionPerMinute': delayDeductionPerMinute,
+    'earlyLeaveDeductionPerMinute': earlyLeaveDeductionPerMinute,
+    'gapDeductionPerMinute': gapDeductionPerMinute,
+    'dailyRateDivisor': dailyRateDivisor,
+    'workHoursPerDay': workHoursPerDay,
+    // Sent even when null: null is "overtime is not paid", which a missing key
+    // would leave to the server's default instead.
+    'overtimePayPerMinute': overtimePayPerMinute,
+    'includeStagePay': includeStagePay,
     'note': ?note,
     'startDate': ?startDate?.toIso8601String(),
   };

@@ -1,4 +1,5 @@
 import 'package:dental_lab_app/core/di/dependency_injection.dart';
+import 'package:dental_lab_app/core/router/routes.dart';
 import 'package:dental_lab_app/core/theming/app_dimensions.dart';
 import 'package:dental_lab_app/core/widgets/adaptive_detail_sections.dart';
 import 'package:dental_lab_app/core/theming/app_motion.dart';
@@ -16,10 +17,13 @@ import 'package:dental_lab_app/features/patients/ui/widgets/patient_info_tiles.d
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
 
-/// Patient detail screen — view-only (patients are managed by the clinic
-/// side, so there is no edit action here).
+/// Patient detail screen. Editing is reached from the header's action, the
+/// same place the doctor and clinic screens keep theirs; deleting lives on the
+/// list row, where the record can go without leaving a screen behind that
+/// describes something no longer there.
 class PatientDetailPage extends StatelessWidget {
   const PatientDetailPage({super.key, required this.patientId});
 
@@ -89,7 +93,17 @@ class _PatientDetailBody extends StatelessWidget {
   Widget build(BuildContext context) {
     return CustomScrollView(
       slivers: [
-        PatientSliverHeader(patient: patient),
+        PatientSliverHeader(
+          patient: patient,
+          onEdit: () async {
+            final cubit = context.read<PatientDetailsCubit>();
+            await context.push(Routes.patientFormScreen, extra: patient);
+            // Refetched unconditionally rather than on a saved-flag: the form
+            // is also where a field can be cleared, and this screen must not
+            // keep showing what was just removed.
+            await cubit.getPatient(patient.id);
+          },
+        ),
         SliverToBoxAdapter(
           child: AdaptiveDetailSections(
             main: [

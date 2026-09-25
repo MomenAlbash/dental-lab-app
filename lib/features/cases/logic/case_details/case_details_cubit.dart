@@ -1,6 +1,8 @@
 import 'package:dartz/dartz.dart';
 import 'package:dental_lab_app/core/errors/failures.dart';
 import 'package:dental_lab_app/features/cases/data/models/case_detail_model.dart';
+import 'package:dental_lab_app/features/cases/data/models/case_flow_model.dart';
+import 'package:dental_lab_app/features/cases/data/models/send_back_models.dart';
 import 'package:dental_lab_app/features/cases/data/repos/cases_repo.dart';
 import 'package:dental_lab_app/features/cases/logic/case_details/case_details_state.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -30,6 +32,7 @@ class CaseDetailsCubit extends Cubit<CaseDetailsState> {
     required String restorationId,
     required String stageId,
     String? note,
+    SendBackReason reason = const SendBackReason(),
   }) async {
     final caseDetail = _case;
     if (caseDetail == null) return;
@@ -41,6 +44,7 @@ class CaseDetailsCubit extends Cubit<CaseDetailsState> {
       restorationId: restorationId,
       stageId: stageId,
       note: note,
+      reason: reason,
     );
 
     await result.fold(
@@ -79,6 +83,19 @@ class CaseDetailsCubit extends Cubit<CaseDetailsState> {
     (id) => _casesRepo.undoMaterialReceived(id: id),
   );
 
+  /// Walks the case through every remaining step to delivered in one call.
+  Future<void> deliverDirectly({
+    String? note,
+    CollectionMethod collectionMethod = CollectionMethod.none,
+  }) => _runPhaseAction(
+    'تم تسليم الحالة',
+    (id) => _casesRepo.deliverCaseDirectly(
+      id: id,
+      note: note,
+      collectionMethod: collectionMethod,
+    ),
+  );
+
   Future<void> approveTrying({String? note}) => _runPhaseAction(
     'تم قبول التجربة',
     (id) => _casesRepo.approveTrying(id: id, note: note),
@@ -88,8 +105,7 @@ class CaseDetailsCubit extends Cubit<CaseDetailsState> {
   /// one names, and the case drops back into production — one call, because
   /// the server records it as one decision.
   Future<void> rejectTrying({
-    required List<({String restorationId, String stageId, String? note})>
-    restorations,
+    required List<TryingRejectLine> restorations,
     String? note,
   }) => _runPhaseAction(
     'تم تسجيل رفض التجربة',

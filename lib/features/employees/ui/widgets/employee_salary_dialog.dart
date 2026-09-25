@@ -5,6 +5,7 @@ import 'package:dental_lab_app/core/theming/styles.dart';
 import 'package:dental_lab_app/core/widgets/custom_text_field_widget.dart';
 import 'package:dental_lab_app/features/accounting/data/models/currency_model.dart';
 import 'package:dental_lab_app/features/accounting/data/repos/accounting_repo.dart';
+import 'package:dental_lab_app/features/attendance/data/models/attendance_enums.dart';
 import 'package:dental_lab_app/features/cases/ui/widgets/case_lookup_dropdown.dart';
 import 'package:dental_lab_app/features/payroll/data/models/payroll_enums.dart';
 import 'package:dental_lab_app/features/payroll/data/models/salary_model.dart';
@@ -41,12 +42,26 @@ class _EmployeeSalaryDialogState extends State<_EmployeeSalaryDialog> {
   final _formKey = GlobalKey<FormState>();
   late final TextEditingController _rateController;
   late final TextEditingController _noteController;
+  late final TextEditingController _absentValueController;
+  late final TextEditingController _delayController;
+  late final TextEditingController _earlyLeaveController;
+  late final TextEditingController _gapController;
+  late final TextEditingController _divisorController;
+  late final TextEditingController _workHoursController;
+  late final TextEditingController _overtimeController;
 
   late PayType _payType;
   late PayPeriod _payPeriod;
+  late AbsentDeductionType _absentType;
+  late MinutePenaltyBasis _penaltyBasis;
+  late bool _includeStagePay;
   String? _currencyId;
 
   List<CurrencyModel> _currencies = const [];
+
+  /// The API implies stage pay for [PayType.pieceRate], so the switch is
+  /// shown on and locked rather than offering a choice that does nothing.
+  bool get _stagePayImplied => _payType == PayType.pieceRate;
 
   @override
   void initState() {
@@ -57,8 +72,34 @@ class _EmployeeSalaryDialogState extends State<_EmployeeSalaryDialog> {
       text: current == null ? '' : current.payRate.toString(),
     );
     _noteController = TextEditingController(text: current?.note ?? '');
+    _absentValueController = TextEditingController(
+      text: '${current?.absentDeductionValue ?? 0}',
+    );
+    _delayController = TextEditingController(
+      text: '${current?.delayDeductionPerMinute ?? 0}',
+    );
+    _earlyLeaveController = TextEditingController(
+      text: '${current?.earlyLeaveDeductionPerMinute ?? 0}',
+    );
+    _gapController = TextEditingController(
+      text: '${current?.gapDeductionPerMinute ?? 0}',
+    );
+    _divisorController = TextEditingController(
+      text: '${current?.dailyRateDivisor ?? 30}',
+    );
+    _workHoursController = TextEditingController(
+      text: '${current?.workHoursPerDay ?? 8}',
+    );
+    _overtimeController = TextEditingController(
+      text: current?.overtimePayPerMinute?.toString() ?? '',
+    );
+
     _payType = current?.payType ?? PayType.attendance;
     _payPeriod = current?.payPeriod ?? PayPeriod.monthly;
+    _absentType = current?.absentDeductionType ?? AbsentDeductionType.none;
+    _penaltyBasis =
+        current?.minutePenaltyBasis ?? MinutePenaltyBasis.fixedAmount;
+    _includeStagePay = current?.includeStagePay ?? false;
     _currencyId = current?.currencyId;
 
     _loadCurrencies();
@@ -68,6 +109,13 @@ class _EmployeeSalaryDialogState extends State<_EmployeeSalaryDialog> {
   void dispose() {
     _rateController.dispose();
     _noteController.dispose();
+    _absentValueController.dispose();
+    _delayController.dispose();
+    _earlyLeaveController.dispose();
+    _gapController.dispose();
+    _divisorController.dispose();
+    _workHoursController.dispose();
+    _overtimeController.dispose();
     super.dispose();
   }
 
@@ -84,6 +132,9 @@ class _EmployeeSalaryDialogState extends State<_EmployeeSalaryDialog> {
     });
   }
 
+  double _number(TextEditingController controller) =>
+      double.tryParse(controller.text.trim()) ?? 0;
+
   void _submit() {
     if (!(_formKey.currentState?.validate() ?? false)) return;
 
@@ -91,6 +142,7 @@ class _EmployeeSalaryDialogState extends State<_EmployeeSalaryDialog> {
     if (currencyId == null) return;
 
     final note = _noteController.text.trim();
+    final overtimeText = _overtimeController.text.trim();
 
     Navigator.of(context).pop(
       SaveEmployeeSalarySystemRequestModel(
@@ -98,7 +150,21 @@ class _EmployeeSalaryDialogState extends State<_EmployeeSalaryDialog> {
         currencyId: currencyId,
         payType: _payType,
         payPeriod: _payPeriod,
-        payRate: double.tryParse(_rateController.text.trim()) ?? 0,
+        payRate: _number(_rateController),
+        absentDeductionType: _absentType,
+        absentDeductionValue: _number(_absentValueController),
+        minutePenaltyBasis: _penaltyBasis,
+        delayDeductionPerMinute: _number(_delayController),
+        earlyLeaveDeductionPerMinute: _number(_earlyLeaveController),
+        gapDeductionPerMinute: _number(_gapController),
+        dailyRateDivisor: int.tryParse(_divisorController.text.trim()) ?? 30,
+        workHoursPerDay: _number(_workHoursController),
+        // Empty means overtime is not paid at all — a different statement
+        // from a rate of zero.
+        overtimePayPerMinute: overtimeText.isEmpty
+            ? null
+            : double.tryParse(overtimeText),
+        includeStagePay: _stagePayImplied || _includeStagePay,
         note: note.isEmpty ? null : note,
       ),
     );
@@ -173,6 +239,7 @@ class _EmployeeSalaryDialogState extends State<_EmployeeSalaryDialog> {
                     PayType.pieceRate => 'الأجر لكل قطعة',
                     PayType.salesPercentage => 'النسبة المئوية',
                     PayType.scannerSessionRate => 'الأجر لكل جلسة',
+                    PayType.hourly => 'الأجر لكل ساعة',
                     _ => 'الراتب',
                   },
                   keyboardType: const TextInputType.numberWithOptions(
@@ -210,7 +277,117 @@ class _EmployeeSalaryDialogState extends State<_EmployeeSalaryDialog> {
                       ),
                     ),
                   ),
+                SwitchListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: const Text('إضافة أجر المراحل فوق الراتب'),
+                  subtitle: _stagePayImplied
+                      ? const Text('مشمول تلقائياً مع هذه الطريقة')
+                      : null,
+                  value: _stagePayImplied || _includeStagePay,
+                  onChanged: _stagePayImplied
+                      ? null
+                      : (value) => setState(() => _includeStagePay = value),
+                ),
+
                 const SizedBox(height: 12),
+                const _SectionLabel('الغياب'),
+                DropdownButtonFormField<AbsentDeductionType>(
+                  initialValue: _absentType,
+                  isExpanded: true,
+                  decoration: const InputDecoration(
+                    labelText: 'طريقة خصم الغياب',
+                    border: OutlineInputBorder(),
+                    isDense: true,
+                  ),
+                  items: [
+                    for (final type in AbsentDeductionType.values)
+                      DropdownMenuItem(value: type, child: Text(type.label)),
+                  ],
+                  onChanged: (value) {
+                    if (value != null) setState(() => _absentType = value);
+                  },
+                ),
+                if (_absentType != AbsentDeductionType.none) ...[
+                  const SizedBox(height: 8),
+                  _AmountField(
+                    controller: _absentValueController,
+                    label: _absentType == AbsentDeductionType.fixedAmount
+                        ? 'المبلغ المخصوم عن يوم الغياب'
+                        : 'عدد أضعاف الأجر اليومي',
+                  ),
+                ],
+
+                const SizedBox(height: 12),
+                const _SectionLabel('خصومات الدقائق'),
+                SegmentedButton<MinutePenaltyBasis>(
+                  segments: [
+                    for (final basis in MinutePenaltyBasis.values)
+                      ButtonSegment(value: basis, label: Text(basis.label)),
+                  ],
+                  selected: {_penaltyBasis},
+                  onSelectionChanged: (selection) =>
+                      setState(() => _penaltyBasis = selection.first),
+                ),
+                if (_penaltyBasis.isDerived)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 4),
+                    child: Text(
+                      // The per-minute rates stop mattering: the server works
+                      // the figure out of this salary.
+                      'ستُحتسب قيمة الدقيقة من الراتب نفسه',
+                      style: AppTextStyles.font12RegularHint.copyWith(
+                        color: glass.onGlassMuted,
+                      ),
+                    ),
+                  )
+                else ...[
+                  const SizedBox(height: 8),
+                  _AmountField(
+                    controller: _delayController,
+                    label: 'خصم دقيقة التأخير',
+                  ),
+                  _AmountField(
+                    controller: _earlyLeaveController,
+                    label: 'خصم دقيقة الخروج المبكر',
+                  ),
+                  _AmountField(
+                    controller: _gapController,
+                    label: 'خصم دقيقة الانقطاع',
+                  ),
+                ],
+
+                const SizedBox(height: 12),
+                const _SectionLabel('الاحتساب'),
+                _AmountField(
+                  controller: _divisorController,
+                  label: 'عدد أيام قسمة الراتب الشهري',
+                  isInteger: true,
+                  validator: (value) {
+                    final days = int.tryParse(value?.trim() ?? '');
+                    // The API's own bounds — a month has at most 31 days.
+                    if (days == null || days < 1 || days > 31) {
+                      return 'بين 1 و31';
+                    }
+                    return null;
+                  },
+                ),
+                _AmountField(
+                  controller: _workHoursController,
+                  label: 'ساعات العمل اليومية',
+                  validator: (value) {
+                    final hours = double.tryParse(value?.trim() ?? '');
+                    if (hours == null || hours < 0.1 || hours > 24) {
+                      return 'بين 0.1 و24';
+                    }
+                    return null;
+                  },
+                ),
+                _AmountField(
+                  controller: _overtimeController,
+                  label: 'أجر دقيقة العمل الإضافي (اتركه فارغاً إن لم يُحتسب)',
+                ),
+
+                const SizedBox(height: 4),
                 AppTextFormField(
                   controller: _noteController,
                   hintText: 'ملاحظة (اختيارية)',
@@ -229,6 +406,52 @@ class _EmployeeSalaryDialogState extends State<_EmployeeSalaryDialog> {
         ),
         TextButton(onPressed: _submit, child: const Text('حفظ')),
       ],
+    );
+  }
+}
+
+class _SectionLabel extends StatelessWidget {
+  const _SectionLabel(this.text);
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Text(
+        text,
+        style: AppTextStyles.font14MediumText.copyWith(
+          color: context.glass.onGlass,
+        ),
+      ),
+    );
+  }
+}
+
+class _AmountField extends StatelessWidget {
+  const _AmountField({
+    required this.controller,
+    required this.label,
+    this.isInteger = false,
+    this.validator,
+  });
+
+  final TextEditingController controller;
+  final String label;
+  final bool isInteger;
+  final FormFieldValidator<String>? validator;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: AppTextFormField(
+        controller: controller,
+        hintText: label,
+        keyboardType: TextInputType.numberWithOptions(decimal: !isInteger),
+        validator: validator ?? (_) => null,
+      ),
     );
   }
 }
@@ -400,8 +623,7 @@ class _SalaryExceptionDialogState extends State<_SalaryExceptionDialog> {
                   controller: _reasonController,
                   hintText: 'السبب',
                   maxLines: 2,
-                  validator: (value) =>
-                      (value == null || value.trim().isEmpty)
+                  validator: (value) => (value == null || value.trim().isEmpty)
                       // Required by the API, and rightly: an adjustment
                       // nobody can account for later is the one thing payroll
                       // cannot afford.
@@ -415,7 +637,10 @@ class _SalaryExceptionDialogState extends State<_SalaryExceptionDialog> {
                     Expanded(
                       child: TextButton.icon(
                         onPressed: () => _pickDate(isStart: true),
-                        icon: const Icon(Icons.calendar_today_outlined, size: 16),
+                        icon: const Icon(
+                          Icons.calendar_today_outlined,
+                          size: 16,
+                        ),
                         label: Text(ApiTime.formatDate(_startDate)),
                       ),
                     ),

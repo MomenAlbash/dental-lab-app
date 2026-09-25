@@ -56,30 +56,23 @@ class WorkShiftDayModel {
   }
 }
 
-/// A work shift (`WorkShiftDto`) — the hours an employee is expected to keep,
-/// and what it costs them when they don't.
+/// A work shift (`WorkShiftDto`) — the hours an employee is expected to keep.
 ///
-/// The shift carries the **rules**, not the money: what an employee is paid
-/// lives on their own salary-system spell. That split is why the same shift can
-/// be shared by a technician and a driver on completely different pay.
+/// **Schedule only, no money.** The shift holds the week and the grace minutes
+/// before a delay, early leave or gap counts against the day; what any of that
+/// costs lives on the employee's own salary spell. That split is why the same
+/// shift can be shared by a technician and a driver on completely different
+/// deduction rules.
 class WorkShiftModel {
   const WorkShiftModel({
     required this.id,
     this.laboratoryId,
     this.name,
     this.days = const [],
-    this.absentDeductionType = AbsentDeductionType.none,
-    this.absentDeductionValue = 0,
-    this.minutePenaltyBasis = MinutePenaltyBasis.fixedAmount,
-    this.delayDeductionPerMinute = 0,
-    this.earlyLeaveDeductionPerMinute = 0,
-    this.gapDeductionPerMinute = 0,
     this.allowedGapMinutesPerDay = 0,
     this.allowedDelayMinutesPerDay = 0,
     this.allowedEarlyLeaveMinutesPerDay = 0,
-    this.dailyRateDivisor = 30,
-    this.workHoursPerDay = 8,
-    this.overtimePayPerMinute,
+    this.maxOvertimeMinutesPerDay,
     this.canDelete = true,
     this.deleteMessage,
   });
@@ -89,33 +82,21 @@ class WorkShiftModel {
   final String? name;
   final List<WorkShiftDayModel> days;
 
-  final AbsentDeductionType absentDeductionType;
-  final double absentDeductionValue;
-
-  final MinutePenaltyBasis minutePenaltyBasis;
-  final double delayDeductionPerMinute;
-  final double earlyLeaveDeductionPerMinute;
-  final double gapDeductionPerMinute;
-
   /// Grace, in minutes per day, before the matching penalty starts counting.
   final int allowedGapMinutesPerDay;
   final int allowedDelayMinutesPerDay;
   final int allowedEarlyLeaveMinutesPerDay;
 
-  /// How many days a month's salary is divided into to get a daily rate — 26
-  /// and 30 are both common, and they are not the same answer.
-  final int dailyRateDivisor;
-
-  final double workHoursPerDay;
-
-  /// Null means overtime is not paid on this shift at all — different from a
-  /// rate of zero, which is a lab that decided it is worth nothing.
-  final double? overtimePayPerMinute;
+  /// The most overtime a day can count. Null means unlimited — different from
+  /// zero, which is a shift where no overtime counts at all.
+  final int? maxOvertimeMinutesPerDay;
 
   final bool canDelete;
   final String? deleteMessage;
 
   String get displayName => name?.trim().isNotEmpty ?? false ? name! : '—';
+
+  bool get hasUnlimitedOvertime => maxOvertimeMinutesPerDay == null;
 
   /// The days worked, in week order, so the summary line never reads Friday
   /// before Monday because of how the rows came back.
@@ -131,27 +112,11 @@ class WorkShiftModel {
         for (final day in json['days'] as List<dynamic>? ?? const [])
           WorkShiftDayModel.fromJson(day as Map<String, dynamic>),
       ],
-      absentDeductionType:
-          AbsentDeductionType.fromValue(json['absentDeductionType'] as int?) ??
-          AbsentDeductionType.none,
-      absentDeductionValue:
-          (json['absentDeductionValue'] as num?)?.toDouble() ?? 0,
-      minutePenaltyBasis:
-          MinutePenaltyBasis.fromValue(json['minutePenaltyBasis'] as int?) ??
-          MinutePenaltyBasis.fixedAmount,
-      delayDeductionPerMinute:
-          (json['delayDeductionPerMinute'] as num?)?.toDouble() ?? 0,
-      earlyLeaveDeductionPerMinute:
-          (json['earlyLeaveDeductionPerMinute'] as num?)?.toDouble() ?? 0,
-      gapDeductionPerMinute:
-          (json['gapDeductionPerMinute'] as num?)?.toDouble() ?? 0,
       allowedGapMinutesPerDay: json['allowedGapMinutesPerDay'] as int? ?? 0,
       allowedDelayMinutesPerDay: json['allowedDelayMinutesPerDay'] as int? ?? 0,
       allowedEarlyLeaveMinutesPerDay:
           json['allowedEarlyLeaveMinutesPerDay'] as int? ?? 0,
-      dailyRateDivisor: json['dailyRateDivisor'] as int? ?? 30,
-      workHoursPerDay: (json['workHoursPerDay'] as num?)?.toDouble() ?? 8,
-      overtimePayPerMinute: (json['overtimePayPerMinute'] as num?)?.toDouble(),
+      maxOvertimeMinutesPerDay: json['maxOvertimeMinutesPerDay'] as int?,
       canDelete: json['canDelete'] as bool? ?? true,
       deleteMessage: json['deleteMessage'] as String?,
     );
@@ -163,50 +128,28 @@ class SaveWorkShiftRequestModel {
   const SaveWorkShiftRequestModel({
     required this.name,
     this.days = const [],
-    this.absentDeductionType = AbsentDeductionType.none,
-    this.absentDeductionValue = 0,
-    this.minutePenaltyBasis = MinutePenaltyBasis.fixedAmount,
-    this.delayDeductionPerMinute = 0,
-    this.earlyLeaveDeductionPerMinute = 0,
-    this.gapDeductionPerMinute = 0,
     this.allowedGapMinutesPerDay = 0,
     this.allowedDelayMinutesPerDay = 0,
     this.allowedEarlyLeaveMinutesPerDay = 0,
-    this.dailyRateDivisor = 30,
-    this.workHoursPerDay = 8,
-    this.overtimePayPerMinute,
+    this.maxOvertimeMinutesPerDay,
   });
 
   final String name;
   final List<WorkShiftDayModel> days;
-  final AbsentDeductionType absentDeductionType;
-  final double absentDeductionValue;
-  final MinutePenaltyBasis minutePenaltyBasis;
-  final double delayDeductionPerMinute;
-  final double earlyLeaveDeductionPerMinute;
-  final double gapDeductionPerMinute;
   final int allowedGapMinutesPerDay;
   final int allowedDelayMinutesPerDay;
   final int allowedEarlyLeaveMinutesPerDay;
-  final int dailyRateDivisor;
-  final double workHoursPerDay;
-  final double? overtimePayPerMinute;
+  final int? maxOvertimeMinutesPerDay;
 
   Map<String, dynamic> toJson() => {
     'name': name,
     'days': [for (final day in days) day.toJson()],
-    'absentDeductionType': absentDeductionType.value,
-    'absentDeductionValue': absentDeductionValue,
-    'minutePenaltyBasis': minutePenaltyBasis.value,
-    'delayDeductionPerMinute': delayDeductionPerMinute,
-    'earlyLeaveDeductionPerMinute': earlyLeaveDeductionPerMinute,
-    'gapDeductionPerMinute': gapDeductionPerMinute,
     'allowedGapMinutesPerDay': allowedGapMinutesPerDay,
     'allowedDelayMinutesPerDay': allowedDelayMinutesPerDay,
     'allowedEarlyLeaveMinutesPerDay': allowedEarlyLeaveMinutesPerDay,
-    'dailyRateDivisor': dailyRateDivisor,
-    'workHoursPerDay': workHoursPerDay,
-    'overtimePayPerMinute': overtimePayPerMinute,
+    // Sent even when null: null is "unlimited", and an update that dropped the
+    // key could not lift a cap that was set before.
+    'maxOvertimeMinutesPerDay': maxOvertimeMinutesPerDay,
   };
 
   /// Seeds the editor from an existing shift.
@@ -214,18 +157,10 @@ class SaveWorkShiftRequestModel {
     return SaveWorkShiftRequestModel(
       name: shift.name ?? '',
       days: shift.days,
-      absentDeductionType: shift.absentDeductionType,
-      absentDeductionValue: shift.absentDeductionValue,
-      minutePenaltyBasis: shift.minutePenaltyBasis,
-      delayDeductionPerMinute: shift.delayDeductionPerMinute,
-      earlyLeaveDeductionPerMinute: shift.earlyLeaveDeductionPerMinute,
-      gapDeductionPerMinute: shift.gapDeductionPerMinute,
       allowedGapMinutesPerDay: shift.allowedGapMinutesPerDay,
       allowedDelayMinutesPerDay: shift.allowedDelayMinutesPerDay,
       allowedEarlyLeaveMinutesPerDay: shift.allowedEarlyLeaveMinutesPerDay,
-      dailyRateDivisor: shift.dailyRateDivisor,
-      workHoursPerDay: shift.workHoursPerDay,
-      overtimePayPerMinute: shift.overtimePayPerMinute,
+      maxOvertimeMinutesPerDay: shift.maxOvertimeMinutesPerDay,
     );
   }
 }

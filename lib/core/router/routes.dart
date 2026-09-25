@@ -70,6 +70,12 @@ class Routes {
 
   /// The dispatch board for doctor-requested scanner visits.
   static const String scannerSessionsScreen = '/scanner-sessions';
+
+  /// Standalone photography visits for a doctor — tied to no case.
+  static const String photographyVisitsScreen = '/photography-visits';
+  static const String photographyVisitFormScreen = '/photography-visits/form';
+  static const String photographyVisitDetailScreen =
+      '/photography-visits/detail';
   static const String currenciesListScreen = '/currencies';
   static const String priceTiersListScreen = '/price-tiers';
   static const String priceTierFormScreen = '/price-tiers/form';
@@ -104,6 +110,9 @@ class Routes {
 
   /// Payslips, and running payroll to produce them.
   static const String payrollScreen = '/payroll';
+
+  /// Stage prices and what finishing stages earned — reached from payroll.
+  static const String stagePayScreen = '/payroll/stage-pay';
 
   /// The laboratory's own colour and logo — applied to the login screen too.
   static const String brandingScreen = '/settings/branding';

@@ -247,6 +247,11 @@ const List<_DrawerGroup> _groups = [
         route: Routes.scannerSessionsScreen,
         requires: PermissionName.scannerControl,
       ),
+      _Destination(
+        icon: Icons.photo_camera_outlined,
+        label: 'زيارات التصوير',
+        route: Routes.photographyVisitsScreen,
+      ),
     ],
   ),
   _DrawerGroup(

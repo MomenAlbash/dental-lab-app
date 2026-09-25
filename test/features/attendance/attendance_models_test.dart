@@ -60,23 +60,65 @@ void main() {
         ],
       });
 
-      expect(
-        shift.orderedDays.map((d) => d.dayOfWeek),
-        [ApiDayOfWeek.monday, ApiDayOfWeek.thursday],
-      );
+      expect(shift.orderedDays.map((d) => d.dayOfWeek), [
+        ApiDayOfWeek.monday,
+        ApiDayOfWeek.thursday,
+      ]);
     });
 
-    test('no overtime rate is not the same as a rate of zero', () {
-      // Null means overtime is not paid on this shift at all; zero means the
-      // lab decided an extra minute is worth nothing.
-      final unpaid = WorkShiftModel.fromJson({'id': 's1'});
-      final worthless = WorkShiftModel.fromJson({
+    test('no overtime cap is not the same as a cap of zero', () {
+      // Null means overtime is unlimited; zero means no overtime counts.
+      final unlimited = WorkShiftModel.fromJson({'id': 's1'});
+      final none = WorkShiftModel.fromJson({
         'id': 's2',
-        'overtimePayPerMinute': 0,
+        'maxOvertimeMinutesPerDay': 0,
       });
 
-      expect(unpaid.overtimePayPerMinute, isNull);
-      expect(worthless.overtimePayPerMinute, 0);
+      expect(unlimited.hasUnlimitedOvertime, isTrue);
+      expect(none.hasUnlimitedOvertime, isFalse);
+      expect(none.maxOvertimeMinutesPerDay, 0);
+    });
+  });
+
+  group('SaveWorkShiftRequestModel', () {
+    test('carries no money — the rates live on the salary now', () {
+      // The API dropped every deduction and overtime rate from the shift;
+      // sending them would be silently ignored.
+      final json = const SaveWorkShiftRequestModel(name: 'صباحية').toJson();
+
+      for (final key in [
+        'absentDeductionType',
+        'absentDeductionValue',
+        'minutePenaltyBasis',
+        'delayDeductionPerMinute',
+        'earlyLeaveDeductionPerMinute',
+        'gapDeductionPerMinute',
+        'dailyRateDivisor',
+        'workHoursPerDay',
+        'overtimePayPerMinute',
+      ]) {
+        expect(json.containsKey(key), isFalse, reason: key);
+      }
+    });
+
+    test('sends a null cap so an update can lift an earlier one', () {
+      final json = const SaveWorkShiftRequestModel(name: 'صباحية').toJson();
+
+      expect(json.containsKey('maxOvertimeMinutesPerDay'), isTrue);
+      expect(json['maxOvertimeMinutesPerDay'], isNull);
+    });
+
+    test('keeps the cap when seeded from an existing shift', () {
+      final shift = WorkShiftModel.fromJson({
+        'id': 's1',
+        'name': 'ليلية',
+        'maxOvertimeMinutesPerDay': 120,
+      });
+
+      expect(
+        SaveWorkShiftRequestModel.from(shift).maxOvertimeMinutesPerDay,
+        120,
+      );
     });
   });
 
@@ -210,16 +252,19 @@ void main() {
   });
 
   group('CreateLeaveRequestModel', () {
-    test('drops the window on a daily leave rather than sending a stale one', () {
-      final request = CreateLeaveRequestModel(
-        employeeId: 'e1',
-        startDate: DateTime(2026, 3, 1),
-        endDate: DateTime(2026, 3, 1),
-        startTime: const TimeOfDay(hour: 9, minute: 0),
-      );
+    test(
+      'drops the window on a daily leave rather than sending a stale one',
+      () {
+        final request = CreateLeaveRequestModel(
+          employeeId: 'e1',
+          startDate: DateTime(2026, 3, 1),
+          endDate: DateTime(2026, 3, 1),
+          startTime: const TimeOfDay(hour: 9, minute: 0),
+        );
 
-      expect(request.toJson()['startTime'], isNull);
-    });
+        expect(request.toJson()['startTime'], isNull);
+      },
+    );
 
     test('defaults to approved, which is what back-filling needs', () {
       // Without it, entering a leave for a past date would leave the absences
@@ -342,6 +387,105 @@ void main() {
       expect(json['anchorDate'], '2026-03-15');
       expect(json.containsKey('periodStart'), isFalse);
       expect(json['employeeIds'], isNull);
+    });
+  });
+
+  group('EmployeeSalarySystemModel', () {
+    test('reads the deduction rules that moved off the shift', () {
+      final spell = EmployeeSalarySystemModel.fromJson({
+        'id': 'p1',
+        'employeeId': 'e1',
+        'payType': 1,
+        'absentDeductionType': 3,
+        'absentDeductionValue': 1.5,
+        'minutePenaltyBasis': 1,
+        'delayDeductionPerMinute': 2,
+        'earlyLeaveDeductionPerMinute': 3,
+        'gapDeductionPerMinute': 4,
+        'dailyRateDivisor': 26,
+        'workHoursPerDay': 7.5,
+        'overtimePayPerMinute': 5,
+        'includeStagePay': true,
+      });
+
+      expect(
+        spell.absentDeductionType,
+        AbsentDeductionType.multiplierOfDailyRate,
+      );
+      expect(spell.absentDeductionValue, 1.5);
+      expect(spell.delayDeductionPerMinute, 2);
+      expect(spell.earlyLeaveDeductionPerMinute, 3);
+      expect(spell.gapDeductionPerMinute, 4);
+      expect(spell.dailyRateDivisor, 26);
+      expect(spell.workHoursPerDay, 7.5);
+      expect(spell.overtimePayPerMinute, 5);
+      expect(spell.includeStagePay, isTrue);
+    });
+
+    test('no overtime rate is not the same as a rate of zero', () {
+      final unpaid = EmployeeSalarySystemModel.fromJson({
+        'id': 'p1',
+        'employeeId': 'e1',
+      });
+      final worthless = EmployeeSalarySystemModel.fromJson({
+        'id': 'p2',
+        'employeeId': 'e1',
+        'overtimePayPerMinute': 0,
+      });
+
+      expect(unpaid.overtimePayPerMinute, isNull);
+      expect(worthless.overtimePayPerMinute, 0);
+    });
+
+    test('reads the hourly pay type', () {
+      // The API added `7 = Hourly`; without it the spell read as no type.
+      final spell = EmployeeSalarySystemModel.fromJson({
+        'id': 'p1',
+        'employeeId': 'e1',
+        'payType': 7,
+      });
+
+      expect(spell.payType, PayType.hourly);
+    });
+  });
+
+  group('SaveEmployeeSalarySystemRequestModel', () {
+    test('sends the deduction rules with the pay', () {
+      final json = const SaveEmployeeSalarySystemRequestModel(
+        employeeId: 'e1',
+        currencyId: 'c1',
+        absentDeductionType: AbsentDeductionType.fixedAmount,
+        absentDeductionValue: 50,
+        minutePenaltyBasis: MinutePenaltyBasis.derivedFromSalary,
+        delayDeductionPerMinute: 2,
+        earlyLeaveDeductionPerMinute: 3,
+        gapDeductionPerMinute: 4,
+        dailyRateDivisor: 26,
+        workHoursPerDay: 7.5,
+        overtimePayPerMinute: 5,
+        includeStagePay: true,
+      ).toJson();
+
+      expect(json['absentDeductionType'], 2);
+      expect(json['absentDeductionValue'], 50);
+      expect(json['minutePenaltyBasis'], 2);
+      expect(json['delayDeductionPerMinute'], 2);
+      expect(json['earlyLeaveDeductionPerMinute'], 3);
+      expect(json['gapDeductionPerMinute'], 4);
+      expect(json['dailyRateDivisor'], 26);
+      expect(json['workHoursPerDay'], 7.5);
+      expect(json['overtimePayPerMinute'], 5);
+      expect(json['includeStagePay'], isTrue);
+    });
+
+    test('sends a null overtime rate rather than dropping it', () {
+      final json = const SaveEmployeeSalarySystemRequestModel(
+        employeeId: 'e1',
+        currencyId: 'c1',
+      ).toJson();
+
+      expect(json.containsKey('overtimePayPerMinute'), isTrue);
+      expect(json['overtimePayPerMinute'], isNull);
     });
   });
 }

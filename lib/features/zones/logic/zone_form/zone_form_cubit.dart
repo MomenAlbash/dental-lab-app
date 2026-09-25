@@ -1,3 +1,5 @@
+import 'package:dental_lab_app/features/accounting/data/models/currency_model.dart';
+import 'package:dental_lab_app/features/accounting/data/repos/accounting_repo.dart';
 import 'package:dental_lab_app/features/areas/data/models/area_model.dart';
 import 'package:dental_lab_app/features/areas/data/repos/areas_repo.dart';
 import 'package:dental_lab_app/features/users/data/models/user_model.dart';
@@ -8,12 +10,17 @@ import 'package:dental_lab_app/features/zones/logic/zone_form/zone_form_state.da
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 class ZoneFormCubit extends Cubit<ZoneFormState> {
-  ZoneFormCubit(this._zonesRepo, this._areasRepo, this._usersRepo)
-    : super(const ZoneFormInitial());
+  ZoneFormCubit(
+    this._zonesRepo,
+    this._areasRepo,
+    this._usersRepo,
+    this._accountingRepo,
+  ) : super(const ZoneFormInitial());
 
   final ZonesRepo _zonesRepo;
   final AreasRepo _areasRepo;
   final UsersRepo _usersRepo;
+  final AccountingRepo _accountingRepo;
 
   Future<void> loadCatalog() async {
     emit(const ZoneFormCatalogLoading());
@@ -41,12 +48,21 @@ class ZoneFormCubit extends Cubit<ZoneFormState> {
     final areas = areasResult.fold((_) => const <AreaModel>[], (a) => a);
     final users = usersResult.fold((_) => const <UserModel>[], (u) => u);
 
+    // Only the delivery fee's currency picker needs these, so a failure
+    // leaves that one picker empty rather than taking the whole form down.
+    final currenciesResult = await _accountingRepo.getCurrencies();
+    final currencies = currenciesResult.fold(
+      (_) => const <CurrencyModel>[],
+      (c) => c,
+    );
+
     emit(
       ZoneFormCatalogLoaded(
         areas: areas,
         representatives: users
             .where((u) => u.type == UserType.employee && u.isRepresentative)
             .toList(),
+        currencies: currencies,
       ),
     );
   }

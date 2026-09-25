@@ -2,6 +2,7 @@ import 'package:dental_lab_app/core/theming/app_dimensions.dart';
 import 'package:dental_lab_app/core/theming/glass.dart';
 import 'package:dental_lab_app/core/theming/styles.dart';
 import 'package:dental_lab_app/core/widgets/glass/glass_card.dart';
+import 'package:dental_lab_app/core/widgets/glass/glass_row_action.dart';
 import 'package:dental_lab_app/core/widgets/show_toast_widget.dart';
 import 'package:dental_lab_app/features/patients/data/models/patient_gender.dart';
 import 'package:flutter/material.dart';
@@ -22,6 +23,8 @@ class PatientListItemWidget extends StatelessWidget {
     required this.clinicName,
     required this.caseCount,
     required this.onTap,
+    required this.onEdit,
+    required this.onDelete,
     this.gender,
     this.phoneNumber,
     this.heroTag,
@@ -32,6 +35,8 @@ class PatientListItemWidget extends StatelessWidget {
   final String clinicName;
   final int caseCount;
   final VoidCallback onTap;
+  final VoidCallback onEdit;
+  final VoidCallback onDelete;
   final PatientGender? gender;
   final String? phoneNumber;
   final Object? heroTag;
@@ -77,6 +82,23 @@ class PatientListItemWidget extends StatelessWidget {
           ),
           const SizedBox(width: AppSpacing.sm),
           _CaseCountBadge(count: caseCount),
+          Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              GlassRowAction(
+                icon: Icons.edit_outlined,
+                color: glass.onGlassMuted,
+                tooltip: 'تعديل',
+                onPressed: onEdit,
+              ),
+              GlassRowAction(
+                icon: Icons.delete_outline,
+                color: glass.error,
+                tooltip: 'حذف',
+                onPressed: onDelete,
+              ),
+            ],
+          ),
         ],
       ),
     );

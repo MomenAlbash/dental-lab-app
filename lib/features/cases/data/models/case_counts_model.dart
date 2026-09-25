@@ -125,24 +125,38 @@ class CaseSlaCountsModel {
 /// lists, resolved through the employee's *active* membership — which is why
 /// this is asked for rather than derived from the user's own record.
 ///
-/// Deliberately not a list endpoint of its own: the two id lists are handed
-/// straight to the case list's existing `StageIds`/`RestorationStageIds`
-/// filters, so "my tasks" is the ordinary list with a filter, not a second
-/// screen with its own rules.
+/// Deliberately not a list endpoint of its own: the id lists are handed
+/// straight to the case list's `StageIds`/`RestorationStageIds`/
+/// `OverriddenCaseRestorationIds` filters, so "my tasks" is the ordinary list
+/// with a filter, not a second screen with its own rules.
 class MyWorkflowAssignmentsModel {
   const MyWorkflowAssignmentsModel({
+    this.allStages = false,
     this.caseStageIds = const [],
     this.restorationStageIds = const [],
+    this.overriddenCaseRestorationIds = const [],
   });
 
   static const empty = MyWorkflowAssignmentsModel();
 
+  /// The caller acts on every stage — an admin. The lists stay empty then, and
+  /// that means "no stage filter", not "nothing assigned".
+  final bool allStages;
+
   final List<String> caseStageIds;
   final List<String> restorationStageIds;
 
+  /// Specific restorations (not stage ids) a temporary override hands this
+  /// login, possibly outside its usual departments.
+  final List<String> overriddenCaseRestorationIds;
+
   /// Nothing assigned at all — the "my tasks" queue says so instead of showing
   /// every case in the laboratory.
-  bool get isEmpty => caseStageIds.isEmpty && restorationStageIds.isEmpty;
+  bool get isEmpty =>
+      !allStages &&
+      caseStageIds.isEmpty &&
+      restorationStageIds.isEmpty &&
+      overriddenCaseRestorationIds.isEmpty;
 
   factory MyWorkflowAssignmentsModel.fromJson(Map<String, dynamic> json) {
     List<String> ids(String key) => [
@@ -151,8 +165,10 @@ class MyWorkflowAssignmentsModel {
     ];
 
     return MyWorkflowAssignmentsModel(
+      allStages: json['allStages'] as bool? ?? false,
       caseStageIds: ids('caseStageIds'),
       restorationStageIds: ids('restorationStageIds'),
+      overriddenCaseRestorationIds: ids('overriddenCaseRestorationIds'),
     );
   }
 }

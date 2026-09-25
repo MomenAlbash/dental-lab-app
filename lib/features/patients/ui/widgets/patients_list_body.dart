@@ -27,10 +27,15 @@ class PatientsListBody extends StatefulWidget {
   const PatientsListBody({
     super.key,
     required this.caseFilter,
+    required this.onDelete,
     this.scrollController,
   });
 
   final PatientCaseFilter caseFilter;
+
+  /// Owned by the page: the confirmation it raises has to survive this
+  /// widget's own rebuild when the list reloads after the delete.
+  final ValueChanged<PatientModel> onDelete;
 
   /// Owned by the page, which watches it to collapse the add button.
   final ScrollController? scrollController;
@@ -78,6 +83,7 @@ class _PatientsListBodyState extends State<PatientsListBody> {
                       key: const ValueKey('patients-loaded'),
                       filtered: _applyCaseFilter(loaded),
                       caseFilter: widget.caseFilter,
+                      onDelete: widget.onDelete,
                       scrollController: widget.scrollController,
                     ),
             (PatientsError(:final message), null) => Center(
@@ -168,11 +174,13 @@ class _PatientsRows extends StatelessWidget {
     super.key,
     required this.filtered,
     required this.caseFilter,
+    required this.onDelete,
     this.scrollController,
   });
 
   final List<PatientModel> filtered;
   final PatientCaseFilter caseFilter;
+  final ValueChanged<PatientModel> onDelete;
   final ScrollController? scrollController;
 
   @override
@@ -184,6 +192,12 @@ class _PatientsRows extends StatelessWidget {
       scrollController: scrollController,
       onRefresh: () => context.read<PatientsCubit>().getPatients(),
       itemBuilder: (context, patient, _) => PatientListItemWidget(
+        onEdit: () async {
+          final cubit = context.read<PatientsCubit>();
+          await context.push(Routes.patientFormScreen, extra: patient);
+          await cubit.getPatients();
+        },
+        onDelete: () => onDelete(patient),
         fullName: patient.fullName,
         doctorName: patient.doctorName ?? '',
         clinicName: patient.clinicName ?? '',

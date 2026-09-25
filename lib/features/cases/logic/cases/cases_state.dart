@@ -1,6 +1,7 @@
 import 'package:dental_lab_app/features/cases/data/models/case_counts_model.dart';
 import 'package:dental_lab_app/features/cases/data/models/case_filters_model.dart';
 import 'package:dental_lab_app/features/cases/data/models/case_list_item_model.dart';
+import 'package:dental_lab_app/features/cases/data/models/deliver_directly_models.dart';
 
 sealed class CasesState {
   const CasesState();
@@ -61,5 +62,18 @@ class CaseDeleted extends CasesState {
 
 class CaseDeleteError extends CasesState {
   const CaseDeleteError(this.message);
+  final String message;
+}
+
+/// One-shot: the bulk "تم التسليم" answered, one row per case. Shown, never
+/// built — the list reloads right after.
+class CasesDeliveredDirectly extends CasesState {
+  const CasesDeliveredDirectly(this.results);
+  final List<DeliverDirectlyResultModel> results;
+}
+
+/// One-shot: the bulk call itself failed — nothing was attempted.
+class CasesDeliverDirectlyError extends CasesState {
+  const CasesDeliverDirectlyError(this.message);
   final String message;
 }

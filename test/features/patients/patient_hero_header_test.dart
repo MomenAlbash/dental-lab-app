@@ -55,7 +55,7 @@ void main() {
   testWidgets('shows the name exactly once at rest', (tester) async {
     // Regression class: the doctor header once rendered the name twice
     // (panel + collapsed title). This is the same mechanism reused here.
-    await tester.pumpWidget(wrap(PatientSliverHeader(patient: _patient())));
+    await tester.pumpWidget(wrap(PatientSliverHeader(patient: _patient(), onEdit: () {})));
     await tester.pumpAndSettle();
 
     // Only the name is asserted single — the doctor's name legitimately
@@ -72,7 +72,7 @@ void main() {
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
 
-    await tester.pumpWidget(wrap(PatientSliverHeader(patient: _patient())));
+    await tester.pumpWidget(wrap(PatientSliverHeader(patient: _patient(), onEdit: () {})));
     await tester.pumpAndSettle();
 
     for (var i = 0; i < 12; i++) {
@@ -88,7 +88,7 @@ void main() {
   testWidgets('info tiles show doctor, clinic, gender and date of birth', (
     tester,
   ) async {
-    await tester.pumpWidget(wrap(PatientSliverHeader(patient: _patient())));
+    await tester.pumpWidget(wrap(PatientSliverHeader(patient: _patient(), onEdit: () {})));
     await tester.pumpAndSettle();
 
     expect(find.textContaining('أحمد'), findsNWidgets(2)); // header + tile
@@ -99,7 +99,7 @@ void main() {
 
   testWidgets('renders in the dark theme without exceptions', (tester) async {
     await tester.pumpWidget(
-      wrap(PatientSliverHeader(patient: _patient()), theme: AppTheme.dark),
+      wrap(PatientSliverHeader(patient: _patient(), onEdit: () {}), theme: AppTheme.dark),
     );
     await tester.pumpAndSettle();
 

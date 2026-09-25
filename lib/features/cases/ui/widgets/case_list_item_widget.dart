@@ -22,6 +22,8 @@ class CaseListItemWidget extends StatelessWidget {
     required this.onTap,
     this.onShowBreakdown,
     this.onDelete,
+    this.onLongPress,
+    this.isSelected,
   });
 
   final String caseNumber;
@@ -75,6 +77,13 @@ class CaseListItemWidget extends StatelessWidget {
   /// list is a mis-tap waiting to happen.
   final VoidCallback? onDelete;
 
+  /// Starts selecting — the list's bulk actions. Null on read-only rows.
+  final VoidCallback? onLongPress;
+
+  /// Null outside selection mode. Inside it, the folder avatar becomes a
+  /// tick mark, so which rows are picked reads at a glance.
+  final bool? isSelected;
+
   @override
   Widget build(BuildContext context) {
     final glass = context.glass;
@@ -89,13 +98,19 @@ class CaseListItemWidget extends StatelessWidget {
         child: DecoratedBox(
           decoration: BoxDecoration(
             gradient: glass.surfaceGradient,
-            border: Border.all(color: glass.strokeColor),
+            border: Border.all(
+              color: isSelected ?? false
+                  ? Theme.of(context).colorScheme.primary
+                  : glass.strokeColor,
+              width: isSelected ?? false ? 2 : 1,
+            ),
             borderRadius: radius,
           ),
           child: Material(
             color: Colors.transparent,
             child: InkWell(
               onTap: onTap,
+              onLongPress: onLongPress,
               child: IntrinsicHeight(
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -114,8 +129,12 @@ class CaseListItemWidget extends StatelessWidget {
                                 shape: BoxShape.circle,
                                 gradient: glass.brandGradient,
                               ),
-                              child: const Icon(
-                                Icons.folder_outlined,
+                              child: Icon(
+                                switch (isSelected) {
+                                  null => Icons.folder_outlined,
+                                  true => Icons.check,
+                                  false => Icons.circle_outlined,
+                                },
                                 color: Colors.white,
                                 size: 20,
                               ),

@@ -46,6 +46,10 @@ class ZoneModel {
   final List<ZoneRepresentativeModel> representatives;
   final int doctorCount;
   final double? returnDeliveryFee;
+  final String? shippingCurrencyId;
+
+  /// How long shipping adds to a case's delivery date, in minutes.
+  final int shippingMinutes;
   final DateTime? createdAt;
 
   const ZoneModel({
@@ -60,6 +64,8 @@ class ZoneModel {
     this.representatives = const [],
     this.doctorCount = 0,
     this.returnDeliveryFee,
+    this.shippingCurrencyId,
+    this.shippingMinutes = 0,
     this.createdAt,
   });
 
@@ -85,7 +91,49 @@ class ZoneModel {
           .toList(),
       doctorCount: json['doctorCount'] as int? ?? 0,
       returnDeliveryFee: (json['returnDeliveryFee'] as num?)?.toDouble(),
+      shippingCurrencyId: json['shippingCurrencyId'] as String?,
+      shippingMinutes: json['shippingMinutes'] as int? ?? 0,
       createdAt: DateTime.tryParse(json['createdAt'] as String? ?? ''),
     );
+  }
+}
+
+/// A zone's shipping time, split for editing and display.
+///
+/// The API stores one minute count; people think in "2 days 4 hours". This
+/// is the one place the two are converted, so the form's fields and its
+/// summary line cannot drift apart.
+class ShippingDuration {
+  const ShippingDuration({this.days = 0, this.hours = 0, this.minutes = 0});
+
+  factory ShippingDuration.fromMinutes(int total) => ShippingDuration(
+    days: total ~/ minutesPerDay,
+    hours: total % minutesPerDay ~/ 60,
+    minutes: total % 60,
+  );
+
+  static const minutesPerDay = 24 * 60;
+
+  /// The API's ceiling: one year.
+  static const maxMinutes = 525600;
+
+  final int days;
+  final int hours;
+  final int minutes;
+
+  int get totalMinutes => days * minutesPerDay + hours * 60 + minutes;
+
+  bool get isZero => totalMinutes == 0;
+
+  bool get exceedsMax => totalMinutes > maxMinutes;
+
+  /// `يومان و3 ساعات` style, skipping empty parts; `بدون مدة` when zero.
+  String get label {
+    if (isZero) return 'بدون مدة';
+    return [
+      if (days > 0) '$days يوم',
+      if (hours > 0) '$hours ساعة',
+      if (minutes > 0) '$minutes دقيقة',
+    ].join(' و');
   }
 }

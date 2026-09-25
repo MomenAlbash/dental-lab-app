@@ -19,6 +19,7 @@ import 'package:dental_lab_app/features/payroll/logic/payroll/payroll_state.dart
 import 'package:dental_lab_app/features/payroll/ui/widgets/salary_statement_sheet.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:go_router/go_router.dart';
 
 /// Payslips, and running payroll to produce them.
 ///
@@ -110,6 +111,11 @@ class _PayrollView extends StatelessWidget {
           style: AppTextStyles.font18MediumText.copyWith(color: glass.onGlass),
         ),
         actions: [
+          IconButton(
+            tooltip: 'أجور المراحل',
+            icon: const Icon(Icons.stacked_bar_chart),
+            onPressed: () => context.push(Routes.stagePayScreen),
+          ),
           if (canEdit)
             IconButton(
               tooltip: 'توليد كشوف الرواتب',
@@ -177,9 +183,9 @@ class _PayrollView extends StatelessWidget {
                                     canEdit &&
                                         statement.status !=
                                             SalaryStatementStatus.draft
-                                    ? () => context
-                                          .read<PayrollCubit>()
-                                          .revert(statement.id)
+                                    ? () => context.read<PayrollCubit>().revert(
+                                        statement.id,
+                                      )
                                     : null,
                                 onDelete: canEdit && statement.canDelete
                                     ? () => _delete(context, statement)

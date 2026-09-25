@@ -7,11 +7,10 @@ import 'package:dental_lab_app/core/widgets/custom_text_field_widget.dart';
 import 'package:dental_lab_app/core/widgets/glass/glass_bottom_sheet.dart';
 import 'package:dental_lab_app/features/case_workflow_stages/data/models/case_workflow_stage_model.dart';
 import 'package:dental_lab_app/features/cases/data/models/case_restoration_model.dart';
+import 'package:dental_lab_app/features/cases/data/models/send_back_models.dart';
 import 'package:dental_lab_app/features/cases/data/repos/cases_repo.dart';
+import 'package:dental_lab_app/features/cases/ui/widgets/send_back_reason_fields.dart';
 import 'package:flutter/material.dart';
-
-/// One flagged piece and where it goes back to.
-typedef TryingRejectLine = ({String restorationId, String stageId, String? note});
 
 /// What the user decided: which pieces the doctor refused, and the overall
 /// reason recorded on the case.
@@ -59,6 +58,9 @@ class _TryingRejectSheetState extends State<_TryingRejectSheet> {
   final Set<String> _selected = {};
   final Map<String, String> _stageOf = {};
 
+  /// Why each flagged piece goes back — a breakage carries its own loss.
+  final Map<String, SendBackReason> _reasonOf = {};
+
   @override
   void initState() {
     super.initState();
@@ -99,7 +101,9 @@ class _TryingRejectSheetState extends State<_TryingRejectSheet> {
   /// without one, so the button stays disabled rather than failing later.
   bool get _canSubmit =>
       _selected.isNotEmpty &&
-      _selected.every((id) => _stageOf[id]?.isNotEmpty ?? false);
+      _selected.every((id) => _stageOf[id]?.isNotEmpty ?? false) &&
+      // A breakage with an incomplete loss is refused by the server.
+      _selected.every((id) => _reasonOf[id]?.problem == null);
 
   void _submit() {
     final note = _noteController.text.trim();
@@ -107,7 +111,11 @@ class _TryingRejectSheetState extends State<_TryingRejectSheet> {
     Navigator.of(context).pop((
       lines: [
         for (final id in _selected)
-          (restorationId: id, stageId: _stageOf[id]!, note: null),
+          TryingRejectLine(
+            restorationId: id,
+            stageId: _stageOf[id]!,
+            reason: _reasonOf[id] ?? const SendBackReason(),
+          ),
       ],
       note: note.isEmpty ? null : note,
     ));
@@ -150,7 +158,11 @@ class _TryingRejectSheetState extends State<_TryingRejectSheet> {
             else
               for (final restoration in widget.restorations)
                 _RestorationLine(
+                  caseId: widget.caseId,
                   restoration: restoration,
+                  reason: _reasonOf[restoration.id] ?? const SendBackReason(),
+                  onReasonChanged: (reason) =>
+                      setState(() => _reasonOf[restoration.id] = reason),
                   targets: _targets[restoration.id],
                   isSelected: _selected.contains(restoration.id),
                   selectedStageId: _stageOf[restoration.id],
@@ -160,6 +172,7 @@ class _TryingRejectSheetState extends State<_TryingRejectSheet> {
                     } else {
                       _selected.remove(restoration.id);
                       _stageOf.remove(restoration.id);
+                      _reasonOf.remove(restoration.id);
                     }
                   }),
                   onStageChanged: (stageId) =>
@@ -188,7 +201,10 @@ class _TryingRejectSheetState extends State<_TryingRejectSheet> {
 
 class _RestorationLine extends StatelessWidget {
   const _RestorationLine({
+    required this.caseId,
     required this.restoration,
+    required this.reason,
+    required this.onReasonChanged,
     required this.targets,
     required this.isSelected,
     required this.selectedStageId,
@@ -196,7 +212,10 @@ class _RestorationLine extends StatelessWidget {
     required this.onStageChanged,
   });
 
+  final String caseId;
   final CaseRestorationModel restoration;
+  final SendBackReason reason;
+  final ValueChanged<SendBackReason> onReasonChanged;
 
   /// Null while the targets are still being fetched.
   final List<CaseWorkflowStageModel>? targets;
@@ -288,6 +307,17 @@ class _RestorationLine extends StatelessWidget {
                 onChanged: (value) {
                   if (value != null) onStageChanged(value);
                 },
+              ),
+            ),
+          if (isSelected && selectedStageId != null)
+            Padding(
+              padding: const EdgeInsets.only(top: AppSpacing.md),
+              child: SendBackReasonFields(
+                caseId: caseId,
+                restorationId: restoration.id,
+                targetStageId: selectedStageId!,
+                value: reason,
+                onChanged: onReasonChanged,
               ),
             ),
         ],

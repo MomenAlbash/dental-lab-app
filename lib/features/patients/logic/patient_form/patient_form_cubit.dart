@@ -20,4 +20,23 @@ class PatientFormCubit extends Cubit<PatientFormState> {
       (patient) => emit(PatientFormSuccess(patient)),
     );
   }
+
+  /// Saves an edit. Takes the create model because the API reuses one request
+  /// schema for both verbs.
+  Future<void> updatePatient({
+    required String id,
+    required CreatePatientRequestModel patientRequestBody,
+  }) async {
+    emit(const PatientFormSubmitting());
+
+    final result = await _patientsRepo.updatePatient(
+      id: id,
+      patientRequestBody: patientRequestBody,
+    );
+
+    result.fold(
+      (failure) => emit(PatientFormError(failure.errorMessage)),
+      (patient) => emit(PatientFormSuccess(patient)),
+    );
+  }
 }

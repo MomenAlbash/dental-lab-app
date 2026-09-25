@@ -29,6 +29,8 @@ import 'package:dental_lab_app/features/cases/ui/widgets/case_progress_view.dart
 import 'package:dental_lab_app/features/cases/ui/widgets/case_messages_tab.dart';
 import 'package:dental_lab_app/features/cases/ui/widgets/case_stage_move_sheet.dart';
 import 'package:dental_lab_app/features/cases/data/models/case_detail_model.dart';
+import 'package:dental_lab_app/features/cases/data/models/case_intake_enums.dart';
+import 'package:dental_lab_app/features/cases/ui/widgets/deliver_directly_dialogs.dart';
 import 'package:dental_lab_app/features/cases/ui/widgets/restoration_move_sheet.dart';
 import 'package:dental_lab_app/features/cases/ui/widgets/trying_reject_sheet.dart';
 import 'package:file_picker/file_picker.dart';
@@ -162,6 +164,7 @@ class _CaseDetailView extends StatelessWidget {
       restorationId: progress.id,
       stageId: move.stageId,
       note: move.note,
+      reason: move.reason,
     );
   }
 
@@ -183,6 +186,24 @@ class _CaseDetailView extends StatelessWidget {
     if (confirmed != true) return;
 
     await cubit.undoMaterialReceived();
+  }
+
+  /// Walks this case to delivered in one call, after confirming — and asks
+  /// how the work leaves the lab, which only the single-case call records.
+  Future<void> _deliverDirectly(BuildContext context) async {
+    final cubit = context.read<CaseDetailsCubit>();
+
+    final choice = await showDeliverDirectlyDialog(
+      context,
+      caseCount: 1,
+      askCollectionMethod: true,
+    );
+    if (choice == null) return;
+
+    await cubit.deliverDirectly(
+      note: choice.note,
+      collectionMethod: choice.collectionMethod,
+    );
   }
 
   /// The doctor refused the fit: which pieces, and where each goes back to.
@@ -257,6 +278,24 @@ class _CaseDetailView extends StatelessWidget {
                 );
               },
             ),
+            // "تم التسليم" in one go: every remaining step completed at once.
+            // Hidden once delivered — there is nothing left to walk.
+            if (getIt<SessionCubit>().state.canEdit(PermissionName.cases))
+              BlocBuilder<CaseDetailsCubit, CaseDetailsState>(
+                builder: (context, state) {
+                  if (state is! CaseDetailsLoaded ||
+                      state.caseDetail.phase == CasePhase.delivered) {
+                    return const SizedBox.shrink();
+                  }
+                  return IconButton(
+                    tooltip: 'تم التسليم',
+                    icon: const Icon(Icons.local_shipping_outlined),
+                    onPressed: state.isBusy
+                        ? null
+                        : () => _deliverDirectly(context),
+                  );
+                },
+              ),
             // The case's own move, distinct from a restoration's: it is the
             // whole case that steps forward here, and what it may do is
             // answered by the server, not computed from the workflow.

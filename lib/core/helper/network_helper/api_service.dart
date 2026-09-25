@@ -51,6 +51,8 @@ import 'package:dental_lab_app/features/cases/data/models/case_flow_model.dart';
 import 'package:dental_lab_app/features/cases/data/models/case_list_item_model.dart';
 import 'package:dental_lab_app/features/cases/data/models/case_message_model.dart';
 import 'package:dental_lab_app/features/cases/data/models/create_case_request_model.dart';
+import 'package:dental_lab_app/features/cases/data/models/deliver_directly_models.dart';
+import 'package:dental_lab_app/features/cases/data/models/send_back_models.dart';
 import 'package:dental_lab_app/features/auth/data/models/login_response_model.dart';
 import 'package:dental_lab_app/features/cities/data/models/city_model.dart';
 import 'package:dental_lab_app/features/clinics/data/models/clinic_model.dart';
@@ -827,9 +829,7 @@ class ApiService {
       token: token,
     );
 
-    return DoctorStatementModel.fromJson(
-      response.data as Map<String, dynamic>,
-    );
+    return DoctorStatementModel.fromJson(response.data as Map<String, dynamic>);
   }
 
   /// `DELETE /Accounting/payments/{id}` — permanent, and gated on
@@ -1230,10 +1230,7 @@ class ApiService {
   }) async {
     log('Fetching zone for doctor: $doctorId');
 
-    final data = await Api().get(
-      url: 'doctors/$doctorId/zone',
-      token: token,
-    );
+    final data = await Api().get(url: 'doctors/$doctorId/zone', token: token);
     if (data is! Map<String, dynamic>) return null;
 
     return ZoneModel.fromJson(data);
@@ -2319,6 +2316,38 @@ class ApiService {
     return PatientModel.fromJson(response.data as Map<String, dynamic>);
   }
 
+  /// Takes a [CreatePatientRequestModel] rather than an update-shaped one on
+  /// purpose: the API declares the same `ClinicCreatePatientRequest` schema
+  /// for both `POST /Patients` and `PUT /Patients/{id}`, so a second model
+  /// would be a copy that could only drift.
+  Future<PatientModel> updatePatient({
+    required String id,
+    required CreatePatientRequestModel patientRequestBody,
+    String? token,
+  }) async {
+    final body = patientRequestBody.toJson();
+
+    log('Sending Update Patient request with: $body');
+
+    final response = await Api().put(
+      url: 'Patients/$id',
+      body: body,
+      token: token,
+    );
+
+    log('Update Patient response data: ${response.data}');
+
+    return PatientModel.fromJson(response.data as Map<String, dynamic>);
+  }
+
+  Future<void> deletePatient({required String id, String? token}) async {
+    log('Deleting patient: $id');
+
+    final response = await Api().delete(url: 'Patients/$id', token: token);
+
+    log('Delete Patient response data: ${response.data}');
+  }
+
   Future<PriceTierModel> setPriceTierPrices({
     required String id,
     required SetPriceTierPricesRequestModel setPricesRequestBody,
@@ -2375,6 +2404,8 @@ class ApiService {
     String? priorityId,
     List<String>? stageIds,
     List<String>? restorationStageIds,
+    List<String>? overriddenRestorationIds,
+    bool matchAnyAssignedStage = false,
     List<String>? laboratoryIds,
     String? receivedFrom,
     String? receivedTo,
@@ -2409,6 +2440,14 @@ class ApiService {
     for (final stageId in restorationStageIds ?? const <String>[]) {
       add('RestorationStageIds', stageId);
     }
+    // Specific restorations handed to this login by a temporary override —
+    // restoration ids, not stage ids, so they match only that one piece.
+    for (final restorationId in overriddenRestorationIds ?? const <String>[]) {
+      add('OverriddenCaseRestorationIds', restorationId);
+    }
+    // "My tasks" means any one of the three matches, not all of them: the
+    // server ANDs the stage lists unless told otherwise.
+    if (matchAnyAssignedStage) add('MatchAnyAssignedStage', 'true');
     // Repeated key, not a comma-joined list — that is how the endpoint
     // declares its array parameters. Sending none leaves the case list scoped
     // to the `X-Laboratory-Id` header, which is the ordinary single-lab view;
@@ -2434,6 +2473,8 @@ class ApiService {
     String? priorityId,
     List<String>? stageIds,
     List<String>? restorationStageIds,
+    List<String>? overriddenRestorationIds,
+    bool matchAnyAssignedStage = false,
     List<String>? laboratoryIds,
     String? receivedFrom,
     String? receivedTo,
@@ -2453,6 +2494,8 @@ class ApiService {
         priorityId: priorityId,
         stageIds: stageIds,
         restorationStageIds: restorationStageIds,
+        overriddenRestorationIds: overriddenRestorationIds,
+        matchAnyAssignedStage: matchAnyAssignedStage,
         laboratoryIds: laboratoryIds,
         receivedFrom: receivedFrom,
         receivedTo: receivedTo,
@@ -2482,6 +2525,9 @@ class ApiService {
         priorityId == null &&
         (stageIds == null || stageIds.isEmpty) &&
         (restorationStageIds == null || restorationStageIds.isEmpty) &&
+        (overriddenRestorationIds == null ||
+            overriddenRestorationIds.isEmpty) &&
+        !matchAnyAssignedStage &&
         receivedFrom == null &&
         receivedTo == null &&
         // A tab or an SLA segment narrows the list exactly as a filter does;
@@ -2511,6 +2557,8 @@ class ApiService {
     String? priorityId,
     List<String>? stageIds,
     List<String>? restorationStageIds,
+    List<String>? overriddenRestorationIds,
+    bool matchAnyAssignedStage = false,
     List<String>? laboratoryIds,
     String? receivedFrom,
     String? receivedTo,
@@ -2527,6 +2575,8 @@ class ApiService {
       priorityId: priorityId,
       stageIds: stageIds,
       restorationStageIds: restorationStageIds,
+      overriddenRestorationIds: overriddenRestorationIds,
+      matchAnyAssignedStage: matchAnyAssignedStage,
       laboratoryIds: laboratoryIds,
       receivedFrom: receivedFrom,
       receivedTo: receivedTo,
@@ -2556,6 +2606,8 @@ class ApiService {
     String? priorityId,
     List<String>? stageIds,
     List<String>? restorationStageIds,
+    List<String>? overriddenRestorationIds,
+    bool matchAnyAssignedStage = false,
     List<String>? laboratoryIds,
     String? receivedFrom,
     String? receivedTo,
@@ -2571,6 +2623,8 @@ class ApiService {
       priorityId: priorityId,
       stageIds: stageIds,
       restorationStageIds: restorationStageIds,
+      overriddenRestorationIds: overriddenRestorationIds,
+      matchAnyAssignedStage: matchAnyAssignedStage,
       laboratoryIds: laboratoryIds,
       receivedFrom: receivedFrom,
       receivedTo: receivedTo,
@@ -2716,7 +2770,9 @@ class ApiService {
     List<String> restorationTypeIds = const [],
     String? token,
   }) async {
-    log('Previewing expected completion for ${restorationTypeIds.length} types');
+    log(
+      'Previewing expected completion for ${restorationTypeIds.length} types',
+    );
 
     final params = <String>[
       if (priorityId != null && priorityId.isNotEmpty)
@@ -2744,10 +2800,7 @@ class ApiService {
   /// travels is frozen when the case is created, so walking the restoration
   /// type's live catalogue instead would draw the wrong board for any case in
   /// flight when a lab edits a route.
-  Future<CaseFlowModel> getCaseFlow({
-    required String id,
-    String? token,
-  }) async {
+  Future<CaseFlowModel> getCaseFlow({required String id, String? token}) async {
     log('Fetching flow for case: $id');
 
     final responseData = await Api().get(url: 'Cases/$id/flow', token: token);
@@ -2835,13 +2888,15 @@ class ApiService {
     required String restorationId,
     required String stageId,
     String? note,
+    SendBackReason reason = const SendBackReason(),
     String? token,
   }) async {
     log('Setting stage $stageId for restoration $restorationId (case $caseId)');
 
     final response = await Api().put(
       url: 'Cases/$caseId/restorations/$restorationId/stage',
-      body: {'stageId': stageId, 'note': note},
+      // The reason only matters on a send-back; a forward move sends none.
+      body: {'stageId': stageId, 'note': note, ...reason.toJson()},
       token: token,
     );
 
@@ -3013,6 +3068,51 @@ class ApiService {
     );
   }
 
+  /// `PUT /Cases/deliver-directly` — "تم التسليم" for many cases at once.
+  ///
+  /// Each case is walked through every remaining step of its route on its
+  /// own; one refusing does not stop the others, so the answer is a row per
+  /// case rather than one success or failure.
+  Future<List<DeliverDirectlyResultModel>> deliverCasesDirectly({
+    required List<String> caseIds,
+    String? note,
+    String? token,
+  }) async {
+    log('Delivering ${caseIds.length} cases directly');
+
+    final response = await Api().put(
+      url: 'Cases/deliver-directly',
+      body: {'caseIds': caseIds, 'note': note},
+      token: token,
+    );
+    final data = response.data;
+    if (data is! List) return const [];
+    return [
+      for (final row in data)
+        if (row is Map<String, dynamic>)
+          DeliverDirectlyResultModel.fromJson(row),
+    ];
+  }
+
+  /// `PUT /Cases/{id}/deliver-directly` — the single-case twin, which also
+  /// records how the work leaves the lab.
+  ///
+  /// Returns nothing: the caller refetches the case anyway.
+  Future<void> deliverCaseDirectly({
+    required String id,
+    String? note,
+    CollectionMethod collectionMethod = CollectionMethod.none,
+    String? token,
+  }) async {
+    log('Delivering case $id directly');
+
+    await Api().put(
+      url: 'Cases/$id/deliver-directly',
+      body: {'note': note, 'collectionMethod': collectionMethod.value},
+      token: token,
+    );
+  }
+
   /// `PUT /Cases/{id}/trying/reject`
   ///
   /// The other half of trying: the doctor refused the fit. Each flagged piece
@@ -3021,8 +3121,7 @@ class ApiService {
   /// per restoration followed by a case move.
   Future<void> rejectCaseTrying({
     required String id,
-    required List<({String restorationId, String stageId, String? note})>
-    restorations,
+    required List<TryingRejectLine> restorations,
     String? note,
     String? token,
   }) async {
@@ -3033,12 +3132,7 @@ class ApiService {
       body: {
         'note': note,
         'restorations': [
-          for (final restoration in restorations)
-            {
-              'restorationId': restoration.restorationId,
-              'stageId': restoration.stageId,
-              'note': restoration.note,
-            },
+          for (final restoration in restorations) restoration.toJson(),
         ],
       },
       token: token,

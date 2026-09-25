@@ -7,11 +7,14 @@ import 'package:dental_lab_app/core/theming/app_motion.dart';
 import 'package:dental_lab_app/core/theming/glass.dart';
 import 'package:dental_lab_app/core/theming/styles.dart';
 import 'package:dental_lab_app/core/widgets/app_drawer_widget.dart';
+import 'package:dental_lab_app/core/widgets/confirm_dialog_widget.dart';
 import 'package:dental_lab_app/core/widgets/custom_text_field_widget.dart';
 import 'package:dental_lab_app/core/widgets/glass/glass_add_button.dart';
 import 'package:dental_lab_app/core/widgets/glass/glass_app_bar.dart';
 import 'package:dental_lab_app/core/widgets/glass/glass_filter_button.dart';
 import 'package:dental_lab_app/core/widgets/glass/glass_scaffold.dart';
+import 'package:dental_lab_app/core/widgets/show_toast_widget.dart';
+import 'package:dental_lab_app/features/patients/data/models/patient_model.dart';
 import 'package:dental_lab_app/features/patients/logic/patients/patients_cubit.dart';
 import 'package:dental_lab_app/features/patients/logic/patients/patients_state.dart';
 import 'package:dental_lab_app/features/patients/ui/widgets/patient_filters_sheet.dart';
@@ -87,6 +90,34 @@ class _PatientsListViewState extends State<_PatientsListView> {
     final created = await context.push<bool>(Routes.patientFormScreen);
     if (created == true && mounted) {
       context.read<PatientsCubit>().getPatients();
+    }
+  }
+
+  Future<void> _confirmDelete(PatientModel patient) async {
+    // The server is the authority and refuses on its own terms anyway; this
+    // spares the user a confirmation that could only end in an error, and
+    // says why using the server's own words.
+    if (!patient.canDelete) {
+      showToast(
+        message: patient.deleteMessage ?? 'لا يمكن حذف هذا المريض',
+        state: ToastState.error,
+      );
+      return;
+    }
+
+    final cubit = context.read<PatientsCubit>();
+    final name = patient.fullName.isEmpty ? 'هذا المريض' : patient.fullName;
+
+    final confirmed = await ConfirmDialogWidget.show(
+      context,
+      title: 'حذف المريض',
+      message: 'هل أنت متأكد من حذف "$name"؟',
+      confirmText: 'حذف',
+      isDestructive: true,
+    );
+
+    if (confirmed == true) {
+      await cubit.deletePatient(patient.id);
     }
   }
 
@@ -180,9 +211,25 @@ class _PatientsListViewState extends State<_PatientsListView> {
                   curve: AppMotion.enter,
                 ),
             Expanded(
-              child: PatientsListBody(
-                caseFilter: _caseFilter,
-                scrollController: _scrollController,
+              child: BlocListener<PatientsCubit, PatientsState>(
+                listener: (context, state) {
+                  switch (state) {
+                    case PatientDeleted():
+                      showToast(
+                        message: 'تم حذف المريض',
+                        state: ToastState.success,
+                      );
+                    case PatientDeleteError(:final message):
+                      showToast(message: message, state: ToastState.error);
+                    default:
+                      break;
+                  }
+                },
+                child: PatientsListBody(
+                  caseFilter: _caseFilter,
+                  onDelete: _confirmDelete,
+                  scrollController: _scrollController,
+                ),
               ),
             ),
           ],

@@ -14,6 +14,8 @@ class CaseFiltersModel {
     this.priorityName,
     this.stageIds = const {},
     this.restorationStageIds = const {},
+    this.overriddenRestorationIds = const {},
+    this.matchAnyAssignedStage = false,
     this.laboratoryIds = const {},
     this.cityIds = const {},
     this.cityNames = const {},
@@ -56,6 +58,17 @@ class CaseFiltersModel {
   /// there is no manual picker for it, since a person does not choose which
   /// stages they are assigned to.
   final Set<String> restorationStageIds;
+
+  /// Specific restorations (`OverriddenCaseRestorationIds`) a temporary
+  /// override hands this login — restoration ids, not stage ids, so they
+  /// match only that one piece and not everything parked on its stage. Set by
+  /// the "my tasks" queue alone, like [restorationStageIds].
+  final Set<String> overriddenRestorationIds;
+
+  /// Match a case on *any* of [stageIds], [restorationStageIds] and
+  /// [overriddenRestorationIds] instead of all of them — what "assigned to me"
+  /// means. Every other view keeps the server's default AND.
+  final bool matchAnyAssignedStage;
 
   /// Laboratories to browse at once (`LaboratoryIds`).
   ///
@@ -140,6 +153,8 @@ class CaseFiltersModel {
     bool clearStages = false,
     Set<String>? restorationStageIds,
     bool clearRestorationStages = false,
+    Set<String>? overriddenRestorationIds,
+    bool? matchAnyAssignedStage,
     CasePhaseTab? phaseTab,
     CaseSlaFilter? sla,
     Set<String>? laboratoryIds,
@@ -165,6 +180,12 @@ class CaseFiltersModel {
       restorationStageIds: clearRestorationStages
           ? const {}
           : (restorationStageIds ?? this.restorationStageIds),
+      overriddenRestorationIds: clearRestorationStages
+          ? const {}
+          : (overriddenRestorationIds ?? this.overriddenRestorationIds),
+      matchAnyAssignedStage: clearRestorationStages
+          ? false
+          : (matchAnyAssignedStage ?? this.matchAnyAssignedStage),
       phaseTab: phaseTab ?? this.phaseTab,
       sla: sla ?? this.sla,
       laboratoryIds: clearLaboratories

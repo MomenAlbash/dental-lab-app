@@ -11,6 +11,7 @@ import 'package:dental_lab_app/core/widgets/glass/glass_scaffold.dart';
 import 'package:dental_lab_app/core/widgets/glass/glass_section_title.dart';
 import 'package:dental_lab_app/core/widgets/glass/glass_skeleton.dart';
 import 'package:dental_lab_app/core/widgets/show_toast_widget.dart';
+import 'package:dental_lab_app/features/accounting/data/models/currency_model.dart';
 import 'package:dental_lab_app/features/areas/data/models/area_model.dart';
 import 'package:dental_lab_app/features/users/data/models/user_model.dart';
 import 'package:dental_lab_app/features/zones/data/models/save_zone_request_models.dart';
@@ -60,6 +61,23 @@ class _ZoneFormViewState extends State<_ZoneFormView> {
     text: widget.initialZone?.returnDeliveryFee?.toString() ?? '',
   );
 
+  /// Shipping time, entered as days/hours/minutes and sent as one minute
+  /// count — nobody thinks of "two days" as 2880.
+  late final _initialShipping = ShippingDuration.fromMinutes(
+    widget.initialZone?.shippingMinutes ?? 0,
+  );
+  late final _shippingDaysController = TextEditingController(
+    text: '${_initialShipping.days}',
+  );
+  late final _shippingHoursController = TextEditingController(
+    text: '${_initialShipping.hours}',
+  );
+  late final _shippingMinutesController = TextEditingController(
+    text: '${_initialShipping.minutes}',
+  );
+
+  late String? _shippingCurrencyId = widget.initialZone?.shippingCurrencyId;
+
   late bool _isActive = widget.initialZone?.isActive ?? true;
 
   late final Set<String> _selectedAreaIds = {
@@ -75,6 +93,7 @@ class _ZoneFormViewState extends State<_ZoneFormView> {
   /// Error state does not blank the checklist mid-save.
   List<AreaModel>? _lastAreas;
   List<UserModel>? _lastRepresentatives;
+  List<CurrencyModel>? _lastCurrencies;
 
   @override
   void dispose() {
@@ -82,11 +101,24 @@ class _ZoneFormViewState extends State<_ZoneFormView> {
     _nameArController.dispose();
     _descriptionController.dispose();
     _feeController.dispose();
+    _shippingDaysController.dispose();
+    _shippingHoursController.dispose();
+    _shippingMinutesController.dispose();
     super.dispose();
   }
 
+  int _count(TextEditingController controller) =>
+      int.tryParse(controller.text.trim()) ?? 0;
+
+  ShippingDuration get _shipping => ShippingDuration(
+    days: _count(_shippingDaysController),
+    hours: _count(_shippingHoursController),
+    minutes: _count(_shippingMinutesController),
+  );
+
   void _onSavePressed() {
     if (!(_formKey.currentState?.validate() ?? false)) return;
+    if (_shipping.exceedsMax) return;
 
     final cubit = context.read<ZoneFormCubit>();
     final fee = _feeController.text.trim().isEmpty
@@ -110,6 +142,12 @@ class _ZoneFormViewState extends State<_ZoneFormView> {
           areaIds: _selectedAreaIds.toList(),
           representativeUserIds: _selectedRepresentativeIds.toList(),
           returnDeliveryFee: fee,
+          shippingCurrencyId: _shippingCurrencyId,
+          shippingMinutes: _shipping.totalMinutes,
+          // An empty field on its own leaves the old fee in place; removing
+          // it has to be asked for.
+          clearReturnDeliveryFee:
+              fee == null && widget.initialZone!.returnDeliveryFee != null,
         ),
       );
     } else {
@@ -122,6 +160,8 @@ class _ZoneFormViewState extends State<_ZoneFormView> {
           areaIds: _selectedAreaIds.toList(),
           representativeUserIds: _selectedRepresentativeIds.toList(),
           returnDeliveryFee: fee,
+          shippingCurrencyId: _shippingCurrencyId,
+          shippingMinutes: _shipping.totalMinutes,
         ),
       );
     }
@@ -173,8 +213,17 @@ class _ZoneFormViewState extends State<_ZoneFormView> {
               ZoneFormError() => _lastRepresentatives,
               _ => null,
             };
+            final currencies = switch (state) {
+              ZoneFormCatalogLoaded(:final currencies) => currencies,
+              _ => _lastCurrencies,
+            };
             if (areas != null) _lastAreas = areas;
             if (representatives != null) _lastRepresentatives = representatives;
+            if (currencies != null) _lastCurrencies = currencies;
+            // One currency means nothing to ask.
+            if (_shippingCurrencyId == null && currencies?.length == 1) {
+              _shippingCurrencyId = currencies!.single.id;
+            }
 
             if (areas == null || representatives == null) {
               return state is ZoneFormCatalogError
@@ -272,32 +321,18 @@ class _ZoneFormViewState extends State<_ZoneFormView> {
                               ),
                               validator: (_) => null,
                             ),
-                            const SizedBox(height: 20),
-                            Text(
-                              'رسوم الإرجاع (اختياري)',
-                              style: AppTextStyles.font14MediumText,
-                            ),
-                            const SizedBox(height: 8),
-                            AppTextFormField(
-                              controller: _feeController,
-                              hintText: 'أدخل قيمة الرسوم',
-                              keyboardType:
-                                  const TextInputType.numberWithOptions(
-                                    decimal: true,
-                                  ),
+                            const SizedBox(height: 24),
+                            const GlassSectionTitle('الشحن'),
+                            _ShippingFields(
+                              feeController: _feeController,
+                              daysController: _shippingDaysController,
+                              hoursController: _shippingHoursController,
+                              minutesController: _shippingMinutesController,
+                              currencies: currencies ?? const [],
+                              currencyId: _shippingCurrencyId,
+                              onCurrencyChanged: (id) =>
+                                  setState(() => _shippingCurrencyId = id),
                               enabled: !isSubmitting,
-                              prefixIcon: Icon(
-                                Icons.local_shipping_outlined,
-                                color: context.glass.onGlassMuted,
-                              ),
-                              validator: (value) {
-                                if (value == null || value.trim().isEmpty) {
-                                  return null;
-                                }
-                                return double.tryParse(value.trim()) == null
-                                    ? 'قيمة غير صالحة'
-                                    : null;
-                              },
                             ),
                             const SizedBox(height: 16),
                             _ActiveSwitch(
@@ -490,6 +525,158 @@ class _EmptyCatalogNote extends StatelessWidget {
           color: context.glass.onGlassMuted,
         ),
       ),
+    );
+  }
+}
+
+/// The zone's delivery fee, its currency, and how long shipping takes —
+/// with a live line saying what that adds to a case's delivery date.
+class _ShippingFields extends StatelessWidget {
+  const _ShippingFields({
+    required this.feeController,
+    required this.daysController,
+    required this.hoursController,
+    required this.minutesController,
+    required this.currencies,
+    required this.currencyId,
+    required this.onCurrencyChanged,
+    required this.enabled,
+  });
+
+  final TextEditingController feeController;
+  final TextEditingController daysController;
+  final TextEditingController hoursController;
+  final TextEditingController minutesController;
+  final List<CurrencyModel> currencies;
+  final String? currencyId;
+  final ValueChanged<String?> onCurrencyChanged;
+  final bool enabled;
+
+  static int _count(TextEditingController controller) =>
+      int.tryParse(controller.text.trim()) ?? 0;
+
+  String? _validateCount(String? value, {int? max}) {
+    final text = value?.trim() ?? '';
+    if (text.isEmpty) return null;
+    final count = int.tryParse(text);
+    if (count == null || count < 0) return 'قيمة غير صالحة';
+    if (max != null && count > max) return 'الحد $max';
+    return null;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final glass = context.glass;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text('أجرة التوصيل (اختياري)', style: AppTextStyles.font14MediumText),
+        const SizedBox(height: 8),
+        AppTextFormField(
+          controller: feeController,
+          hintText: 'اتركها فارغة إن لم يكن التوصيل متاحاً',
+          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+          enabled: enabled,
+          prefixIcon: Icon(
+            Icons.local_shipping_outlined,
+            color: glass.onGlassMuted,
+          ),
+          validator: (value) {
+            if (value == null || value.trim().isEmpty) return null;
+            final fee = double.tryParse(value.trim());
+            return fee == null || fee < 0 ? 'قيمة غير صالحة' : null;
+          },
+        ),
+        const SizedBox(height: 12),
+        DropdownButtonFormField<String>(
+          initialValue: currencies.any((c) => c.id == currencyId)
+              ? currencyId
+              : null,
+          isExpanded: true,
+          decoration: const InputDecoration(
+            labelText: 'العملة',
+            border: OutlineInputBorder(),
+            isDense: true,
+          ),
+          items: [
+            for (final currency in currencies)
+              DropdownMenuItem(
+                value: currency.id,
+                child: Text(currency.name ?? currency.code ?? '—'),
+              ),
+          ],
+          onChanged: enabled ? onCurrencyChanged : null,
+          validator: (value) =>
+              // A fee with no currency is a number nobody can bill.
+              feeController.text.trim().isNotEmpty && value == null
+              ? 'اختر عملة الأجرة'
+              : null,
+        ),
+
+        const SizedBox(height: 16),
+        Text('مدة الشحن', style: AppTextStyles.font14MediumText),
+        const SizedBox(height: 8),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              child: AppTextFormField(
+                controller: daysController,
+                hintText: 'أيام',
+                keyboardType: TextInputType.number,
+                enabled: enabled,
+                validator: (value) => _validateCount(value, max: 365),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: AppTextFormField(
+                controller: hoursController,
+                hintText: 'ساعات',
+                keyboardType: TextInputType.number,
+                enabled: enabled,
+                validator: (value) => _validateCount(value, max: 23),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: AppTextFormField(
+                controller: minutesController,
+                hintText: 'دقائق',
+                keyboardType: TextInputType.number,
+                enabled: enabled,
+                validator: (value) => _validateCount(value, max: 59),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 6),
+        ListenableBuilder(
+          listenable: Listenable.merge([
+            daysController,
+            hoursController,
+            minutesController,
+          ]),
+          builder: (context, _) {
+            final duration = ShippingDuration(
+              days: _count(daysController),
+              hours: _count(hoursController),
+              minutes: _count(minutesController),
+            );
+            return Text(
+              duration.exceedsMax
+                  ? 'مدة الشحن لا يمكن أن تتجاوز سنة'
+                  : duration.isZero
+                  ? 'لا يضيف الشحن وقتاً على موعد التسليم'
+                  : 'يضيف ${duration.label} على موعد التسليم',
+              style: AppTextStyles.font12RegularHint.copyWith(
+                color: duration.exceedsMax ? glass.error : glass.onGlassMuted,
+              ),
+            );
+          },
+        ),
+      ],
     );
   }
 }

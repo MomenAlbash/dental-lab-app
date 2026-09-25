@@ -9,7 +9,7 @@ import 'package:dental_lab_app/features/attendance/data/models/attendance_enums.
 import 'package:dental_lab_app/features/attendance/data/models/work_shift_model.dart';
 import 'package:flutter/material.dart';
 
-/// Draws a shift: which days, which hours, and what missing them costs.
+/// Draws a shift: which days, which hours, and how much slack each day allows.
 ///
 /// [impact] is what the server says editing this shift would disturb — the
 /// people on it and the span of attendance already judged under the old rules.
@@ -39,19 +39,14 @@ class _WorkShiftFormSheet extends StatefulWidget {
 class _WorkShiftFormSheetState extends State<_WorkShiftFormSheet> {
   final _formKey = GlobalKey<FormState>();
   late final TextEditingController _nameController;
-  late final TextEditingController _absentValueController;
-  late final TextEditingController _delayController;
-  late final TextEditingController _earlyLeaveController;
-  late final TextEditingController _gapController;
   late final TextEditingController _allowedDelayController;
   late final TextEditingController _allowedEarlyLeaveController;
   late final TextEditingController _allowedGapController;
-  late final TextEditingController _divisorController;
-  late final TextEditingController _workHoursController;
-  late final TextEditingController _overtimeController;
+  late final TextEditingController _overtimeCapController;
 
-  late AbsentDeductionType _absentType;
-  late MinutePenaltyBasis _penaltyBasis;
+  /// Whether a day's overtime is capped. Off sends a null cap — "unlimited" —
+  /// which is not the same as a cap of zero.
+  late bool _isOvertimeCapped;
 
   /// The week, editable in place. A day with no times is simply not worked —
   /// which is how a five-day shift is expressed.
@@ -63,18 +58,6 @@ class _WorkShiftFormSheetState extends State<_WorkShiftFormSheet> {
     final shift = widget.shift;
 
     _nameController = TextEditingController(text: shift?.name ?? '');
-    _absentValueController = TextEditingController(
-      text: shift == null ? '0' : shift.absentDeductionValue.toString(),
-    );
-    _delayController = TextEditingController(
-      text: shift == null ? '0' : shift.delayDeductionPerMinute.toString(),
-    );
-    _earlyLeaveController = TextEditingController(
-      text: shift == null ? '0' : shift.earlyLeaveDeductionPerMinute.toString(),
-    );
-    _gapController = TextEditingController(
-      text: shift == null ? '0' : shift.gapDeductionPerMinute.toString(),
-    );
     _allowedDelayController = TextEditingController(
       text: '${shift?.allowedDelayMinutesPerDay ?? 0}',
     );
@@ -84,18 +67,10 @@ class _WorkShiftFormSheetState extends State<_WorkShiftFormSheet> {
     _allowedGapController = TextEditingController(
       text: '${shift?.allowedGapMinutesPerDay ?? 0}',
     );
-    _divisorController = TextEditingController(
-      text: '${shift?.dailyRateDivisor ?? 30}',
+    _overtimeCapController = TextEditingController(
+      text: shift?.maxOvertimeMinutesPerDay?.toString() ?? '',
     );
-    _workHoursController = TextEditingController(
-      text: '${shift?.workHoursPerDay ?? 8}',
-    );
-    _overtimeController = TextEditingController(
-      text: shift?.overtimePayPerMinute?.toString() ?? '',
-    );
-
-    _absentType = shift?.absentDeductionType ?? AbsentDeductionType.none;
-    _penaltyBasis = shift?.minutePenaltyBasis ?? MinutePenaltyBasis.fixedAmount;
+    _isOvertimeCapped = shift?.maxOvertimeMinutesPerDay != null;
 
     for (final day in shift?.days ?? const <WorkShiftDayModel>[]) {
       _days[day.dayOfWeek] = (start: day.startTime, end: day.endTime);
@@ -105,16 +80,10 @@ class _WorkShiftFormSheetState extends State<_WorkShiftFormSheet> {
   @override
   void dispose() {
     _nameController.dispose();
-    _absentValueController.dispose();
-    _delayController.dispose();
-    _earlyLeaveController.dispose();
-    _gapController.dispose();
     _allowedDelayController.dispose();
     _allowedEarlyLeaveController.dispose();
     _allowedGapController.dispose();
-    _divisorController.dispose();
-    _workHoursController.dispose();
-    _overtimeController.dispose();
+    _overtimeCapController.dispose();
     super.dispose();
   }
 
@@ -150,19 +119,14 @@ class _WorkShiftFormSheetState extends State<_WorkShiftFormSheet> {
     });
   }
 
-  double _number(TextEditingController controller) =>
-      double.tryParse(controller.text.trim()) ?? 0;
-
-  int _int(TextEditingController controller, {int fallback = 0}) =>
-      int.tryParse(controller.text.trim()) ?? fallback;
+  int _int(TextEditingController controller) =>
+      int.tryParse(controller.text.trim()) ?? 0;
 
   void _submit() {
     if (!(_formKey.currentState?.validate() ?? false)) return;
     // The API refuses a shift with no days at all, and rightly: it would be a
     // rule that never applies to anybody.
     if (_days.isEmpty) return;
-
-    final overtimeText = _overtimeController.text.trim();
 
     Navigator.of(context).pop(
       SaveWorkShiftRequestModel(
@@ -175,22 +139,12 @@ class _WorkShiftFormSheetState extends State<_WorkShiftFormSheet> {
               endTime: entry.value.end,
             ),
         ],
-        absentDeductionType: _absentType,
-        absentDeductionValue: _number(_absentValueController),
-        minutePenaltyBasis: _penaltyBasis,
-        delayDeductionPerMinute: _number(_delayController),
-        earlyLeaveDeductionPerMinute: _number(_earlyLeaveController),
-        gapDeductionPerMinute: _number(_gapController),
         allowedDelayMinutesPerDay: _int(_allowedDelayController),
         allowedEarlyLeaveMinutesPerDay: _int(_allowedEarlyLeaveController),
         allowedGapMinutesPerDay: _int(_allowedGapController),
-        dailyRateDivisor: _int(_divisorController, fallback: 30),
-        workHoursPerDay: _number(_workHoursController),
-        // Empty means overtime is not paid on this shift at all — a different
-        // statement from a rate of zero.
-        overtimePayPerMinute: overtimeText.isEmpty
-            ? null
-            : double.tryParse(overtimeText),
+        maxOvertimeMinutesPerDay: _isOvertimeCapped
+            ? _int(_overtimeCapController)
+            : null,
       ),
     );
   }
@@ -269,108 +223,48 @@ class _WorkShiftFormSheetState extends State<_WorkShiftFormSheet> {
                 ),
 
               const SizedBox(height: AppSpacing.lg),
-              const _GroupLabel('الغياب'),
-              DropdownButtonFormField<AbsentDeductionType>(
-                initialValue: _absentType,
-                isExpanded: true,
-                decoration: const InputDecoration(
-                  labelText: 'طريقة خصم الغياب',
-                  border: OutlineInputBorder(),
-                  isDense: true,
-                ),
-                items: [
-                  for (final type in AbsentDeductionType.values)
-                    DropdownMenuItem(value: type, child: Text(type.label)),
-                ],
-                onChanged: (value) {
-                  if (value != null) setState(() => _absentType = value);
-                },
-              ),
-              if (_absentType != AbsentDeductionType.none) ...[
-                const SizedBox(height: AppSpacing.sm),
-                AppTextFormField(
-                  controller: _absentValueController,
-                  hintText: _absentType == AbsentDeductionType.fixedAmount
-                      ? 'المبلغ المخصوم عن يوم الغياب'
-                      : 'عدد أضعاف الأجر اليومي',
-                  keyboardType: const TextInputType.numberWithOptions(
-                    decimal: true,
-                  ),
-                  validator: (_) => null,
-                ),
-              ],
-
-              const SizedBox(height: AppSpacing.lg),
-              const _GroupLabel('خصومات الدقائق'),
-              SegmentedButton<MinutePenaltyBasis>(
-                segments: [
-                  for (final basis in MinutePenaltyBasis.values)
-                    ButtonSegment(value: basis, label: Text(basis.label)),
-                ],
-                selected: {_penaltyBasis},
-                onSelectionChanged: (selection) =>
-                    setState(() => _penaltyBasis = selection.first),
-              ),
-              if (_penaltyBasis.isDerived)
-                Padding(
-                  padding: const EdgeInsets.only(top: 4),
-                  child: Text(
-                    // The rates below stop mattering: the server works the
-                    // per-minute figure out of the employee's own salary.
-                    'ستُحتسب قيمة الدقيقة من راتب الموظف نفسه، ولن تُستخدم القيم أدناه',
-                    style: AppTextStyles.font12RegularHint.copyWith(
-                      color: glass.onGlassMuted,
-                    ),
-                  ),
-                ),
-              if (!_penaltyBasis.isDerived) ...[
-                const SizedBox(height: AppSpacing.sm),
-                _NumberField(
-                  controller: _delayController,
-                  label: 'خصم دقيقة التأخير',
-                ),
-                _NumberField(
-                  controller: _earlyLeaveController,
-                  label: 'خصم دقيقة الخروج المبكر',
-                ),
-                _NumberField(
-                  controller: _gapController,
-                  label: 'خصم دقيقة الانقطاع',
-                ),
-              ],
-
-              const SizedBox(height: AppSpacing.lg),
               const _GroupLabel('السماح اليومي (بالدقائق)'),
               _NumberField(
                 controller: _allowedDelayController,
                 label: 'سماح التأخير',
-                isInteger: true,
               ),
               _NumberField(
                 controller: _allowedEarlyLeaveController,
                 label: 'سماح الخروج المبكر',
-                isInteger: true,
               ),
               _NumberField(
                 controller: _allowedGapController,
                 label: 'سماح الانقطاع',
-                isInteger: true,
               ),
 
               const SizedBox(height: AppSpacing.lg),
-              const _GroupLabel('الاحتساب'),
-              _NumberField(
-                controller: _divisorController,
-                label: 'عدد أيام قسمة الراتب الشهري',
-                isInteger: true,
+              const _GroupLabel('العمل الإضافي'),
+              SegmentedButton<bool>(
+                segments: const [
+                  ButtonSegment(value: false, label: Text('غير محدود')),
+                  ButtonSegment(value: true, label: Text('بحد أقصى')),
+                ],
+                selected: {_isOvertimeCapped},
+                onSelectionChanged: (selection) =>
+                    setState(() => _isOvertimeCapped = selection.first),
               ),
-              _NumberField(
-                controller: _workHoursController,
-                label: 'ساعات العمل اليومية',
-              ),
-              _NumberField(
-                controller: _overtimeController,
-                label: 'أجر دقيقة العمل الإضافي (اتركه فارغاً إن لم يُحتسب)',
+              if (_isOvertimeCapped) ...[
+                const SizedBox(height: AppSpacing.sm),
+                _NumberField(
+                  controller: _overtimeCapController,
+                  label: 'أقصى دقائق إضافي في اليوم',
+                ),
+              ],
+              Padding(
+                padding: const EdgeInsets.only(top: 4),
+                child: Text(
+                  // Where the money went: the rates moved to each employee's
+                  // own salary, so nobody goes looking for them here.
+                  'قيم الخصم وأجر الإضافي تُضبط من نظام راتب كل موظف',
+                  style: AppTextStyles.font12RegularHint.copyWith(
+                    color: glass.onGlassMuted,
+                  ),
+                ),
               ),
 
               const SizedBox(height: AppSpacing.lg),
@@ -464,15 +358,10 @@ class _DayRow extends StatelessWidget {
 }
 
 class _NumberField extends StatelessWidget {
-  const _NumberField({
-    required this.controller,
-    required this.label,
-    this.isInteger = false,
-  });
+  const _NumberField({required this.controller, required this.label});
 
   final TextEditingController controller;
   final String label;
-  final bool isInteger;
 
   @override
   Widget build(BuildContext context) {
@@ -481,7 +370,7 @@ class _NumberField extends StatelessWidget {
       child: AppTextFormField(
         controller: controller,
         hintText: label,
-        keyboardType: TextInputType.numberWithOptions(decimal: !isInteger),
+        keyboardType: TextInputType.number,
         validator: (_) => null,
       ),
     );

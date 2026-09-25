@@ -13,7 +13,7 @@ import 'package:dio/dio.dart';
 /// `flutter build apk --dart-define=API_ORIGIN=https://other-host`.
 const String apiOrigin = String.fromEnvironment(
   'API_ORIGIN',
-  defaultValue: 'https://dental-lab.runasp.net',
+  defaultValue: 'https://dental-lap-api.premiumasp.net',
 );
 
 class Api {

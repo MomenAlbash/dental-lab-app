@@ -19,10 +19,21 @@ import 'package:dental_lab_app/features/patients/data/models/patient_gender.dart
 }
  */
 
-/// A patient (`PatientDto`) — view-only in this app; patients are managed by
-/// the clinic side.
+/// A patient (`PatientDto`).
 class PatientModel {
   final String id;
+
+  /// Whether the server would accept a delete for this patient.
+  ///
+  /// Defaults to true so a response from before the field existed still reads
+  /// as deletable — the server refuses it anyway, and the message comes back
+  /// with that refusal.
+  final bool canDelete;
+
+  /// Why the delete is refused, shown on the disabled control rather than
+  /// hiding it: an action that vanishes teaches nobody the rule.
+  final String? deleteMessage;
+
   final String? firstName;
   final String? lastName;
   final PatientGender? gender;
@@ -37,6 +48,8 @@ class PatientModel {
 
   PatientModel({
     required this.id,
+    this.canDelete = true,
+    this.deleteMessage,
     this.firstName,
     this.lastName,
     this.gender,
@@ -57,6 +70,8 @@ class PatientModel {
   factory PatientModel.fromJson(Map<String, dynamic> json) {
     return PatientModel(
       id: json['id'] as String,
+      canDelete: json['canDelete'] as bool? ?? true,
+      deleteMessage: json['deleteMessage'] as String?,
       firstName: json['firstName'] as String?,
       lastName: json['lastName'] as String?,
       gender: PatientGender.fromApi(json['gender'] as int?),

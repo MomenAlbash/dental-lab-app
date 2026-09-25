@@ -5,11 +5,12 @@
 /// show a row with no lateness to measure and still be correct.
 enum PayType {
   attendance(1, 'حسب الدوام'),
-  pieceRate(2, 'بالقطعة'),
+  pieceRate(2, 'حسب المراحل'),
   perTooth(3, 'بالسن'),
   weekly(4, 'أسبوعي'),
   scannerSessionRate(5, 'بجلسة السكانر'),
-  salesPercentage(6, 'نسبة من المبيعات');
+  salesPercentage(6, 'نسبة من المبيعات'),
+  hourly(7, 'بالساعة');
 
   const PayType(this.value, this.label);
 

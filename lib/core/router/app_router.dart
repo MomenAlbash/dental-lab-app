@@ -41,6 +41,10 @@ import 'package:dental_lab_app/features/details_questions/ui/details_questions_p
 import 'package:dental_lab_app/features/excel_import/ui/excel_import_page.dart';
 import 'package:dental_lab_app/features/employee_activity/ui/employee_activity_page.dart';
 import 'package:dental_lab_app/features/payroll/ui/payroll_page.dart';
+import 'package:dental_lab_app/features/photography_visits/ui/photography_visit_detail_page.dart';
+import 'package:dental_lab_app/features/photography_visits/ui/photography_visit_form_page.dart';
+import 'package:dental_lab_app/features/photography_visits/ui/photography_visits_page.dart';
+import 'package:dental_lab_app/features/stage_pay/ui/stage_pay_page.dart';
 import 'package:dental_lab_app/features/accounting/ui/expenses_list_page.dart';
 import 'package:dental_lab_app/features/accounting/ui/invoice_form_page.dart';
 import 'package:dental_lab_app/features/accounting/ui/invoices_list_page.dart';
@@ -68,6 +72,7 @@ import 'package:dental_lab_app/features/laboratories/ui/laboratory_selection_pag
 import 'package:dental_lab_app/features/laboratories/ui/laboratory_detail_page.dart';
 import 'package:dental_lab_app/features/laboratories/ui/laboratory_form_page.dart';
 import 'package:dental_lab_app/features/laboratories/ui/my_laboratory_page.dart';
+import 'package:dental_lab_app/features/patients/data/models/patient_model.dart';
 import 'package:dental_lab_app/features/patients/ui/patient_detail_page.dart';
 import 'package:dental_lab_app/features/patients/ui/patient_form_page.dart';
 import 'package:dental_lab_app/features/patients/ui/patients_list_page.dart';
@@ -220,6 +225,19 @@ abstract class AppRouter {
       GoRoute(
         path: Routes.scannerSessionsScreen,
         builder: (context, state) => const ScannerSessionsPage(),
+      ),
+      GoRoute(
+        path: Routes.photographyVisitsScreen,
+        builder: (context, state) => const PhotographyVisitsPage(),
+      ),
+      GoRoute(
+        path: Routes.photographyVisitFormScreen,
+        builder: (context, state) => const PhotographyVisitFormPage(),
+      ),
+      GoRoute(
+        path: Routes.photographyVisitDetailScreen,
+        builder: (context, state) =>
+            PhotographyVisitDetailPage(visitId: state.extra as String),
       ),
       GoRoute(
         path: Routes.casePrioritiesListScreen,
@@ -427,6 +445,10 @@ abstract class AppRouter {
         builder: (context, state) => const PayrollPage(),
       ),
       GoRoute(
+        path: Routes.stagePayScreen,
+        builder: (context, state) => const StagePayPage(),
+      ),
+      GoRoute(
         path: Routes.excelImportScreen,
         builder: (context, state) => const ExcelImportPage(),
       ),
@@ -510,8 +532,10 @@ abstract class AppRouter {
       ),
       GoRoute(
         path: Routes.patientFormScreen,
-        pageBuilder: (context, state) =>
-            _glassPage(state, const PatientFormPage()),
+        pageBuilder: (context, state) => _glassPage(
+          state,
+          PatientFormPage(initialPatient: state.extra as PatientModel?),
+        ),
       ),
     ],
   );

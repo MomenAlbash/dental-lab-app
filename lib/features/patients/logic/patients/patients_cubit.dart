@@ -34,4 +34,19 @@ class PatientsCubit extends Cubit<PatientsState> {
     _filters = filters;
     await getPatients();
   }
+
+  /// Deletes a patient, then reloads so the list reflects the server rather
+  /// than a locally pruned copy — the delete can cascade to counts this list
+  /// shows.
+  Future<void> deletePatient(String id) async {
+    final result = await _patientsRepo.deletePatient(id);
+
+    await result.fold(
+      (failure) async => emit(PatientDeleteError(failure.errorMessage)),
+      (_) async {
+        emit(const PatientDeleted());
+        await getPatients();
+      },
+    );
+  }
 }

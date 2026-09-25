@@ -6,11 +6,18 @@ import 'package:dental_lab_app/core/widgets/custom_button_widget.dart';
 import 'package:dental_lab_app/core/widgets/custom_text_field_widget.dart';
 import 'package:dental_lab_app/core/widgets/glass/glass_bottom_sheet.dart';
 import 'package:dental_lab_app/features/case_workflow_stages/data/models/case_workflow_stage_model.dart';
+import 'package:dental_lab_app/features/cases/data/models/send_back_models.dart';
 import 'package:dental_lab_app/features/cases/data/repos/cases_repo.dart';
+import 'package:dental_lab_app/features/cases/ui/widgets/send_back_reason_fields.dart';
 import 'package:flutter/material.dart';
 
-/// What the user chose to do with the piece.
-typedef RestorationMoveResult = ({String stageId, String? note});
+/// What the user chose to do with the piece. [reason] is empty on a forward
+/// move — only a send-back has a why.
+typedef RestorationMoveResult = ({
+  String stageId,
+  String? note,
+  SendBackReason reason,
+});
 
 /// Moves one restoration along its route — the same shape as the case's move
 /// sheet, because it is the same question asked about a smaller thing.
@@ -52,6 +59,17 @@ class _RestorationMoveSheetState extends State<_RestorationMoveSheet> {
   List<CaseWorkflowStageModel>? _forwardTargets;
   List<CaseWorkflowStageModel>? _reworkTargets;
   String? _selectedStageId;
+
+  /// Why the piece goes back — asked only when a rework target is chosen.
+  SendBackReason _reason = const SendBackReason();
+
+  bool get _isSendBack =>
+      _reworkTargets?.any((s) => s.id == _selectedStageId) ?? false;
+
+  /// A breakage whose loss is incomplete cannot be sent: the server refuses
+  /// it, so the button waits instead.
+  bool get _canSubmit =>
+      _selectedStageId != null && (!_isSendBack || _reason.problem == null);
 
   @override
   void initState() {
@@ -96,9 +114,11 @@ class _RestorationMoveSheetState extends State<_RestorationMoveSheet> {
     if (stageId == null) return;
 
     final note = _noteController.text.trim();
-    Navigator.of(
-      context,
-    ).pop((stageId: stageId, note: note.isEmpty ? null : note));
+    Navigator.of(context).pop((
+      stageId: stageId,
+      note: note.isEmpty ? null : note,
+      reason: _isSendBack ? _reason : const SendBackReason(),
+    ));
   }
 
   @override
@@ -171,6 +191,17 @@ class _RestorationMoveSheetState extends State<_RestorationMoveSheet> {
                   onTap: () => setState(() => _selectedStageId = stage.id),
                 ),
 
+            if (_isSendBack) ...[
+              const SizedBox(height: AppSpacing.lg),
+              SendBackReasonFields(
+                caseId: widget.caseId,
+                restorationId: widget.restorationId,
+                targetStageId: _selectedStageId!,
+                value: _reason,
+                onChanged: (reason) => setState(() => _reason = reason),
+              ),
+            ],
+
             const SizedBox(height: AppSpacing.lg),
             const _GroupLabel('ملاحظة (اختيارية)'),
             AppTextFormField(
@@ -183,7 +214,7 @@ class _RestorationMoveSheetState extends State<_RestorationMoveSheet> {
 
             CustomButtonWidget(
               buttonText: 'نقل التعويض',
-              onPressed: _selectedStageId == null ? null : _submit,
+              onPressed: _canSubmit ? _submit : null,
             ),
           ],
         ),

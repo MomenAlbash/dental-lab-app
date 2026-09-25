@@ -19,6 +19,8 @@ class CaseCollectionItem extends StatelessWidget {
     required this.caseItem,
     required this.priorityVariant,
     required this.onDelete,
+    this.isSelected,
+    this.onToggleSelected,
   });
 
   final CaseListItemModel caseItem;
@@ -29,6 +31,14 @@ class CaseCollectionItem extends StatelessWidget {
 
   /// Null hides the delete button — the user may not delete cases.
   final VoidCallback? onDelete;
+
+  /// Null outside selection mode; inside it a tap picks the row rather than
+  /// opening it.
+  final bool? isSelected;
+
+  /// Picks or unpicks this row — also what a long press does, which is how
+  /// selection starts. Null when the row cannot be picked at all.
+  final VoidCallback? onToggleSelected;
 
   @override
   Widget build(BuildContext context) {
@@ -46,12 +56,16 @@ class CaseCollectionItem extends StatelessWidget {
       isLate: caseItem.stage.isLate,
       priorityLabel: caseItem.priorityLabel,
       priorityColor: badgeVariantColor(context, priorityVariant),
-      onTap: () async {
-        await context.push(Routes.caseDetailScreen, extra: caseItem.id);
-        // The detail screen can change a case's stage or delete it, so the
-        // list refetches rather than showing what it had before.
-        if (context.mounted) context.read<CasesCubit>().getCases();
-      },
+      isSelected: isSelected,
+      onLongPress: onToggleSelected,
+      onTap: isSelected != null
+          ? (onToggleSelected ?? () {})
+          : () async {
+              await context.push(Routes.caseDetailScreen, extra: caseItem.id);
+              // The detail screen can change a case's stage or delete it, so
+              // the list refetches rather than showing what it had before.
+              if (context.mounted) context.read<CasesCubit>().getCases();
+            },
       // Everything the sheet draws already arrived with this row, so it opens
       // without a request. Hidden rather than disabled when the case has no
       // restorations — the same null-hides contract as `onDelete`.

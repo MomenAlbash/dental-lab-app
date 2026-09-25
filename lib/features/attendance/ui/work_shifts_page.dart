@@ -22,12 +22,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-/// The hours the laboratory expects, and what missing them costs.
+/// The hours the laboratory expects, and how much slack each day allows.
 ///
-/// A shift carries rules, not money: the same shift can be shared by people on
-/// completely different pay, because what they earn lives on their own salary
-/// spell. That split is why this screen never shows an amount owed — only
-/// deduction rates.
+/// A shift carries the schedule, not money: every deduction and overtime rate
+/// lives on each employee's own salary spell, so the same shift can be shared
+/// by people docked completely differently. That split is why this screen shows
+/// grace minutes and the overtime cap, never an amount.
 class WorkShiftsPage extends StatelessWidget {
   const WorkShiftsPage({super.key});
 
@@ -94,7 +94,8 @@ class _WorkShiftsView extends StatelessWidget {
     final confirmed = await ConfirmDialogWidget.show(
       context,
       title: 'حذف الوردية',
-      message: 'سيبقى الموظفون المعيّنون عليها بلا نظام عمل حتى تُسند وردية أخرى.',
+      message:
+          'سيبقى الموظفون المعيّنون عليها بلا نظام عمل حتى تُسند وردية أخرى.',
       confirmText: 'حذف',
       isDestructive: true,
     );
@@ -164,8 +165,10 @@ class _WorkShiftsView extends StatelessWidget {
                           onDelete: canEdit
                               ? () => _delete(context, shifts[index])
                               : null,
-                          onRoster: () =>
-                              showShiftRosterSheet(context, shift: shifts[index]),
+                          onRoster: () => showShiftRosterSheet(
+                            context,
+                            shift: shifts[index],
+                          ),
                         ),
                       ),
                     ),
@@ -274,13 +277,13 @@ class _ShiftCard extends StatelessWidget {
           const SizedBox(height: AppSpacing.sm),
           Text(
             [
-              'الغياب: ${shift.absentDeductionType.label}',
               'سماح تأخير ${shift.allowedDelayMinutesPerDay}د',
-              'قسمة اليوم على ${shift.dailyRateDivisor}',
-              if (shift.overtimePayPerMinute == null)
-                'بلا أجر إضافي'
+              'خروج مبكر ${shift.allowedEarlyLeaveMinutesPerDay}د',
+              'انقطاع ${shift.allowedGapMinutesPerDay}د',
+              if (shift.hasUnlimitedOvertime)
+                'إضافي غير محدود'
               else
-                'إضافي ${shift.overtimePayPerMinute}/د',
+                'إضافي حتى ${shift.maxOvertimeMinutesPerDay}د/يوم',
             ].join(' · '),
             style: AppTextStyles.font12RegularHint.copyWith(
               color: glass.onGlassMuted,

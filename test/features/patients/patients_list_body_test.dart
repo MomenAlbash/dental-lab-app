@@ -77,7 +77,7 @@ void main() {
       home: Scaffold(
         body: BlocProvider.value(
           value: cubit,
-          child: PatientsListBody(caseFilter: caseFilter),
+          child: PatientsListBody(caseFilter: caseFilter, onDelete: (_) {}),
         ),
       ),
     );

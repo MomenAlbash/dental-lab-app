@@ -14,10 +14,13 @@ import 'package:dental_lab_app/core/widgets/show_toast_widget.dart';
 import 'package:dental_lab_app/features/case_priorities/logic/case_priorities/case_priorities_cubit.dart';
 import 'package:dental_lab_app/features/case_priorities/logic/case_priorities/case_priorities_state.dart';
 import 'package:dental_lab_app/features/cases/data/models/case_counts_model.dart';
+import 'package:dental_lab_app/features/cases/data/models/case_intake_enums.dart';
 import 'package:dental_lab_app/features/cases/data/models/case_list_item_model.dart';
+import 'package:dental_lab_app/features/cases/data/models/deliver_directly_models.dart';
 import 'package:dental_lab_app/features/cases/logic/cases/cases_cubit.dart';
 import 'package:dental_lab_app/features/cases/logic/cases/cases_state.dart';
 import 'package:dental_lab_app/features/cases/ui/widgets/case_collection_item.dart';
+import 'package:dental_lab_app/features/cases/ui/widgets/deliver_directly_dialogs.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -38,6 +41,42 @@ class _CasesListBodyState extends State<CasesListBody> {
   /// and so the tab bar keeps its counts and its selection while the rows
   /// behind it are being refetched.
   CasesLoaded? _lastLoaded;
+
+  /// Cases picked for a bulk action. Empty means not selecting — a long
+  /// press on a row starts it. Local UI state: nothing is sent until the
+  /// user confirms.
+  final Set<String> _selected = {};
+
+  void _toggleSelected(CaseListItemModel caseItem) {
+    if (caseItem.phase == CasePhase.delivered) {
+      showToast(message: 'هذه الحالة مسلّمة أصلاً', state: ToastState.error);
+      return;
+    }
+    const max = DeliverDirectlyResultModel.maxCasesPerRequest;
+    if (!_selected.contains(caseItem.id) && _selected.length >= max) {
+      // The server refuses a bigger batch outright; stop here instead.
+      showToast(
+        message: 'الحد الأقصى $max حالة في المرة الواحدة',
+        state: ToastState.error,
+      );
+      return;
+    }
+    setState(() {
+      if (!_selected.remove(caseItem.id)) _selected.add(caseItem.id);
+    });
+  }
+
+  Future<void> _deliverSelected(BuildContext context) async {
+    final cubit = context.read<CasesCubit>();
+
+    final choice = await showDeliverDirectlyDialog(
+      context,
+      caseCount: _selected.length,
+    );
+    if (choice == null) return;
+
+    await cubit.deliverDirectly(_selected.toList(), note: choice.note);
+  }
 
   Future<void> _confirmDelete(
     BuildContext context,
@@ -67,12 +106,26 @@ class _CasesListBodyState extends State<CasesListBody> {
             showToast(message: 'تم حذف الحالة', state: ToastState.success);
           case CaseDeleteError(:final message):
             showToast(message: message, state: ToastState.error);
+          case CasesDeliveredDirectly(:final results):
+            setState(_selected.clear);
+            showDeliverDirectlyResultsSheet(context, results: results);
+          // The selection survives a failed call, so it can be retried.
+          case CasesDeliverDirectlyError(:final message):
+            showToast(message: message, state: ToastState.error);
+          // A new page of rows (a tab, a filter) drops picks no longer shown:
+          // acting on cases the user cannot see is not a choice they made.
+          case CasesLoaded(:final cases) when _selected.isNotEmpty:
+            final shown = {for (final c in cases) c.id};
+            setState(() => _selected.retainWhere(shown.contains));
           default:
             break;
         }
       },
       buildWhen: (previous, current) =>
-          current is! CaseDeleted && current is! CaseDeleteError,
+          current is! CaseDeleted &&
+          current is! CaseDeleteError &&
+          current is! CasesDeliveredDirectly &&
+          current is! CasesDeliverDirectlyError,
       builder: (context, state) {
         if (state is CasesLoaded) _lastLoaded = state;
         // A "my tasks" queue with nothing assigned has no rows to keep, and
@@ -89,9 +142,13 @@ class _CasesListBodyState extends State<CasesListBody> {
           _ => null,
         };
 
+        final canSelect = getIt<SessionCubit>().state.canEdit(
+          PermissionName.cases,
+        );
+
         // Cross-fades loading → data → error instead of the content snapping
         // into place.
-        return AnimatedSwitcher(
+        final content = AnimatedSwitcher(
           duration: AppMotion.base,
           switchInCurve: AppMotion.enter,
           child: switch ((state, loaded)) {
@@ -103,6 +160,8 @@ class _CasesListBodyState extends State<CasesListBody> {
               key: const ValueKey('cases-loaded'),
               state: shown,
               scrollController: widget.scrollController,
+              selectedIds: _selected.isEmpty ? null : _selected,
+              onToggleSelected: canSelect ? _toggleSelected : null,
               // Hidden outright without the permission rather than shown and
               // refused: an action the server will reject is not an action,
               // and the refusal arrives with no explanation the user can act
@@ -133,6 +192,19 @@ class _CasesListBodyState extends State<CasesListBody> {
               child: GlassListSkeleton(),
             ),
           },
+        );
+
+        if (_selected.isEmpty) return content;
+        return Column(
+          children: [
+            Expanded(child: content),
+            _SelectionBar(
+              count: _selected.length,
+              isBusy: state is CasesLoading,
+              onClear: () => setState(_selected.clear),
+              onDeliver: () => _deliverSelected(context),
+            ),
+          ],
         );
       },
     );
@@ -232,6 +304,8 @@ class _CasesList extends StatelessWidget {
     required this.state,
     required this.onDelete,
     this.scrollController,
+    this.selectedIds,
+    this.onToggleSelected,
   });
 
   final CasesLoaded state;
@@ -240,6 +314,12 @@ class _CasesList extends StatelessWidget {
   /// button at all.
   final ValueChanged<CaseListItemModel>? onDelete;
   final ScrollController? scrollController;
+
+  /// Null outside selection mode.
+  final Set<String>? selectedIds;
+
+  /// Null when the user may not act on cases in bulk.
+  final ValueChanged<CaseListItemModel>? onToggleSelected;
 
   @override
   Widget build(BuildContext context) {
@@ -271,9 +351,11 @@ class _CasesList extends StatelessWidget {
               itemBuilder: (context, caseItem, _) => CaseCollectionItem(
                 caseItem: caseItem,
                 priorityVariant: variantById[caseItem.priorityId],
-                onDelete: onDelete == null
+                onDelete: onDelete == null ? null : () => onDelete!(caseItem),
+                isSelected: selectedIds?.contains(caseItem.id),
+                onToggleSelected: onToggleSelected == null
                     ? null
-                    : () => onDelete!(caseItem),
+                    : () => onToggleSelected!(caseItem),
               ),
             ),
     );
@@ -315,7 +397,8 @@ class _CasesList extends StatelessWidget {
                             CasePhaseTab.newCases => context.glass.warning,
                             CasePhaseTab.inProduction => context.glass.info,
                             CasePhaseTab.ready => context.glass.success,
-                            CasePhaseTab.delivered => context.glass.onGlassMuted,
+                            CasePhaseTab.delivered =>
+                              context.glass.onGlassMuted,
                           },
                         ),
                     ],
@@ -401,6 +484,66 @@ class _SlaSegment extends StatelessWidget {
               ),
             ),
         ],
+      ),
+    );
+  }
+}
+
+/// Pinned under the list while cases are picked: how many, and what to do
+/// with them.
+class _SelectionBar extends StatelessWidget {
+  const _SelectionBar({
+    required this.count,
+    required this.isBusy,
+    required this.onClear,
+    required this.onDeliver,
+  });
+
+  final int count;
+  final bool isBusy;
+  final VoidCallback onClear;
+  final VoidCallback onDeliver;
+
+  @override
+  Widget build(BuildContext context) {
+    final glass = context.glass;
+
+    return SafeArea(
+      top: false,
+      child: Container(
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.lg,
+          vertical: AppSpacing.sm,
+        ),
+        decoration: BoxDecoration(
+          gradient: glass.surfaceGradient,
+          border: Border(top: BorderSide(color: glass.strokeColor)),
+        ),
+        child: Row(
+          children: [
+            IconButton(
+              tooltip: 'إلغاء التحديد',
+              onPressed: isBusy ? null : onClear,
+              icon: const Icon(Icons.close),
+            ),
+            Expanded(
+              child: Text(
+                '$count محددة',
+                style: AppTextStyles.font14MediumText.copyWith(
+                  color: glass.onGlass,
+                ),
+              ),
+            ),
+            FilledButton.icon(
+              // The theme's buttons are full-width; in a row that is an
+              // infinite width, so this one sizes to its label.
+              style: FilledButton.styleFrom(minimumSize: const Size(0, 44)),
+              onPressed: isBusy ? null : onDeliver,
+              icon: const Icon(Icons.local_shipping_outlined),
+              label: const Text('تم التسليم'),
+            ),
+          ],
+        ),
       ),
     );
   }

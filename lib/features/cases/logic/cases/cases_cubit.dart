@@ -140,13 +140,41 @@ class CasesCubit extends Cubit<CasesState> {
         }
 
         _isMyTasks = true;
-        _filters = _filters.copyWith(
-          stageIds: assignments.caseStageIds.toSet(),
-          restorationStageIds: assignments.restorationStageIds.toSet(),
-        );
+        // An admin acts on every stage, so "my tasks" is the whole list — no
+        // stage filter at all rather than an empty one.
+        _filters = assignments.allStages
+            ? _filters.copyWith(clearStages: true, clearRestorationStages: true)
+            : _filters.copyWith(
+                stageIds: assignments.caseStageIds.toSet(),
+                restorationStageIds: assignments.restorationStageIds.toSet(),
+                overriddenRestorationIds: assignments
+                    .overriddenCaseRestorationIds
+                    .toSet(),
+                matchAnyAssignedStage: true,
+              );
         await getCases();
       },
     );
+  }
+
+  /// "تم التسليم" for the selected cases: each is walked through every
+  /// remaining step of its route. The per-case outcome is announced, then the
+  /// list reloads — the delivered ones have left whatever tab they were on.
+  Future<void> deliverDirectly(List<String> caseIds, {String? note}) async {
+    if (caseIds.isEmpty) return;
+    emit(const CasesLoading());
+
+    final result = await _casesRepo.deliverDirectly(
+      caseIds: caseIds,
+      note: note,
+    );
+    if (isClosed) return;
+
+    result.fold(
+      (failure) => emit(CasesDeliverDirectlyError(failure.errorMessage)),
+      (results) => emit(CasesDeliveredDirectly(results)),
+    );
+    await getCases();
   }
 
   Future<void> deleteCase(String id) async {

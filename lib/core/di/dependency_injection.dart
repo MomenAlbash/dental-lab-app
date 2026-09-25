@@ -17,6 +17,7 @@ import 'package:dental_lab_app/features/case_priorities/logic/doctor_quota/docto
 import 'package:dental_lab_app/features/case_priorities/logic/priority_allowance/priority_allowance_cubit.dart';
 import 'package:dental_lab_app/features/case_stages/data/repos/case_stages_repo.dart';
 import 'package:dental_lab_app/features/case_stages/logic/case_stages/case_stages_cubit.dart';
+import 'package:dental_lab_app/features/cases/logic/breakage_loss/breakage_loss_cubit.dart';
 import 'package:dental_lab_app/features/cases/logic/case_progress/case_progress_cubit.dart';
 import 'package:dental_lab_app/features/cases/data/repos/cases_repo.dart';
 import 'package:dental_lab_app/features/cases/logic/case_details/case_details_cubit.dart';
@@ -63,6 +64,13 @@ import 'package:dental_lab_app/features/attendance/logic/holidays/holidays_cubit
 import 'package:dental_lab_app/features/attendance/logic/leaves/leaves_cubit.dart';
 import 'package:dental_lab_app/features/attendance/logic/work_shifts/work_shifts_cubit.dart';
 import 'package:dental_lab_app/features/payroll/data/repos/payroll_repo.dart';
+import 'package:dental_lab_app/features/photography_visits/data/repos/photography_visits_repo.dart';
+import 'package:dental_lab_app/features/photography_visits/logic/photography_visit_detail/photography_visit_detail_cubit.dart';
+import 'package:dental_lab_app/features/photography_visits/logic/photography_visit_form/photography_visit_form_cubit.dart';
+import 'package:dental_lab_app/features/photography_visits/logic/photography_visits/photography_visits_cubit.dart';
+import 'package:dental_lab_app/features/stage_pay/data/repos/stage_pay_repo.dart';
+import 'package:dental_lab_app/features/stage_pay/logic/stage_earnings/stage_earnings_cubit.dart';
+import 'package:dental_lab_app/features/stage_pay/logic/stage_rates/stage_rates_cubit.dart';
 import 'package:dental_lab_app/features/payroll/logic/payroll/payroll_cubit.dart';
 import 'package:dental_lab_app/features/accounting/logic/expenses/expenses_cubit.dart';
 import 'package:dental_lab_app/features/accounting/logic/invoice_form/invoice_form_cubit.dart';
@@ -240,7 +248,7 @@ Future<void> setupGetIt() async {
   // Depends on AreasRepo and UsersRepo (registered elsewhere in this file) —
   // fine, since a lazy singleton's factory only runs on first resolution.
   getIt.registerFactory<ZoneFormCubit>(
-    () => ZoneFormCubit(getIt(), getIt(), getIt()),
+    () => ZoneFormCubit(getIt(), getIt(), getIt(), getIt()),
   );
 
   // ---- Accounting ----
@@ -256,12 +264,8 @@ Future<void> setupGetIt() async {
   getIt.registerFactory<ManualPaymentCubit>(() => ManualPaymentCubit(getIt()));
   getIt.registerFactory<ExpensesCubit>(() => ExpensesCubit(getIt()));
   getIt.registerFactory<CashboxCubit>(() => CashboxCubit(getIt()));
-  getIt.registerLazySingleton<ScanStorageRepo>(
-    () => ScanStorageRepo(getIt()),
-  );
-  getIt.registerLazySingleton<ExcelImportRepo>(
-    () => ExcelImportRepo(getIt()),
-  );
+  getIt.registerLazySingleton<ScanStorageRepo>(() => ScanStorageRepo(getIt()));
+  getIt.registerLazySingleton<ExcelImportRepo>(() => ExcelImportRepo(getIt()));
   getIt.registerFactory<ExcelImportCubit>(() => ExcelImportCubit(getIt()));
   getIt.registerLazySingleton<DetailsQuestionsRepo>(
     () => DetailsQuestionsRepo(getIt()),
@@ -269,9 +273,7 @@ Future<void> setupGetIt() async {
   getIt.registerFactory<DetailsQuestionsCubit>(
     () => DetailsQuestionsCubit(getIt()),
   );
-  getIt.registerFactory<PersonAnswersCubit>(
-    () => PersonAnswersCubit(getIt()),
-  );
+  getIt.registerFactory<PersonAnswersCubit>(() => PersonAnswersCubit(getIt()));
   getIt.registerFactory<BroadcastCubit>(() => BroadcastCubit(getIt()));
   getIt.registerFactory<ScanStorageCubit>(() => ScanStorageCubit(getIt()));
   getIt.registerLazySingleton<EmployeeActivityRepo>(
@@ -326,6 +328,26 @@ Future<void> setupGetIt() async {
   getIt.registerFactory<WorkShiftsCubit>(() => WorkShiftsCubit(getIt()));
   getIt.registerFactory<ShiftRosterCubit>(() => ShiftRosterCubit(getIt()));
   getIt.registerFactory<PayrollCubit>(() => PayrollCubit(getIt()));
+  getIt.registerLazySingleton<StagePayRepo>(() => StagePayRepo(getIt()));
+  getIt.registerLazySingleton<PhotographyVisitsRepo>(
+    () => PhotographyVisitsRepo(getIt()),
+  );
+  getIt.registerFactory<PhotographyVisitsCubit>(
+    () => PhotographyVisitsCubit(getIt(), getIt()),
+  );
+  getIt.registerFactory<PhotographyVisitDetailCubit>(
+    () => PhotographyVisitDetailCubit(getIt(), getIt(), getIt()),
+  );
+  getIt.registerFactory<PhotographyVisitFormCubit>(
+    () => PhotographyVisitFormCubit(getIt(), getIt(), getIt(), getIt()),
+  );
+  getIt.registerFactory<BreakageLossCubit>(
+    () => BreakageLossCubit(getIt(), getIt()),
+  );
+  getIt.registerFactory<StageRatesCubit>(() => StageRatesCubit(getIt()));
+  getIt.registerFactory<StageEarningsCubit>(
+    () => StageEarningsCubit(getIt(), getIt()),
+  );
   getIt.registerFactory<DoctorStatementCubit>(
     () => DoctorStatementCubit(getIt()),
   );

@@ -19,6 +19,8 @@ import 'package:dental_lab_app/features/cases/data/models/case_list_item_model.d
 import 'package:dental_lab_app/features/cases/data/models/case_message_model.dart';
 import 'package:dental_lab_app/features/cases/data/models/create_case_request_model.dart';
 import 'package:dental_lab_app/features/cases/data/models/case_intake_enums.dart';
+import 'package:dental_lab_app/features/cases/data/models/deliver_directly_models.dart';
+import 'package:dental_lab_app/features/cases/data/models/send_back_models.dart';
 import 'package:dio/dio.dart';
 import 'package:path_provider/path_provider.dart';
 
@@ -71,6 +73,8 @@ class CasesRepo {
         priorityId: filters.priorityId,
         stageIds: filters.stageIds.toList(),
         restorationStageIds: filters.restorationStageIds.toList(),
+        overriddenRestorationIds: filters.overriddenRestorationIds.toList(),
+        matchAnyAssignedStage: filters.matchAnyAssignedStage,
         laboratoryIds: filters.laboratoryIds.toList(),
         receivedFrom: _isoDate(filters.receivedFrom),
         receivedTo: _isoDate(filters.receivedTo),
@@ -115,6 +119,8 @@ class CasesRepo {
       priorityId: filters.priorityId,
       stageIds: filters.stageIds.toList(),
       restorationStageIds: filters.restorationStageIds.toList(),
+      overriddenRestorationIds: filters.overriddenRestorationIds.toList(),
+      matchAnyAssignedStage: filters.matchAnyAssignedStage,
       laboratoryIds: filters.laboratoryIds.toList(),
       receivedFrom: _isoDate(filters.receivedFrom),
       receivedTo: _isoDate(filters.receivedTo),
@@ -137,6 +143,8 @@ class CasesRepo {
       priorityId: filters.priorityId,
       stageIds: filters.stageIds.toList(),
       restorationStageIds: filters.restorationStageIds.toList(),
+      overriddenRestorationIds: filters.overriddenRestorationIds.toList(),
+      matchAnyAssignedStage: filters.matchAnyAssignedStage,
       laboratoryIds: filters.laboratoryIds.toList(),
       receivedFrom: _isoDate(filters.receivedFrom),
       receivedTo: _isoDate(filters.receivedTo),
@@ -433,8 +441,7 @@ class CasesRepo {
   /// because the server writes it as one decision.
   Future<Either<Failure, void>> rejectTrying({
     required String id,
-    required List<({String restorationId, String stageId, String? note})>
-    restorations,
+    required List<TryingRejectLine> restorations,
     String? note,
   }) => _guardPhase(
     'rejecting the trying',
@@ -442,6 +449,33 @@ class CasesRepo {
       id: id,
       restorations: restorations,
       note: note,
+      token: _token,
+    ),
+  );
+
+  /// Walks many cases to delivered in one call — one result per case.
+  Future<Either<Failure, List<DeliverDirectlyResultModel>>> deliverDirectly({
+    required List<String> caseIds,
+    String? note,
+  }) => _guardPhase(
+    'delivering cases directly',
+    () => _apiService.deliverCasesDirectly(
+      caseIds: caseIds,
+      note: note,
+      token: _token,
+    ),
+  );
+
+  Future<Either<Failure, void>> deliverCaseDirectly({
+    required String id,
+    String? note,
+    CollectionMethod collectionMethod = CollectionMethod.none,
+  }) => _guardPhase(
+    'delivering a case directly',
+    () => _apiService.deliverCaseDirectly(
+      id: id,
+      note: note,
+      collectionMethod: collectionMethod,
       token: _token,
     ),
   );
@@ -518,6 +552,7 @@ class CasesRepo {
     required String restorationId,
     required String stageId,
     String? note,
+    SendBackReason reason = const SendBackReason(),
   }) async {
     try {
       await _apiService.setRestorationStage(
@@ -525,6 +560,7 @@ class CasesRepo {
         restorationId: restorationId,
         stageId: stageId,
         note: note,
+        reason: reason,
         token: _token,
       );
 
