@@ -54,6 +54,7 @@ Future<void> _pumpBar(
 }
 
 void main() {
+  _noPrimaryActionTests();
   testWidgets('renders every destination plus the raised add action', (
     tester,
   ) async {
@@ -111,5 +112,26 @@ void main() {
     await _pumpBar(tester);
 
     expect(tester.takeException(), isNull);
+  });
+}
+
+void _noPrimaryActionTests() {
+  testWidgets('a null primary action hides the raised +', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Align(
+          alignment: Alignment.bottomCenter,
+          child: AppBottomNavBar(
+            destinations: [_destinations.first, _destinations.last],
+            currentIndex: 0,
+            onDestinationSelected: (_) {},
+          ),
+        ),
+      ),
+    );
+
+    expect(find.byIcon(Icons.add), findsNothing);
+    expect(find.byIcon(Icons.home_rounded), findsOneWidget);
+    expect(find.byIcon(Icons.notifications_none_rounded), findsOneWidget);
   });
 }

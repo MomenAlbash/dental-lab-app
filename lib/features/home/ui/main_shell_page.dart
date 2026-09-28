@@ -10,14 +10,15 @@ import 'package:dental_lab_app/core/widgets/app_bottom_nav_bar.dart';
 import 'package:dental_lab_app/core/widgets/app_drawer_widget.dart';
 import 'package:dental_lab_app/core/widgets/glass/glass_app_bar.dart';
 import 'package:dental_lab_app/core/widgets/glass/glass_scaffold.dart';
-import 'package:dental_lab_app/core/widgets/show_toast_widget.dart';
 import 'package:dental_lab_app/core/widgets/laboratory_picker_dialog.dart';
 import 'package:dental_lab_app/features/assistant/ui/assistant_sheet.dart';
 import 'package:dental_lab_app/features/cases/ui/cases_due_page.dart';
 import 'package:dental_lab_app/features/cases/ui/cases_list_page.dart';
 import 'package:dental_lab_app/features/home/ui/home_page.dart';
+import 'package:dental_lab_app/features/home/ui/widgets/scanner_action_button.dart';
 import 'package:dental_lab_app/features/notifications/ui/notifications_page.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
 /// The app's main screen after login: four tabs behind a floating bottom bar,
@@ -34,35 +35,53 @@ class MainShellPage extends StatefulWidget {
   State<MainShellPage> createState() => _MainShellPageState();
 }
 
-class _MainShellPageState extends State<MainShellPage> {
-  static const _casesIndex = 1;
-
-  static const _destinations = [
+/// The shell's tabs, by identity rather than position: which of them show
+/// depends on the user's permissions, so an index would shift under them.
+enum _ShellTab {
+  home(
     AppBottomNavDestination(
       icon: Icons.home_outlined,
       selectedIcon: Icons.home_rounded,
       label: 'الرئيسية',
     ),
+  ),
+  cases(
     AppBottomNavDestination(
       icon: Icons.folder_outlined,
       selectedIcon: Icons.folder_rounded,
       label: 'الحالات',
     ),
+  ),
+  due(
     AppBottomNavDestination(
       icon: Icons.event_outlined,
       selectedIcon: Icons.event_rounded,
       label: 'المواعيد',
     ),
+  ),
+  notifications(
     AppBottomNavDestination(
       icon: Icons.notifications_none_rounded,
       selectedIcon: Icons.notifications_rounded,
       label: 'الإشعارات',
     ),
+  );
+
+  const _ShellTab(this.destination);
+
+  final AppBottomNavDestination destination;
+
+  /// The tabs [permissions] may see. Cases and its due-dates view go
+  /// together — dropping both keeps the count even around the raised `+`.
+  static List<_ShellTab> visibleFor(Permissions permissions) => [
+    home,
+    if (permissions.canRead(PermissionName.cases)) ...[cases, due],
+    notifications,
   ];
+}
 
-  static const _notificationsIndex = 3;
-
-  int _index = 0;
+class _MainShellPageState extends State<MainShellPage> {
+  _ShellTab _current = _ShellTab.home;
 
   /// Bumped after a case is created so the cases tab remounts and refetches.
   /// The list's cubit is created inside [CasesListPage], below this widget, so
@@ -91,26 +110,10 @@ class _MainShellPageState extends State<MainShellPage> {
   // tab — not deep-link to the case the notification was about.
   void _onNotificationTapped() {
     if (!mounted) return;
-    setState(() => _index = _notificationsIndex);
+    setState(() => _current = _ShellTab.notifications);
   }
-
-  void _onDestinationSelected(int index) {
-    if (index == _index) return;
-    setState(() => _index = index);
-  }
-
-  /// The raised `+` always starts case creation regardless of which tab is
-  /// showing, so it is gated on the Cases permission itself rather than on
-  /// whatever screen happens to be behind it.
-  bool _canAddCase() =>
-      getIt<SessionCubit>().state.canEdit(PermissionName.cases);
 
   Future<void> _addCase() async {
-    if (!_canAddCase()) {
-      showToast(message: 'لا تملك صلاحية إضافة حالة', state: ToastState.error);
-      return;
-    }
-
     // The form pops `true` only after the case is actually saved. Backing out
     // of it leaves the user exactly where they were — no tab jump, and no
     // remount that would throw away the cases list's filters and scroll
@@ -121,35 +124,71 @@ class _MainShellPageState extends State<MainShellPage> {
     );
     if (!mounted || created != true) return;
     setState(() {
-      _index = _casesIndex;
+      _current = _ShellTab.cases;
       _casesGeneration++;
     });
   }
 
+  Widget _pageFor(_ShellTab tab) => switch (tab) {
+    // A scanned ticket only ever opens a case, so the scanner goes with the
+    // Cases permission. Built inside the permissions BlocBuilder, so it
+    // follows a change.
+    // The scanner is for everyone — a technician scans a restoration to reach
+    // their own stage without any Cases permission. Admins set the app up and
+    // skip the one-time introduction.
+    _ShellTab.home => _StubTab(
+      title: 'الرئيسية',
+      showScanAction: true,
+      introduceScanner: !getIt<SessionCubit>().state.isAdmin,
+      child: const HomeBody(),
+    ),
+    _ShellTab.cases => CasesListPage(
+      key: ValueKey(_casesGeneration),
+      showAddButton: false,
+    ),
+    // Brings its own scaffold: the filter action sits in the app bar and
+    // needs the same cubit as the list under it.
+    _ShellTab.due => const CasesDueTab(),
+    _ShellTab.notifications => const NotificationsTab(),
+  };
+
   @override
   Widget build(BuildContext context) {
-    final mediaQuery = MediaQuery.of(context);
+    // Rebuilt on permission changes: a tab the user can no longer see is not
+    // just hidden but unmounted, so it stops fetching what they cannot read.
+    return BlocBuilder<SessionCubit, Permissions>(
+      bloc: getIt<SessionCubit>(),
+      builder: (context, permissions) {
+        final tabs = _ShellTab.visibleFor(permissions);
+        final current = tabs.contains(_current) ? _current : _ShellTab.home;
+        return _buildShell(
+          context,
+          tabs: tabs,
+          current: current,
+          // The raised `+` always starts case creation, whichever tab shows,
+          // so it is gated on the Cases permission itself.
+          canAddCase: permissions.canEdit(PermissionName.cases),
+        );
+      },
+    );
+  }
 
-    final pages = [
-      const _StubTab(
-        title: 'الرئيسية',
-        showScanAction: true,
-        child: HomeBody(),
-      ),
-      CasesListPage(key: ValueKey(_casesGeneration), showAddButton: false),
-      // Brings its own scaffold: the filter action sits in the app bar and
-      // needs the same cubit as the list under it.
-      const CasesDueTab(),
-      const NotificationsTab(),
-    ];
+  Widget _buildShell(
+    BuildContext context, {
+    required List<_ShellTab> tabs,
+    required _ShellTab current,
+    required bool canAddCase,
+  }) {
+    final mediaQuery = MediaQuery.of(context);
+    final index = tabs.indexOf(current);
 
     return PopScope(
       // Back from a secondary tab returns to home instead of leaving the app,
       // which is what the hardware button means inside a tabbed shell.
-      canPop: _index == 0,
+      canPop: current == _ShellTab.home,
       onPopInvokedWithResult: (didPop, _) {
         if (didPop) return;
-        setState(() => _index = 0);
+        setState(() => _current = _ShellTab.home);
       },
       child: Stack(
         children: [
@@ -162,7 +201,13 @@ class _MainShellPageState extends State<MainShellPage> {
                 bottom: mediaQuery.padding.bottom + AppBottomNavBar.totalHeight,
               ),
             ),
-            child: IndexedStack(index: _index, children: pages),
+            child: IndexedStack(
+              index: index,
+              children: [
+                for (final tab in tabs)
+                  KeyedSubtree(key: ValueKey(tab), child: _pageFor(tab)),
+              ],
+            ),
           ),
           Positioned(
             left: 0,
@@ -179,10 +224,13 @@ class _MainShellPageState extends State<MainShellPage> {
                       : GlassScaffold.pinnedNavWidth,
                 ),
                 child: AppBottomNavBar(
-                  destinations: _destinations,
-                  currentIndex: _index,
-                  onDestinationSelected: _onDestinationSelected,
-                  onPrimaryAction: _addCase,
+                  destinations: [for (final tab in tabs) tab.destination],
+                  currentIndex: index,
+                  onDestinationSelected: (i) {
+                    if (tabs[i] == current) return;
+                    setState(() => _current = tabs[i]);
+                  },
+                  onPrimaryAction: canAddCase ? _addCase : null,
                   primaryActionLabel: 'إضافة حالة',
                 ),
               ),
@@ -202,6 +250,7 @@ class _StubTab extends StatelessWidget {
     required this.title,
     required this.child,
     this.showScanAction = false,
+    this.introduceScanner = false,
   });
 
   final String title;
@@ -211,6 +260,9 @@ class _StubTab extends StatelessWidget {
   /// with a tray in front of them, and scanning the ticket is how they get to
   /// the work without knowing its number.
   final bool showScanAction;
+
+  /// Point the scanner out once, the first time this user sees it.
+  final bool introduceScanner;
 
   @override
   Widget build(BuildContext context) {
@@ -232,12 +284,7 @@ class _StubTab extends StatelessWidget {
             icon: const Icon(Icons.auto_awesome_outlined),
             onPressed: () => showAssistantSheet(context),
           ),
-          if (showScanAction)
-            IconButton(
-              tooltip: 'مسح باركود حالة أو تعويض',
-              icon: const Icon(Icons.qr_code_scanner),
-              onPressed: () => context.push(Routes.barcodeScannerScreen),
-            ),
+          if (showScanAction) ScannerActionButton(introduce: introduceScanner),
         ],
       ),
       body: SafeArea(child: child),

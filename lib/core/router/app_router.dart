@@ -1,6 +1,10 @@
+import 'package:dental_lab_app/core/auth/permissions.dart';
+import 'package:dental_lab_app/core/auth/session.dart';
+import 'package:dental_lab_app/core/di/dependency_injection.dart';
 import 'package:dental_lab_app/core/helper/local/cache_keys.dart';
 import 'package:dental_lab_app/core/helper/local/cached_helper.dart';
 import 'package:dental_lab_app/core/router/routes.dart';
+import 'package:dental_lab_app/core/widgets/no_access_page.dart';
 import 'package:dental_lab_app/features/auth/ui/login_page.dart';
 import 'package:dental_lab_app/features/scanner_availability/ui/scanner_availability_page.dart';
 import 'package:dental_lab_app/features/scanner_sessions/ui/scanner_sessions_page.dart';
@@ -193,9 +197,8 @@ abstract class AppRouter {
       ),
       GoRoute(
         path: Routes.casesListScreen,
-        builder: (context, state) => CasesListPage(
-          initialFilters: state.extra as CaseFiltersModel?,
-        ),
+        builder: (context, state) =>
+            CasesListPage(initialFilters: state.extra as CaseFiltersModel?),
       ),
       GoRoute(
         path: Routes.caseFormScreen,
@@ -209,8 +212,15 @@ abstract class AppRouter {
       ),
       GoRoute(
         path: Routes.caseDetailScreen,
+        // Guarded here rather than at each caller: a case opens from a
+        // notification, a scanned barcode, search, an invoice and more.
         builder: (context, state) =>
-            CaseDetailPage(caseId: state.extra as String),
+            getIt<SessionCubit>().state.canRead(PermissionName.cases)
+            ? CaseDetailPage(caseId: state.extra as String)
+            : const NoAccessPage(
+                title: 'تفاصيل الحالة',
+                message: 'لا تملك صلاحية عرض الحالات',
+              ),
       ),
       GoRoute(
         path: Routes.barcodeScannerScreen,

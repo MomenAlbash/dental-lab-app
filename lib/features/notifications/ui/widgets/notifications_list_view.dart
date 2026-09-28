@@ -1,3 +1,6 @@
+import 'package:dental_lab_app/core/auth/permissions.dart';
+import 'package:dental_lab_app/core/auth/session.dart';
+import 'package:dental_lab_app/core/di/dependency_injection.dart';
 import 'package:dental_lab_app/core/router/routes.dart';
 import 'package:dental_lab_app/core/widgets/adaptive_collection.dart';
 import 'package:dental_lab_app/features/notifications/data/models/notification_model.dart';
@@ -44,7 +47,11 @@ class NotificationsListView extends StatelessWidget {
     final caseId = notification.relatedEntityId;
     // Only Case has a detail screen in this app today — the rest still mark
     // as read, they just have nowhere concrete to send the user yet.
-    if (notification.type == NotificationType.caseType && caseId != null) {
+    // Without the Cases permission the tap only marks it read — opening the
+    // case would land on a locked screen.
+    if (notification.type == NotificationType.caseType &&
+        caseId != null &&
+        getIt<SessionCubit>().state.canRead(PermissionName.cases)) {
       context.push(Routes.caseDetailScreen, extra: caseId);
     }
   }

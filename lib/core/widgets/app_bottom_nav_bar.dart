@@ -42,8 +42,8 @@ class AppBottomNavBar extends StatelessWidget {
     required this.destinations,
     required this.currentIndex,
     required this.onDestinationSelected,
-    required this.onPrimaryAction,
-    required this.primaryActionLabel,
+    this.onPrimaryAction,
+    this.primaryActionLabel = '',
   });
 
   /// Must hold an even number of tabs — the `+` is inserted into the middle,
@@ -52,11 +52,9 @@ class AppBottomNavBar extends StatelessWidget {
   final int currentIndex;
   final ValueChanged<int> onDestinationSelected;
 
-  /// Always shown — hiding it left a visibly unbalanced gap in the middle of
-  /// the bar. A caller without permission to act on it should still pass a
-  /// callback, just one that explains why instead of proceeding (see
-  /// [MainShellPage._addCase]).
-  final VoidCallback onPrimaryAction;
+  /// The raised `+`. Null removes it together with its gap, so the bar stays
+  /// balanced — the caller passes null when the user cannot act on it.
+  final VoidCallback? onPrimaryAction;
   final String primaryActionLabel;
 
   /// Height of the pill itself, excluding the part of the `+` that rises above
@@ -88,6 +86,7 @@ class AppBottomNavBar extends StatelessWidget {
     final glass = context.glass;
     final radius = BorderRadius.circular(AppRadius.full);
     final half = destinations.length ~/ 2;
+    final onPrimaryAction = this.onPrimaryAction;
 
     final bar = Container(
       height: barHeight,
@@ -117,7 +116,8 @@ class AppBottomNavBar extends StatelessWidget {
                     // The gap the raised + occupies. It is a sibling of the
                     // tabs rather than a Stack overlay so the tabs never sit
                     // under it and lose taps near their inner edge.
-                    if (i == half) const SizedBox(width: _primarySize),
+                    if (i == half && onPrimaryAction != null)
+                      const SizedBox(width: _primarySize),
                     Expanded(
                       child: _NavItem(
                         destination: destinations[i],
@@ -149,13 +149,14 @@ class AppBottomNavBar extends StatelessWidget {
           clipBehavior: Clip.none,
           children: [
             bar,
-            Positioned(
-              bottom: barHeight - _primarySize + _primaryLift,
-              child: _PrimaryAction(
-                label: primaryActionLabel,
-                onPressed: onPrimaryAction,
+            if (onPrimaryAction != null)
+              Positioned(
+                bottom: barHeight - _primarySize + _primaryLift,
+                child: _PrimaryAction(
+                  label: primaryActionLabel,
+                  onPressed: onPrimaryAction,
+                ),
               ),
-            ),
           ],
         ),
       ),
