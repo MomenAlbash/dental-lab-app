@@ -71,6 +71,9 @@ class Routes {
   /// The dispatch board for doctor-requested scanner visits.
   static const String scannerSessionsScreen = '/scanner-sessions';
 
+  /// One box that finds a case, a patient or a doctor.
+  static const String globalSearchScreen = '/search';
+
   /// Standalone photography visits for a doctor — tied to no case.
   static const String photographyVisitsScreen = '/photography-visits';
   static const String photographyVisitFormScreen = '/photography-visits/form';
@@ -88,6 +91,7 @@ class Routes {
   static const String citiesListScreen = '/cities';
   static const String areasListScreen = '/areas';
   static const String zonesListScreen = '/zones';
+  static const String representativesScreen = '/representatives';
   static const String zoneFormScreen = '/zones/form';
   static const String accountingOverviewScreen = '/accounting';
   static const String invoicesListScreen = '/accounting/invoices';

@@ -3,6 +3,8 @@ import 'package:dental_lab_app/core/theming/app_motion.dart';
 import 'package:dental_lab_app/core/theming/glass.dart';
 import 'package:dental_lab_app/core/theming/styles.dart';
 import 'package:dental_lab_app/core/widgets/show_toast_widget.dart';
+import 'package:dental_lab_app/core/widgets/laboratory_badge.dart';
+import 'package:dental_lab_app/core/helper/laboratory_scope.dart';
 import 'package:dental_lab_app/features/doctors/data/models/doctor_model.dart';
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -20,6 +22,8 @@ class DoctorListItemWidget extends StatelessWidget {
     required this.initials,
     required this.phoneNumber,
     required this.clinicName,
+    this.laboratoryId,
+    this.laboratoryName,
     required this.isActive,
     required this.onEdit,
     required this.onDelete,
@@ -32,6 +36,8 @@ class DoctorListItemWidget extends StatelessWidget {
   final String initials;
   final String phoneNumber;
   final String clinicName;
+  final String? laboratoryId;
+  final String? laboratoryName;
   final bool isActive;
 
   /// Self-registered doctors wait on the lab's decision — the row says so, and
@@ -110,6 +116,14 @@ class DoctorListItemWidget extends StatelessWidget {
                                     clinicName: clinicName,
                                     color: glass.onGlassMuted,
                                   ),
+                                  if (laboratoryId != null &&
+                                      LaboratoryScope.isMulti) ...[
+                                    const SizedBox(height: AppSpacing.sm),
+                                    LaboratoryBadge(
+                                      laboratoryId: laboratoryId,
+                                      fallbackName: laboratoryName,
+                                    ),
+                                  ],
                                   // Approved is the ordinary state, so it gets
                                   // no badge — only the two that mean
                                   // something is outstanding or settled badly.

@@ -18,7 +18,12 @@ class DoctorSliverHeader extends StatelessWidget {
     required this.onEdit,
     required this.onOpenAnswers,
     this.onChangePhoto,
+    this.bottom,
   });
+
+  /// Pinned under the header — the page's tabs. The header grows by its
+  /// height, so the identity panel is not covered by it.
+  final PreferredSizeWidget? bottom;
 
   final DoctorModel doctor;
   final VoidCallback onEdit;
@@ -34,10 +39,12 @@ class DoctorSliverHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final name = doctor.fullName.isEmpty ? '—' : doctor.fullName;
+    final bottomHeight = bottom?.preferredSize.height ?? 0;
 
     return SliverAppBar(
       pinned: true,
-      expandedHeight: expandedHeight,
+      expandedHeight: expandedHeight + bottomHeight,
+      bottom: bottom,
       backgroundColor: Theme.of(context).colorScheme.primary,
       foregroundColor: Colors.white,
       elevation: 0,
@@ -74,8 +81,8 @@ class DoctorSliverHeader extends StatelessWidget {
       flexibleSpace: LayoutBuilder(
         builder: (context, constraints) {
           final topInset = MediaQuery.paddingOf(context).top;
-          final maxExtent = expandedHeight + topInset;
-          final minExtent = kToolbarHeight + topInset;
+          final maxExtent = expandedHeight + bottomHeight + topInset;
+          final minExtent = kToolbarHeight + bottomHeight + topInset;
 
           final collapsed =
               ((maxExtent - constraints.maxHeight) / (maxExtent - minExtent))

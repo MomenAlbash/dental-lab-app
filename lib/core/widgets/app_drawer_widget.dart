@@ -331,6 +331,12 @@ const List<_DrawerGroup> _groups = [
     title: 'المندوبون',
     destinations: [
       _Destination(
+        icon: Icons.two_wheeler_outlined,
+        label: 'المندوبون والوكلاء',
+        route: Routes.representativesScreen,
+        requires: PermissionName.users,
+      ),
+      _Destination(
         icon: Icons.holiday_village_outlined,
         label: 'الأحياء',
         route: Routes.areasListScreen,

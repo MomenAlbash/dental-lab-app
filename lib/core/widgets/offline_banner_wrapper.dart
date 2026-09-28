@@ -1,4 +1,5 @@
 import 'package:dental_lab_app/core/connectivity/connectivity_cubit.dart';
+import 'package:dental_lab_app/core/helper/last_sync.dart';
 import 'package:dental_lab_app/core/di/dependency_injection.dart';
 import 'package:dental_lab_app/core/theming/colors.dart';
 import 'package:dental_lab_app/core/theming/styles.dart';
@@ -68,11 +69,29 @@ class _OfflineBannerState extends State<_OfflineBanner> {
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Text(
-              'لا يوجد اتصال بالإنترنت',
-              style: AppTextStyles.font12RegularHint.copyWith(
-                color: Colors.white,
-                fontWeight: FontWeight.w600,
+            Flexible(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    'لا يوجد اتصال بالإنترنت',
+                    style: AppTextStyles.font12RegularHint.copyWith(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  // What is on screen came from the cache — say how old it
+                  // is, so yesterday's list is not taken for today's.
+                  if (LastSync.at case final at?)
+                    Text(
+                      'المعروض من آخر تحديث: ${LastSync.describe(at, DateTime.now())}',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: AppTextStyles.font12RegularHint.copyWith(
+                        color: Colors.white.withValues(alpha: 0.85),
+                      ),
+                    ),
+                ],
               ),
             ),
             const SizedBox(width: 8),

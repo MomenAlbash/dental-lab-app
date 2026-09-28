@@ -13,6 +13,11 @@ class UpdateEmployeeRequestModel {
   final String? bankName;
   final String? bankAccountNumber;
 
+  /// Both roles are sent every time, from what the form shows: a missing
+  /// flag must not quietly clear the role.
+  final bool? isRepresentative;
+  final bool? isAgent;
+
   UpdateEmployeeRequestModel({
     this.firstName,
     this.lastName,
@@ -25,6 +30,8 @@ class UpdateEmployeeRequestModel {
     this.address,
     this.bankName,
     this.bankAccountNumber,
+    this.isRepresentative,
+    this.isAgent,
   });
 
   Map<String, dynamic> toJson() {
@@ -40,6 +47,8 @@ class UpdateEmployeeRequestModel {
       'address': address,
       'bankName': bankName,
       'bankAccountNumber': bankAccountNumber,
+      'isRepresentative': ?isRepresentative,
+      'isAgent': ?isAgent,
     };
   }
 }

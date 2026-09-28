@@ -7,6 +7,7 @@ import 'package:dental_lab_app/core/helper/local/cache_keys.dart';
 import 'package:dental_lab_app/core/helper/local/cacheable_fetch.dart';
 import 'package:dental_lab_app/core/helper/local/cached_helper.dart';
 import 'package:dental_lab_app/core/helper/network_helper/api_service.dart';
+import 'package:dental_lab_app/core/helper/network_helper/restoration_types_api.dart';
 import 'package:dental_lab_app/features/case_workflow_stages/data/models/case_workflow_stage_model.dart';
 import 'package:dental_lab_app/features/case_workflow_stages/data/models/route_definition_model.dart';
 import 'package:dental_lab_app/features/cases/data/models/case_barcode_models.dart';
@@ -19,6 +20,7 @@ import 'package:dental_lab_app/features/cases/data/models/case_list_item_model.d
 import 'package:dental_lab_app/features/cases/data/models/case_message_model.dart';
 import 'package:dental_lab_app/features/cases/data/models/create_case_request_model.dart';
 import 'package:dental_lab_app/features/cases/data/models/case_intake_enums.dart';
+import 'package:dental_lab_app/features/cases/data/models/cases_page_model.dart';
 import 'package:dental_lab_app/features/cases/data/models/deliver_directly_models.dart';
 import 'package:dental_lab_app/features/cases/data/models/send_back_models.dart';
 import 'package:dio/dio.dart';
@@ -46,7 +48,10 @@ class CasesRepo {
     CaseFiltersModel filters,
   ) {
     var rows = cases;
-    if (filters.stageIds.isNotEmpty) {
+    // Not for "my tasks": there the server matched a case on ANY of its
+    // stage lists, so a case sent for a restoration stage or a temporary
+    // hand-over would be wrongly dropped for its case stage not matching.
+    if (filters.stageIds.isNotEmpty && !filters.matchAnyAssignedStage) {
       rows = rows
           .where((c) => filters.stageIds.contains(c.stage.stageId))
           .toList();
@@ -58,6 +63,77 @@ class CasesRepo {
       }).toList();
     }
     return rows;
+  }
+
+  /// One page of the cases list, narrowed the same way as [getCases].
+  ///
+  /// Only the first page falls back to the offline cache — it is the only one
+  /// ever cached, and a later page failing just means "no more for now".
+  Future<Either<Failure, CasesPageModel>> getCasesPage({
+    String? search,
+    CaseFiltersModel filters = CaseFiltersModel.empty,
+    int page = 1,
+    int pageSize = 30,
+  }) async {
+    try {
+      final result = await _apiService.getCasesPage(
+        search: search,
+        doctorId: filters.doctorId,
+        clinicId: filters.clinicId,
+        patientId: filters.patientId,
+        priorityId: filters.priorityId,
+        stageIds: filters.stageIds.toList(),
+        restorationStageIds: filters.restorationStageIds.toList(),
+        overriddenRestorationIds: filters.overriddenRestorationIds.toList(),
+        matchAnyAssignedStage: filters.matchAnyAssignedStage,
+        laboratoryIds: filters.laboratoryIds.toList(),
+        receivedFrom: _isoDate(filters.receivedFrom),
+        receivedTo: _isoDate(filters.receivedTo),
+        phaseTab: filters.phaseTab.value,
+        slaParam: filters.sla.param,
+        page: page,
+        pageSize: pageSize,
+        token: _token,
+      );
+
+      log('Fetched cases page $page (${result.items.length})');
+      return right(
+        CasesPageModel(
+          items: _narrow(result.items, filters),
+          page: result.page,
+          pageSize: result.pageSize,
+          totalCount: result.totalCount,
+        ),
+      );
+    } on DioException catch (e) {
+      log('DioException while fetching cases page $page: ${e.message}');
+      return _pageFallback(page, filters, ServerFailure.fromDioException(e));
+    } catch (e) {
+      log('General Exception while fetching cases page $page: $e');
+      return _pageFallback(page, filters, ServerFailure.fromException(e));
+    }
+  }
+
+  Either<Failure, CasesPageModel> _pageFallback(
+    int page,
+    CaseFiltersModel filters,
+    Failure failure,
+  ) {
+    if (page != 1) return left(failure);
+    final cached = fallbackToCache(
+      cacheKey: CacheKeys.cachedCasesList,
+      fromJson: CaseListItemModel.fromJson,
+      onFailure: () => failure,
+    );
+    // Offline, what was cached is all there is — a single, final page.
+    return cached.map((cases) {
+      final rows = _narrow(cases, filters);
+      return CasesPageModel(
+        items: rows,
+        pageSize: rows.length,
+        totalCount: rows.length,
+      );
+    });
   }
 
   Future<Either<Failure, List<CaseListItemModel>>> getCases({

@@ -10,6 +10,7 @@ import 'package:dental_lab_app/features/case_priorities/logic/case_priorities/ca
 import 'package:dental_lab_app/features/cases/data/models/case_counts_model.dart';
 import 'package:dental_lab_app/features/cases/data/models/case_filters_model.dart';
 import 'package:dental_lab_app/features/cases/data/models/case_list_item_model.dart';
+import 'package:dental_lab_app/features/cases/data/models/cases_page_model.dart';
 import 'package:dental_lab_app/features/cases/data/repos/cases_repo.dart';
 import 'package:dental_lab_app/features/cases/logic/cases/cases_cubit.dart';
 import 'package:dental_lab_app/features/cases/ui/widgets/cases_list_body.dart';
@@ -34,14 +35,14 @@ CaseListItemModel _case(String id) => CaseListItemModel(
 Widget _wrap() {
   final casesRepo = _MockCasesRepo();
   when(
-    () => casesRepo.getCases(
+    () => casesRepo.getCasesPage(
       search: any(named: 'search'),
       filters: any(named: 'filters'),
+      page: any(named: 'page'),
+      pageSize: any(named: 'pageSize'),
     ),
   ).thenAnswer(
-    (_) async => Right<Failure, List<CaseListItemModel>>([
-      for (var i = 1; i <= 6; i++) _case('$i'),
-    ]),
+    (_) async => _pageOf([for (var i = 1; i <= 6; i++) _case('$i')]),
   );
   // The tab strip and the date segment are counted by the server, under the
   // same filters the rows came from — so the list screen makes three requests,
@@ -109,6 +110,10 @@ Future<void> _pumpAt(WidgetTester tester, Size size) async {
   await tester.pumpWidget(_wrap());
   await tester.pumpAndSettle();
 }
+
+/// A single, final page of [items] — what the cubit now asks the repo for.
+Either<Failure, CasesPageModel> _pageOf(List<CaseListItemModel> items) =>
+    Right(CasesPageModel(items: items, pageSize: 30, totalCount: items.length));
 
 void main() {
   // The list asks the session whether the user may delete, so the delete

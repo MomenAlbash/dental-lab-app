@@ -9,6 +9,7 @@ import 'package:dental_lab_app/core/helper/laboratory_scope.dart';
 import 'package:dental_lab_app/core/helper/local/cache_keys.dart';
 import 'package:dental_lab_app/core/helper/local/cached_helper.dart';
 import 'package:dental_lab_app/core/helper/network_helper/api_service.dart';
+import 'package:dental_lab_app/core/helper/network_helper/auth_api.dart';
 import 'package:dental_lab_app/core/notifications/push_notification_service.dart';
 import 'package:dental_lab_app/features/auth/data/models/login_request_model.dart';
 import 'package:dental_lab_app/features/auth/data/models/login_response_model.dart';
@@ -112,5 +113,6 @@ class LoginRepo {
     await CacheHelper.removeData(key: CacheKeys.userId);
     await CacheHelper.removeData(key: CacheKeys.isAdmin);
     await LaboratoryScope.clear();
+    await CacheHelper.removeData(key: CacheKeys.recentSearchItems);
   }
 }

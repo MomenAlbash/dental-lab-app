@@ -12,6 +12,7 @@ import 'package:dental_lab_app/core/widgets/glass/glass_filter_button.dart';
 import 'package:dental_lab_app/core/widgets/glass/glass_scaffold.dart';
 import 'package:dental_lab_app/core/widgets/glass/glass_skeleton.dart';
 import 'package:dental_lab_app/core/widgets/show_toast_widget.dart';
+import 'package:dental_lab_app/core/widgets/laboratory_picker_dialog.dart';
 import 'package:dental_lab_app/features/doctors/data/models/doctor_model.dart';
 import 'package:dental_lab_app/features/doctors/logic/doctors/doctors_cubit.dart';
 import 'package:dental_lab_app/features/doctors/logic/doctors/doctors_state.dart';
@@ -136,7 +137,10 @@ class _DoctorsListViewState extends State<_DoctorsListView> {
               label: 'إضافة دكتور',
               isExtended: _addButtonExtended,
               onPressed: () async {
-                await context.push(Routes.doctorFormScreen);
+                await openInLaboratory(
+                  context,
+                  () => context.push(Routes.doctorFormScreen),
+                );
                 if (context.mounted) {
                   context.read<DoctorsCubit>().getDoctors();
                 }

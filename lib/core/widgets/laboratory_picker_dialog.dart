@@ -54,3 +54,27 @@ Future<String?> showLaboratoryPickerDialog(
     },
   );
 }
+
+/// Opens a create form in one laboratory — asked for up front when several
+/// are in view, so the whole form works in it: its pickers only offer that
+/// laboratory's doctors, clinics and patients, and saving needs no second
+/// question. Returns null without opening anything when the user cancels.
+///
+/// With one laboratory, or inside a form that already pinned one (adding a
+/// doctor from the case form), it simply opens.
+Future<T?> openInLaboratory<T>(
+  BuildContext context,
+  Future<T?> Function() open,
+) async {
+  if (LaboratoryScope.pinned != null || !LaboratoryScope.isMulti) {
+    return open();
+  }
+
+  final laboratoryId = await showLaboratoryPickerDialog(
+    context,
+    LaboratoryScope.laboratories,
+  );
+  if (laboratoryId == null) return null;
+
+  return LaboratoryScope.runPinned(laboratoryId, open);
+}

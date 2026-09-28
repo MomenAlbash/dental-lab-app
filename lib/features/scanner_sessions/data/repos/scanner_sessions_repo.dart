@@ -6,6 +6,7 @@ import 'package:dental_lab_app/core/helper/local/cache_keys.dart';
 import 'package:dental_lab_app/core/helper/local/cached_helper.dart';
 import 'package:dental_lab_app/core/helper/network_helper/api_service.dart';
 import 'package:dental_lab_app/core/helper/network_helper/lookup_api.dart';
+import 'package:dental_lab_app/core/helper/network_helper/scanner_sessions_api.dart';
 import 'package:dental_lab_app/features/scanner_sessions/data/models/digital_scan_model.dart';
 import 'package:dental_lab_app/features/scanner_sessions/data/models/scanner_session_enums.dart';
 import 'package:dental_lab_app/features/scanner_sessions/data/models/scanner_session_filters_model.dart';

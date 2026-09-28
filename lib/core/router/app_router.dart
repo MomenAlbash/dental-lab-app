@@ -12,6 +12,7 @@ import 'package:dental_lab_app/features/case_stages/ui/case_workflow_editor_page
 import 'package:dental_lab_app/features/case_workflow_stages/ui/restoration_route_editor_page.dart';
 import 'package:dental_lab_app/features/departments/ui/departments_page.dart';
 import 'package:dental_lab_app/features/case_priorities/ui/case_priority_form_page.dart';
+import 'package:dental_lab_app/features/cases/data/models/case_filters_model.dart';
 import 'package:dental_lab_app/features/cases/ui/case_detail_page.dart';
 import 'package:dental_lab_app/features/cases/ui/barcode_scanner_page.dart';
 import 'package:dental_lab_app/features/cases/ui/scan_task_page.dart';
@@ -41,6 +42,7 @@ import 'package:dental_lab_app/features/details_questions/ui/details_questions_p
 import 'package:dental_lab_app/features/excel_import/ui/excel_import_page.dart';
 import 'package:dental_lab_app/features/employee_activity/ui/employee_activity_page.dart';
 import 'package:dental_lab_app/features/payroll/ui/payroll_page.dart';
+import 'package:dental_lab_app/features/global_search/ui/global_search_page.dart';
 import 'package:dental_lab_app/features/photography_visits/ui/photography_visit_detail_page.dart';
 import 'package:dental_lab_app/features/photography_visits/ui/photography_visit_form_page.dart';
 import 'package:dental_lab_app/features/photography_visits/ui/photography_visits_page.dart';
@@ -90,6 +92,7 @@ import 'package:dental_lab_app/features/roles/ui/roles_list_page.dart';
 import 'package:dental_lab_app/features/settings/ui/settings_page.dart';
 import 'package:dental_lab_app/features/users/ui/user_detail_page.dart';
 import 'package:dental_lab_app/features/users/ui/user_form_page.dart';
+import 'package:dental_lab_app/features/representatives/ui/representatives_page.dart';
 import 'package:dental_lab_app/features/users/ui/users_list_page.dart';
 import 'package:dental_lab_app/core/theming/app_motion.dart';
 import 'package:flutter/material.dart';
@@ -190,11 +193,19 @@ abstract class AppRouter {
       ),
       GoRoute(
         path: Routes.casesListScreen,
-        builder: (context, state) => const CasesListPage(),
+        builder: (context, state) => CasesListPage(
+          initialFilters: state.extra as CaseFiltersModel?,
+        ),
       ),
       GoRoute(
         path: Routes.caseFormScreen,
-        builder: (context, state) => const CaseFormPage(),
+        // Opened from a doctor's or a patient's page with that record
+        // picked; from anywhere else, empty.
+        builder: (context, state) => switch (state.extra) {
+          final DoctorModel doctor => CaseFormPage(initialDoctor: doctor),
+          final PatientModel patient => CaseFormPage(initialPatient: patient),
+          _ => const CaseFormPage(),
+        },
       ),
       GoRoute(
         path: Routes.caseDetailScreen,
@@ -225,6 +236,10 @@ abstract class AppRouter {
       GoRoute(
         path: Routes.scannerSessionsScreen,
         builder: (context, state) => const ScannerSessionsPage(),
+      ),
+      GoRoute(
+        path: Routes.globalSearchScreen,
+        builder: (context, state) => const GlobalSearchPage(),
       ),
       GoRoute(
         path: Routes.photographyVisitsScreen,
@@ -286,6 +301,10 @@ abstract class AppRouter {
         path: Routes.employeeDetailScreen,
         builder: (context, state) =>
             EmployeeDetailPage(employeeId: state.extra as String),
+      ),
+      GoRoute(
+        path: Routes.representativesScreen,
+        builder: (context, state) => const RepresentativesPage(),
       ),
       GoRoute(
         path: Routes.usersListScreen,

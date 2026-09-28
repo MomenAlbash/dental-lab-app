@@ -111,67 +111,81 @@ class _DoctorStatementViewState extends State<_DoctorStatementView> {
               },
             ),
             const SizedBox(height: AppSpacing.sectionGap),
-            BlocConsumer<DoctorStatementCubit, DoctorStatementState>(
-              listenWhen: (previous, current) =>
-                  current is DoctorStatementActionSuccess ||
-                  current is DoctorStatementActionError,
-              listener: (context, state) {
-                switch (state) {
-                  case DoctorStatementActionSuccess(:final message):
-                    showToast(message: message, state: ToastState.success);
-                  case DoctorStatementActionError(:final message):
-                    // The server's sentence: a settle can be refused for
-                    // reasons only it knows (nothing outstanding any more,
-                    // a currency the doctor is not billed in).
-                    showToast(message: message, state: ToastState.error);
-                  default:
-                    break;
-                }
-              },
-              // The two action states are announcements, not screens: letting
-              // them build would blank the statement for a frame.
-              buildWhen: (previous, current) =>
-                  current is! DoctorStatementActionSuccess &&
-                  current is! DoctorStatementActionError,
-              builder: (context, state) {
-                return switch (state) {
-                  DoctorStatementLoaded(:final statement, :final isBusy) =>
-                    _StatementBody(statement: statement, isBusy: isBusy),
-                  DoctorStatementError(:final message) => Center(
-                    child: Padding(
-                      padding: const EdgeInsets.all(24),
-                      child: Text(
-                        message,
-                        textAlign: TextAlign.center,
-                        style: AppTextStyles.font14RegularSecondary.copyWith(
-                          color: glass.onGlassMuted,
-                        ),
-                      ),
-                    ),
-                  ),
-                  DoctorStatementLoading() => const Padding(
-                    padding: EdgeInsets.only(top: 40),
-                    child: Center(
-                      child: CustomCircleProgressIndiacatorWidget(),
-                    ),
-                  ),
-                  _ => Center(
-                    child: Padding(
-                      padding: const EdgeInsets.all(24),
-                      child: Text(
-                        'اختر طبيباً لعرض كشف حسابه',
-                        style: AppTextStyles.font14RegularSecondary.copyWith(
-                          color: glass.onGlassMuted,
-                        ),
-                      ),
-                    ),
-                  ),
-                };
-              },
-            ),
+            const DoctorStatementView(),
           ],
         ),
       ),
+    );
+  }
+}
+
+/// A doctor's statement — balance per currency, and settling it — for
+/// whatever doctor the [DoctorStatementCubit] above it was asked about.
+///
+/// Shared by the statement page (under its doctor picker) and the account tab
+/// on the doctor's own page.
+class DoctorStatementView extends StatelessWidget {
+  const DoctorStatementView({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final glass = context.glass;
+
+    return BlocConsumer<DoctorStatementCubit, DoctorStatementState>(
+      listenWhen: (previous, current) =>
+          current is DoctorStatementActionSuccess ||
+          current is DoctorStatementActionError,
+      listener: (context, state) {
+        switch (state) {
+          case DoctorStatementActionSuccess(:final message):
+            showToast(message: message, state: ToastState.success);
+          case DoctorStatementActionError(:final message):
+            // The server's sentence: a settle can be refused for
+            // reasons only it knows (nothing outstanding any more,
+            // a currency the doctor is not billed in).
+            showToast(message: message, state: ToastState.error);
+          default:
+            break;
+        }
+      },
+      // The two action states are announcements, not screens: letting
+      // them build would blank the statement for a frame.
+      buildWhen: (previous, current) =>
+          current is! DoctorStatementActionSuccess &&
+          current is! DoctorStatementActionError,
+      builder: (context, state) {
+        return switch (state) {
+          DoctorStatementLoaded(:final statement, :final isBusy) =>
+            _StatementBody(statement: statement, isBusy: isBusy),
+          DoctorStatementError(:final message) => Center(
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Text(
+                message,
+                textAlign: TextAlign.center,
+                style: AppTextStyles.font14RegularSecondary.copyWith(
+                  color: glass.onGlassMuted,
+                ),
+              ),
+            ),
+          ),
+          DoctorStatementLoading() => const Padding(
+            padding: EdgeInsets.only(top: 40),
+            child: Center(child: CustomCircleProgressIndiacatorWidget()),
+          ),
+          _ => Center(
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Text(
+                'اختر طبيباً لعرض كشف حسابه',
+                style: AppTextStyles.font14RegularSecondary.copyWith(
+                  color: glass.onGlassMuted,
+                ),
+              ),
+            ),
+          ),
+        };
+      },
     );
   }
 }
@@ -195,8 +209,7 @@ class _StatementBody extends StatelessWidget {
 
     final result = await showSettleDoctorDialog(
       context,
-      currencyLabel:
-          stats.currency?.name ?? stats.currency?.code ?? '',
+      currencyLabel: stats.currency?.name ?? stats.currency?.code ?? '',
       outstanding: stats.currency!.format(stats.closingBalance),
     );
     if (result == null) return;

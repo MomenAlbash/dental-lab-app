@@ -47,6 +47,7 @@ class CaseCollectionItem extends StatelessWidget {
       patientName: caseItem.patientName ?? '',
       doctorName: caseItem.doctorName ?? '',
       laboratoryName: caseItem.laboratoryName,
+      laboratoryId: caseItem.laboratoryId ?? caseItem.laboratory?.id,
       cityName: caseItem.cityName,
       stageName: caseItem.stageLabel,
       productionSummary: caseItem.productionSummaryLabel,

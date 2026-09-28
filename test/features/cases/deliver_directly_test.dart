@@ -13,6 +13,7 @@ import 'package:dental_lab_app/features/cases/data/models/case_filters_model.dar
 import 'package:dental_lab_app/features/cases/data/models/case_flow_model.dart';
 import 'package:dental_lab_app/features/cases/data/models/case_list_item_model.dart';
 import 'package:dental_lab_app/features/cases/data/models/deliver_directly_models.dart';
+import 'package:dental_lab_app/features/cases/data/models/cases_page_model.dart';
 import 'package:dental_lab_app/features/cases/data/repos/cases_repo.dart';
 import 'package:dental_lab_app/features/cases/logic/case_details/case_details_cubit.dart';
 import 'package:dental_lab_app/features/cases/logic/cases/cases_cubit.dart';
@@ -37,14 +38,13 @@ CaseListItemModel _case(String id) => CaseListItemModel(
 
 void _stubList(_MockCasesRepo repo) {
   when(
-    () => repo.getCases(
+    () => repo.getCasesPage(
       search: any(named: 'search'),
       filters: any(named: 'filters'),
+      page: any(named: 'page'),
+      pageSize: any(named: 'pageSize'),
     ),
-  ).thenAnswer(
-    (_) async =>
-        Right<Failure, List<CaseListItemModel>>([_case('1'), _case('2')]),
-  );
+  ).thenAnswer((_) async => _pageOf([_case('1'), _case('2')]));
   when(
     () => repo.getPhaseCounts(
       search: any(named: 'search'),
@@ -72,6 +72,10 @@ const _results = [
     error: 'المرحلة تحتاج موافقة',
   ),
 ];
+
+/// A single, final page of [items] — what the cubit now asks the repo for.
+Either<Failure, CasesPageModel> _pageOf(List<CaseListItemModel> items) =>
+    Right(CasesPageModel(items: items, pageSize: 30, totalCount: items.length));
 
 void main() {
   setUpAll(() {

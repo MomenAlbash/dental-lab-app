@@ -1,6 +1,7 @@
 import 'package:dental_lab_app/core/theming/app_dimensions.dart';
 import 'package:dental_lab_app/core/theming/glass.dart';
 import 'package:dental_lab_app/core/theming/styles.dart';
+import 'package:dental_lab_app/features/cases/data/models/case_intake_enums.dart';
 import 'package:dental_lab_app/features/dashboard/data/models/dashboard_breakdown_models.dart';
 import 'package:flutter/material.dart';
 
@@ -11,9 +12,16 @@ import 'package:flutter/material.dart';
 /// الإنتاج" and "٤٠ قيد الإنتاج، ١٢ منها متأخرة" call for different actions —
 /// and the first is all a bare bar chart would have said.
 class DashboardPhaseFunnel extends StatelessWidget {
-  const DashboardPhaseFunnel({super.key, required this.phases});
+  const DashboardPhaseFunnel({
+    super.key,
+    required this.phases,
+    this.onTapPhase,
+  });
 
   final List<CasePhaseCountModel> phases;
+
+  /// Opens the cases in a phase. Null leaves the funnel a figure only.
+  final ValueChanged<CasePhase>? onTapPhase;
 
   @override
   Widget build(BuildContext context) {
@@ -24,53 +32,59 @@ class DashboardPhaseFunnel extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         for (final phase in phases)
-          Padding(
-            padding: const EdgeInsets.only(bottom: AppSpacing.sm),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        phase.label,
-                        style: AppTextStyles.font14RegularSecondary.copyWith(
-                          color: glass.onGlass,
-                        ),
-                      ),
-                    ),
-                    if (phase.overdueCount > 0)
-                      Padding(
-                        padding: const EdgeInsetsDirectional.only(
-                          end: AppSpacing.sm,
-                        ),
+          InkWell(
+            onTap: onTapPhase == null || phase.phase == null
+                ? null
+                : () => onTapPhase!(phase.phase!),
+            borderRadius: BorderRadius.circular(AppRadius.glass),
+            child: Padding(
+              padding: const EdgeInsets.only(bottom: AppSpacing.sm),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
                         child: Text(
-                          '${phase.overdueCount} متأخرة',
-                          style: AppTextStyles.font12RegularHint.copyWith(
-                            color: glass.error,
+                          phase.label,
+                          style: AppTextStyles.font14RegularSecondary.copyWith(
+                            color: glass.onGlass,
                           ),
                         ),
                       ),
-                    Text(
-                      '${phase.count}',
-                      style: AppTextStyles.font14MediumText.copyWith(
-                        color: glass.onGlass,
+                      if (phase.overdueCount > 0)
+                        Padding(
+                          padding: const EdgeInsetsDirectional.only(
+                            end: AppSpacing.sm,
+                          ),
+                          child: Text(
+                            '${phase.overdueCount} متأخرة',
+                            style: AppTextStyles.font12RegularHint.copyWith(
+                              color: glass.error,
+                            ),
+                          ),
+                        ),
+                      Text(
+                        '${phase.count}',
+                        style: AppTextStyles.font14MediumText.copyWith(
+                          color: glass.onGlass,
+                        ),
                       ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 4),
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(AppRadius.full),
-                  child: LinearProgressIndicator(
-                    // Against the total rather than the largest phase: this is
-                    // a funnel, and each row's share of the whole is the point.
-                    value: total == 0 ? 0 : phase.count / total,
-                    minHeight: 6,
-                    backgroundColor: glass.fillColor,
+                    ],
                   ),
-                ),
-              ],
+                  const SizedBox(height: 4),
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(AppRadius.full),
+                    child: LinearProgressIndicator(
+                      // Against the total rather than the largest phase: this is
+                      // a funnel, and each row's share of the whole is the point.
+                      value: total == 0 ? 0 : phase.count / total,
+                      minHeight: 6,
+                      backgroundColor: glass.fillColor,
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
         if (total > 0)

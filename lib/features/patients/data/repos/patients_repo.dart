@@ -7,6 +7,7 @@ import 'package:dental_lab_app/core/helper/local/cacheable_fetch.dart';
 import 'package:dental_lab_app/core/helper/local/cached_helper.dart';
 import 'package:dental_lab_app/core/helper/network_helper/api_service.dart';
 import 'package:dental_lab_app/core/helper/network_helper/lookup_api.dart';
+import 'package:dental_lab_app/core/helper/network_helper/patients_api.dart';
 import 'package:dental_lab_app/features/patients/data/models/create_patient_request_model.dart';
 import 'package:dental_lab_app/features/patients/data/models/patient_filters_model.dart';
 import 'package:dental_lab_app/features/patients/data/models/patient_lookup_model.dart';

@@ -19,6 +19,19 @@ import 'package:dental_lab_app/features/zones/data/repos/zones_repo.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:dental_lab_app/features/accounting/data/models/doctor_statement_model.dart';
+import 'package:dental_lab_app/features/accounting/data/repos/accounting_repo.dart';
+import 'package:dental_lab_app/features/accounting/logic/doctor_statement/doctor_statement_cubit.dart';
+import 'package:dental_lab_app/core/helper/local/cached_helper.dart';
+import 'package:dental_lab_app/features/case_priorities/data/models/case_priority_model.dart';
+import 'package:dental_lab_app/features/case_priorities/logic/case_priorities/case_priorities_cubit.dart';
+import 'package:dental_lab_app/features/cases/data/models/case_counts_model.dart';
+import 'package:dental_lab_app/features/cases/data/models/case_filters_model.dart';
+import 'package:dental_lab_app/features/cases/data/models/case_list_item_model.dart';
+import 'package:dental_lab_app/features/cases/data/models/cases_page_model.dart';
+import 'package:dental_lab_app/features/cases/data/repos/cases_repo.dart';
+import 'package:dental_lab_app/features/cases/logic/cases/cases_cubit.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 DoctorModel _doctor({
   String? phone = '0991234567',
@@ -40,6 +53,10 @@ DoctorModel _doctor({
 }
 
 class _MockCasePrioritiesRepo extends Mock implements CasePrioritiesRepo {}
+
+class _MockCasesRepo extends Mock implements CasesRepo {}
+
+class _MockAccountingRepo extends Mock implements AccountingRepo {}
 
 class _MockPriceTiersRepo extends Mock implements PriceTiersRepo {}
 
@@ -231,5 +248,126 @@ void main() {
 
     expect(find.text('عيادة النور'), findsOneWidget);
     expect(tester.takeException(), isNull);
+  });
+  testWidgets('the cases tab lists this doctor\'s cases', (tester) async {
+    registerFallbackValue(CaseFiltersModel.empty);
+    tester.view.physicalSize = const Size(360, 780);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    SharedPreferences.setMockInitialValues({});
+    await CacheHelper.init();
+
+    final casesRepo = _MockCasesRepo();
+    when(
+      () => casesRepo.getCasesPage(
+        search: any(named: 'search'),
+        filters: any(named: 'filters'),
+        page: any(named: 'page'),
+        pageSize: any(named: 'pageSize'),
+      ),
+    ).thenAnswer(
+      (_) async => right(
+        CasesPageModel(
+          items: [
+            CaseListItemModel(id: 'k1', caseNumber: '777', patientName: 'سامي'),
+          ],
+          pageSize: 30,
+          totalCount: 1,
+        ),
+      ),
+    );
+    when(
+      () => casesRepo.getPhaseCounts(
+        search: any(named: 'search'),
+        filters: any(named: 'filters'),
+      ),
+    ).thenAnswer((_) async => right(CasePhaseCountsModel.empty));
+    when(
+      () => casesRepo.getSlaCounts(
+        search: any(named: 'search'),
+        filters: any(named: 'filters'),
+      ),
+    ).thenAnswer((_) async => right(CaseSlaCountsModel.empty));
+    final prioritiesRepo = _MockCasePrioritiesRepo();
+    when(
+      () => prioritiesRepo.getCasePriorities(
+        includeInactive: any(named: 'includeInactive'),
+      ),
+    ).thenAnswer((_) async => right(const <CasePriorityModel>[]));
+    getIt
+      ..registerFactory<CasesCubit>(() => CasesCubit(casesRepo))
+      ..registerFactory<CasePrioritiesCubit>(
+        () => CasePrioritiesCubit(prioritiesRepo),
+      );
+
+    await tester.pumpWidget(wrap(_doctor()));
+    await tester.pumpAndSettle();
+    // Nothing is fetched until the tab is opened.
+    verifyNever(
+      () => casesRepo.getCasesPage(
+        search: any(named: 'search'),
+        filters: any(named: 'filters'),
+        page: any(named: 'page'),
+        pageSize: any(named: 'pageSize'),
+      ),
+    );
+
+    await tester.tap(find.text('الحالات'));
+    await tester.pumpAndSettle();
+
+    final filters =
+        verify(
+              () => casesRepo.getCasesPage(
+                search: any(named: 'search'),
+                filters: captureAny(named: 'filters'),
+                page: any(named: 'page'),
+                pageSize: any(named: 'pageSize'),
+              ),
+            ).captured.last
+            as CaseFiltersModel;
+    expect(filters.doctorId, 'd-1');
+    expect(find.textContaining('777'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+  testWidgets('the account tab shows this doctor\'s statement', (tester) async {
+    tester.view.physicalSize = const Size(360, 780);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    SharedPreferences.setMockInitialValues({});
+    await CacheHelper.init();
+
+    final accounting = _MockAccountingRepo();
+    when(() => accounting.getDoctorStatement(doctorId: 'd-1')).thenAnswer(
+      (_) async => right(const DoctorStatementModel(doctorId: 'd-1')),
+    );
+    getIt.registerFactory<DoctorStatementCubit>(
+      () => DoctorStatementCubit(accounting),
+    );
+
+    await tester.pumpWidget(wrap(_doctor()));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('الحساب'));
+    await tester.pumpAndSettle();
+
+    verify(() => accounting.getDoctorStatement(doctorId: 'd-1')).called(1);
+    expect(find.text('لا توجد حركات مسجّلة لهذا الطبيب بعد'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('no finance permission, no account tab', (tester) async {
+    await getIt.unregister<SessionCubit>();
+    getIt.registerLazySingleton<SessionCubit>(
+      () =>
+          SessionCubit(initial: const Permissions(isAdmin: false, granted: {})),
+    );
+
+    await tester.pumpWidget(wrap(_doctor()));
+    await tester.pumpAndSettle();
+
+    expect(find.text('الحساب'), findsNothing);
+    expect(find.text('الحالات'), findsOneWidget);
   });
 }

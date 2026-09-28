@@ -80,7 +80,7 @@ class _DueList extends StatelessWidget {
     };
 
     return RefreshIndicator(
-      onRefresh: () => context.read<CasesCubit>().getCases(),
+      onRefresh: () => context.read<CasesCubit>().loadEverything(),
       child: ListView.builder(
         padding: const EdgeInsets.all(AppSpacing.screen),
         itemCount: groups.length,
@@ -328,7 +328,7 @@ class _ErrorView extends StatelessWidget {
             ),
             const SizedBox(height: AppSpacing.md),
             FilledButton.icon(
-              onPressed: () => context.read<CasesCubit>().getCases(),
+              onPressed: () => context.read<CasesCubit>().loadEverything(),
               icon: const Icon(Icons.refresh),
               label: const Text('إعادة المحاولة'),
             ),

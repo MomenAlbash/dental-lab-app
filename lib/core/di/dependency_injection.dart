@@ -132,10 +132,14 @@ import 'package:dental_lab_app/features/restoration_types/logic/restoration_type
 import 'package:dental_lab_app/features/roles/data/repos/roles_repo.dart';
 import 'package:dental_lab_app/features/roles/logic/role_form/role_form_cubit.dart';
 import 'package:dental_lab_app/features/roles/logic/roles/roles_cubit.dart';
+import 'package:dental_lab_app/features/representatives/logic/agent_team_cubit.dart';
+import 'package:dental_lab_app/features/representatives/logic/agents_cubit.dart';
 import 'package:dental_lab_app/features/users/data/repos/users_repo.dart';
 import 'package:dental_lab_app/features/users/logic/user_details/user_details_cubit.dart';
 import 'package:dental_lab_app/features/users/logic/user_form/user_form_cubit.dart';
 import 'package:dental_lab_app/features/users/logic/users/users_cubit.dart';
+import 'package:dental_lab_app/features/global_search/data/recent_items_repo.dart';
+import 'package:dental_lab_app/features/global_search/logic/global_search_cubit.dart';
 import 'package:dental_lab_app/features/laboratories/data/repos/laboratories_repo.dart';
 import 'package:dental_lab_app/features/laboratories/logic/printed_identity/printed_identity_cubit.dart';
 import 'package:dental_lab_app/features/scan_storage/data/repos/scan_storage_repo.dart';
@@ -341,6 +345,10 @@ Future<void> setupGetIt() async {
   getIt.registerFactory<PhotographyVisitFormCubit>(
     () => PhotographyVisitFormCubit(getIt(), getIt(), getIt(), getIt()),
   );
+  getIt.registerLazySingleton<RecentItemsRepo>(RecentItemsRepo.new);
+  getIt.registerFactory<GlobalSearchCubit>(
+    () => GlobalSearchCubit(getIt(), getIt(), getIt(), getIt()),
+  );
   getIt.registerFactory<BreakageLossCubit>(
     () => BreakageLossCubit(getIt(), getIt()),
   );
@@ -392,6 +400,8 @@ Future<void> setupGetIt() async {
   // ---- Users ----
   getIt.registerLazySingleton<UsersRepo>(() => UsersRepo(getIt()));
   getIt.registerFactory<UsersCubit>(() => UsersCubit(getIt()));
+  getIt.registerFactory<AgentsCubit>(() => AgentsCubit(getIt()));
+  getIt.registerFactory<AgentTeamCubit>(() => AgentTeamCubit(getIt()));
   getIt.registerFactory<UserFormCubit>(() => UserFormCubit(getIt()));
   getIt.registerFactory<UserDetailsCubit>(() => UserDetailsCubit(getIt()));
 

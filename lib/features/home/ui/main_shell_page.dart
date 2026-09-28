@@ -11,6 +11,7 @@ import 'package:dental_lab_app/core/widgets/app_drawer_widget.dart';
 import 'package:dental_lab_app/core/widgets/glass/glass_app_bar.dart';
 import 'package:dental_lab_app/core/widgets/glass/glass_scaffold.dart';
 import 'package:dental_lab_app/core/widgets/show_toast_widget.dart';
+import 'package:dental_lab_app/core/widgets/laboratory_picker_dialog.dart';
 import 'package:dental_lab_app/features/assistant/ui/assistant_sheet.dart';
 import 'package:dental_lab_app/features/cases/ui/cases_due_page.dart';
 import 'package:dental_lab_app/features/cases/ui/cases_list_page.dart';
@@ -114,7 +115,10 @@ class _MainShellPageState extends State<MainShellPage> {
     // of it leaves the user exactly where they were — no tab jump, and no
     // remount that would throw away the cases list's filters and scroll
     // position for nothing.
-    final created = await context.push<bool>(Routes.caseFormScreen);
+    final created = await openInLaboratory(
+      context,
+      () => context.push<bool>(Routes.caseFormScreen),
+    );
     if (!mounted || created != true) return;
     setState(() {
       _index = _casesIndex;

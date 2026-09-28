@@ -5,6 +5,7 @@ import 'package:dental_lab_app/core/errors/failures.dart';
 import 'package:dental_lab_app/core/helper/local/cache_keys.dart';
 import 'package:dental_lab_app/core/helper/local/cached_helper.dart';
 import 'package:dental_lab_app/core/helper/network_helper/api_service.dart';
+import 'package:dental_lab_app/core/helper/network_helper/departments_api.dart';
 import 'package:dental_lab_app/core/helper/network_helper/people_api.dart';
 import 'package:dental_lab_app/features/departments/data/models/department_model.dart';
 import 'package:dental_lab_app/features/departments/data/models/department_user_model.dart';

@@ -6,6 +6,7 @@ import 'package:dental_lab_app/core/helper/local/cache_keys.dart';
 import 'package:dental_lab_app/core/helper/local/cacheable_fetch.dart';
 import 'package:dental_lab_app/core/helper/local/cached_helper.dart';
 import 'package:dental_lab_app/core/helper/network_helper/api_service.dart';
+import 'package:dental_lab_app/core/helper/network_helper/doctors_api.dart';
 import 'package:dental_lab_app/core/helper/network_helper/lookup_api.dart';
 import 'package:dental_lab_app/core/helper/network_helper/people_api.dart';
 import 'package:dental_lab_app/features/doctors/data/models/approve_doctor_request_model.dart';
@@ -25,6 +26,22 @@ class DoctorsRepo {
   DoctorsRepo(this._apiService);
 
   String? get _token => CacheHelper.getData(key: CacheKeys.token) as String?;
+
+  /// Doctors whose name, number or phone matches [query] — searched by the
+  /// server, with no offline fallback: stale results would pass for a match.
+  Future<Either<Failure, List<DoctorModel>>> searchDoctors(String query) async {
+    try {
+      return right(
+        await _apiService.searchDoctors(query: query, token: _token),
+      );
+    } on DioException catch (e) {
+      log('DioException while searching doctors: ${e.message}');
+      return left(ServerFailure.fromDioException(e));
+    } catch (e) {
+      log('General Exception while searching doctors: $e');
+      return left(ServerFailure.fromException(e));
+    }
+  }
 
   Future<Either<Failure, List<DoctorModel>>> getDoctors() async {
     try {

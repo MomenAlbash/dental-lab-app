@@ -43,6 +43,10 @@ class PatientModel {
   final String? doctorId;
   final DoctorModel? doctor;
   final String? clinicId;
+
+  /// The laboratory the patient belongs to — shown as a badge while several
+  /// laboratories are in view.
+  final String? laboratoryId;
   final ClinicModel? clinic;
   final int caseCount;
 
@@ -59,6 +63,7 @@ class PatientModel {
     this.doctorId,
     this.doctor,
     this.clinicId,
+    this.laboratoryId,
     this.clinic,
     this.caseCount = 0,
   });
@@ -83,6 +88,7 @@ class PatientModel {
           ? null
           : DoctorModel.fromJson(json['doctor'] as Map<String, dynamic>),
       clinicId: json['clinicId'] as String?,
+      laboratoryId: json['laboratoryId'] as String?,
       clinic: json['clinic'] == null
           ? null
           : ClinicModel.fromJson(json['clinic'] as Map<String, dynamic>),

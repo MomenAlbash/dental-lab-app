@@ -9,6 +9,9 @@ import 'package:dental_lab_app/core/widgets/custom_circle_progress_indiacator_wi
 import 'package:dental_lab_app/core/widgets/glass/glass_app_bar.dart';
 import 'package:dental_lab_app/core/widgets/glass/glass_scaffold.dart';
 import 'package:dental_lab_app/core/widgets/show_toast_widget.dart';
+import 'package:dental_lab_app/core/widgets/detail_with_cases_tabs.dart';
+import 'package:dental_lab_app/features/cases/data/models/case_filters_model.dart';
+import 'package:dental_lab_app/features/cases/ui/widgets/filtered_cases_tab.dart';
 import 'package:dental_lab_app/features/patients/data/models/patient_model.dart';
 import 'package:dental_lab_app/features/patients/logic/patient_details/patient_details_cubit.dart';
 import 'package:dental_lab_app/features/patients/logic/patient_details/patient_details_state.dart';
@@ -91,68 +94,74 @@ class _PatientDetailBody extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return CustomScrollView(
-      slivers: [
-        PatientSliverHeader(
-          patient: patient,
-          onEdit: () async {
-            final cubit = context.read<PatientDetailsCubit>();
-            await context.push(Routes.patientFormScreen, extra: patient);
-            // Refetched unconditionally rather than on a saved-flag: the form
-            // is also where a field can be cleared, and this screen must not
-            // keep showing what was just removed.
-            await cubit.getPatient(patient.id);
-          },
+    return DetailWithCasesTabs(
+      storageKey: 'patient-details',
+      header: (tabBar) => PatientSliverHeader(
+        patient: patient,
+        bottom: tabBar,
+        onEdit: () async {
+          final cubit = context.read<PatientDetailsCubit>();
+          await context.push(Routes.patientFormScreen, extra: patient);
+          // Refetched unconditionally rather than on a saved-flag: the form
+          // is also where a field can be cleared, and this screen must not
+          // keep showing what was just removed.
+          await cubit.getPatient(patient.id);
+        },
+      ),
+      cases: FilteredCasesTab(
+        filters: CaseFiltersModel(
+          patientId: patient.id,
+          patientName: patient.fullName,
         ),
-        SliverToBoxAdapter(
-          child: AdaptiveDetailSections(
-            main: [
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  const _SectionTitle('المعلومات'),
-                  const SizedBox(height: AppSpacing.md),
-                  PatientInfoTiles(patient: patient)
-                      .animate(delay: AppMotion.stagger * 2)
-                      .fadeIn(duration: AppMotion.base)
-                      .slideY(
-                        begin: 0.06,
-                        duration: AppMotion.base,
-                        curve: AppMotion.enter,
-                      ),
-                ],
-              ),
-              if ((patient.notes ?? '').trim().isNotEmpty)
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    const _SectionTitle('ملاحظات'),
-                    const SizedBox(height: AppSpacing.md),
-                    _NotesCard(notes: patient.notes!.trim())
-                        .animate(delay: AppMotion.stagger * 4)
-                        .fadeIn(duration: AppMotion.base)
-                        .slideY(
-                          begin: 0.06,
-                          duration: AppMotion.base,
-                          curve: AppMotion.enter,
-                        ),
-                  ],
-                ),
+        formExtra: patient,
+        laboratoryId: patient.laboratoryId,
+      ),
+      details: AdaptiveDetailSections(
+        main: [
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const _SectionTitle('المعلومات'),
+              const SizedBox(height: AppSpacing.md),
+              PatientInfoTiles(patient: patient)
+                  .animate(delay: AppMotion.stagger * 2)
+                  .fadeIn(duration: AppMotion.base)
+                  .slideY(
+                    begin: 0.06,
+                    duration: AppMotion.base,
+                    curve: AppMotion.enter,
+                  ),
             ],
-            side: [
-              if ((patient.phoneNumber ?? '').trim().isNotEmpty)
-                _CallButton(phoneNumber: patient.phoneNumber!.trim())
-                    .animate()
+          ),
+          if ((patient.notes ?? '').trim().isNotEmpty)
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                const _SectionTitle('ملاحظات'),
+                const SizedBox(height: AppSpacing.md),
+                _NotesCard(notes: patient.notes!.trim())
+                    .animate(delay: AppMotion.stagger * 4)
                     .fadeIn(duration: AppMotion.base)
                     .slideY(
-                      begin: 0.15,
+                      begin: 0.06,
                       duration: AppMotion.base,
                       curve: AppMotion.enter,
                     ),
-            ],
-          ),
-        ),
-      ],
+              ],
+            ),
+        ],
+        side: [
+          if ((patient.phoneNumber ?? '').trim().isNotEmpty)
+            _CallButton(phoneNumber: patient.phoneNumber!.trim())
+                .animate()
+                .fadeIn(duration: AppMotion.base)
+                .slideY(
+                  begin: 0.15,
+                  duration: AppMotion.base,
+                  curve: AppMotion.enter,
+                ),
+        ],
+      ),
     );
   }
 }

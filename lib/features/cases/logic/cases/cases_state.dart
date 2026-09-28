@@ -22,9 +22,18 @@ class CasesLoaded extends CasesState {
     this.slaCounts = CaseSlaCountsModel.empty,
     this.filters = CaseFiltersModel.empty,
     this.isMyTasks = false,
+    this.hasMore = false,
+    this.isLoadingMore = false,
   });
 
+  /// Every page loaded so far, in order.
   final List<CaseListItemModel> cases;
+
+  /// Another page waits on the server — scrolling near the end fetches it.
+  final bool hasMore;
+
+  /// That next page is on its way.
+  final bool isLoadingMore;
 
   /// The tab bar's badges, counted by the server under the same filters the
   /// rows were fetched with — never by counting [cases], which is one page.

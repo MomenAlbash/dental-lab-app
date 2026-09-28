@@ -6,6 +6,8 @@ import 'package:dental_lab_app/core/helper/local/cache_keys.dart';
 import 'package:dental_lab_app/core/helper/local/cacheable_fetch.dart';
 import 'package:dental_lab_app/core/helper/local/cached_helper.dart';
 import 'package:dental_lab_app/core/helper/network_helper/api_service.dart';
+import 'package:dental_lab_app/core/helper/network_helper/patients_api.dart';
+import 'package:dental_lab_app/core/helper/network_helper/price_tiers_api.dart';
 import 'package:dental_lab_app/features/price_tiers/data/models/create_price_tier_request_model.dart';
 import 'package:dental_lab_app/features/price_tiers/data/models/price_tier_model.dart';
 import 'package:dental_lab_app/features/price_tiers/data/models/set_price_tier_doctors_request_model.dart';

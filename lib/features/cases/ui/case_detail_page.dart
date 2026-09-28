@@ -16,6 +16,7 @@ import 'package:dental_lab_app/features/case_stages/logic/case_stages/case_stage
 import 'package:dental_lab_app/features/cases/data/repos/cases_repo.dart';
 import 'package:dental_lab_app/features/case_workflow_stages/data/models/case_workflow_stage_model.dart';
 import 'package:dental_lab_app/features/cases/data/models/case_restoration_model.dart';
+import 'package:dental_lab_app/features/cases/data/models/case_share_text.dart';
 import 'package:dental_lab_app/features/cases/logic/case_details/case_details_cubit.dart';
 import 'package:dental_lab_app/features/cases/logic/case_details/case_details_state.dart';
 import 'package:dental_lab_app/features/cases/logic/case_messages/case_messages_cubit.dart';
@@ -275,6 +276,21 @@ class _CaseDetailView extends StatelessWidget {
                 return _CasePdfButton(
                   caseId: caseId,
                   caseNumber: state.caseDetail.caseNumber,
+                );
+              },
+            ),
+            // The case as a short message — who it is for and where it stands.
+            BlocBuilder<CaseDetailsCubit, CaseDetailsState>(
+              builder: (context, state) {
+                if (state is! CaseDetailsLoaded) {
+                  return const SizedBox.shrink();
+                }
+                return IconButton(
+                  tooltip: 'مشاركة',
+                  icon: const Icon(Icons.share_outlined),
+                  onPressed: () => SharePlus.instance.share(
+                    ShareParams(text: CaseShareText.of(state.caseDetail)),
+                  ),
                 );
               },
             ),

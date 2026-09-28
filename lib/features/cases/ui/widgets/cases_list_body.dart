@@ -344,21 +344,56 @@ class _CasesList extends StatelessWidget {
                   state.filters.phaseTab != CasePhaseTab.all ||
                   state.filters.sla != CaseSlaFilter.none,
             )
-          : AdaptiveCollection<CaseListItemModel>(
-              items: cases,
-              scrollController: scrollController,
-              onRefresh: () => context.read<CasesCubit>().getCases(),
-              itemBuilder: (context, caseItem, _) => CaseCollectionItem(
-                caseItem: caseItem,
-                priorityVariant: variantById[caseItem.priorityId],
-                onDelete: onDelete == null ? null : () => onDelete!(caseItem),
-                isSelected: selectedIds?.contains(caseItem.id),
-                onToggleSelected: onToggleSelected == null
-                    ? null
-                    : () => onToggleSelected!(caseItem),
-              ),
+          : Column(
+              children: [
+                Expanded(
+                  child: NotificationListener<Notification>(
+                    onNotification: (notification) {
+                      _maybeLoadMore(context, notification);
+                      return false;
+                    },
+                    child: AdaptiveCollection<CaseListItemModel>(
+                      items: cases,
+                      scrollController: scrollController,
+                      onRefresh: () => context.read<CasesCubit>().getCases(),
+                      itemBuilder: (context, caseItem, _) => CaseCollectionItem(
+                        caseItem: caseItem,
+                        priorityVariant: variantById[caseItem.priorityId],
+                        onDelete: onDelete == null
+                            ? null
+                            : () => onDelete!(caseItem),
+                        isSelected: selectedIds?.contains(caseItem.id),
+                        onToggleSelected: onToggleSelected == null
+                            ? null
+                            : () => onToggleSelected!(caseItem),
+                      ),
+                    ),
+                  ),
+                ),
+                if (state.isLoadingMore) const LinearProgressIndicator(),
+              ],
             ),
     );
+  }
+
+  /// How close to the end, in pixels, the next page is asked for — about
+  /// three rows, so it usually lands before the user gets there.
+  static const _loadMoreThreshold = 400.0;
+
+  /// Asks for the next page when the list nears its end — on a scroll, and on
+  /// a change of the list's size, which is what catches a first page too
+  /// short to scroll at all.
+  void _maybeLoadMore(BuildContext context, Notification notification) {
+    if (!state.hasMore || state.isLoadingMore) return;
+    final metrics = switch (notification) {
+      ScrollNotification(:final metrics) => metrics,
+      ScrollMetricsNotification(:final metrics) => metrics,
+      _ => null,
+    };
+    if (metrics == null || metrics.axis != Axis.vertical) return;
+    if (metrics.extentAfter < _loadMoreThreshold) {
+      context.read<CasesCubit>().loadMore();
+    }
   }
 
   /// The parts every shape shares: the tab strip, the date segment, then the

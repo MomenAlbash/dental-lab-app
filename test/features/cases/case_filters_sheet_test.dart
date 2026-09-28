@@ -3,6 +3,7 @@ import 'package:dental_lab_app/core/errors/failures.dart';
 import 'package:dental_lab_app/core/auth/permissions.dart';
 import 'package:dental_lab_app/core/auth/session.dart';
 import 'package:dental_lab_app/core/di/dependency_injection.dart';
+import 'package:dental_lab_app/core/helper/local/cached_helper.dart';
 import 'package:dental_lab_app/core/theming/app_theme.dart';
 import 'package:dental_lab_app/features/cities/data/models/city_model.dart';
 import 'package:dental_lab_app/features/cities/data/repos/cities_repo.dart';
@@ -29,6 +30,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class _MockCasePrioritiesRepo extends Mock implements CasePrioritiesRepo {}
 
@@ -131,6 +133,10 @@ void main() {
     // all; a plain employee is the default so the sheet under test is the
     // one most users see.
     await getIt.reset();
+    // The laboratory chips come from the scope in the local cache; one
+    // laboratory in view means the sheet offers none.
+    SharedPreferences.setMockInitialValues({});
+    await CacheHelper.init();
     getIt.registerLazySingleton<SessionCubit>(
       () =>
           SessionCubit(initial: const Permissions(isAdmin: false, granted: {})),

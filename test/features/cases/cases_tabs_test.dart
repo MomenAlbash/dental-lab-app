@@ -3,6 +3,7 @@ import 'package:dental_lab_app/core/errors/failures.dart';
 import 'package:dental_lab_app/features/cases/data/models/case_counts_model.dart';
 import 'package:dental_lab_app/features/cases/data/models/case_filters_model.dart';
 import 'package:dental_lab_app/features/cases/data/models/case_list_item_model.dart';
+import 'package:dental_lab_app/features/cases/data/models/cases_page_model.dart';
 import 'package:dental_lab_app/features/cases/data/repos/cases_repo.dart';
 import 'package:dental_lab_app/features/cases/logic/cases/cases_cubit.dart';
 import 'package:dental_lab_app/features/cases/logic/cases/cases_state.dart';
@@ -13,6 +14,10 @@ class _MockCasesRepo extends Mock implements CasesRepo {}
 
 CaseListItemModel _case(String id) => CaseListItemModel(id: id, caseNumber: id);
 
+/// A single, final page of [items] — what the cubit now asks the repo for.
+Either<Failure, CasesPageModel> _pageOf(List<CaseListItemModel> items) =>
+    Right(CasesPageModel(items: items, pageSize: 30, totalCount: items.length));
+
 void main() {
   late _MockCasesRepo repo;
   late CasesCubit cubit;
@@ -21,9 +26,11 @@ void main() {
   /// date segment actually sent.
   CaseFiltersModel lastFilters() =>
       verify(
-            () => repo.getCases(
+            () => repo.getCasesPage(
               search: any(named: 'search'),
               filters: captureAny(named: 'filters'),
+              page: any(named: 'page'),
+              pageSize: any(named: 'pageSize'),
             ),
           ).captured.last
           as CaseFiltersModel;
@@ -33,13 +40,13 @@ void main() {
   setUp(() {
     repo = _MockCasesRepo();
     when(
-      () => repo.getCases(
+      () => repo.getCasesPage(
         search: any(named: 'search'),
         filters: any(named: 'filters'),
+        page: any(named: 'page'),
+        pageSize: any(named: 'pageSize'),
       ),
-    ).thenAnswer(
-      (_) async => Right<Failure, List<CaseListItemModel>>([_case('1')]),
-    );
+    ).thenAnswer((_) async => _pageOf([_case('1')]));
     when(
       () => repo.getPhaseCounts(
         search: any(named: 'search'),
@@ -127,9 +134,11 @@ void main() {
       await cubit.setPhaseTab(CasePhaseTab.all);
 
       verify(
-        () => repo.getCases(
+        () => repo.getCasesPage(
           search: any(named: 'search'),
           filters: any(named: 'filters'),
+          page: any(named: 'page'),
+          pageSize: any(named: 'pageSize'),
         ),
       ).called(1);
     });
@@ -195,9 +204,11 @@ void main() {
 
       expect(cubit.state, isA<CasesNoAssignments>());
       verifyNever(
-        () => repo.getCases(
+        () => repo.getCasesPage(
           search: any(named: 'search'),
           filters: any(named: 'filters'),
+          page: any(named: 'page'),
+          pageSize: any(named: 'pageSize'),
         ),
       );
     });

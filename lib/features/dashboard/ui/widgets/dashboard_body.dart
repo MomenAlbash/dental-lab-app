@@ -1,14 +1,16 @@
 import 'package:dental_lab_app/core/auth/permissions.dart';
 import 'package:dental_lab_app/core/auth/session.dart';
 import 'package:dental_lab_app/core/di/dependency_injection.dart';
-import 'package:dental_lab_app/core/helper/local/cache_keys.dart';
-import 'package:dental_lab_app/core/helper/local/cached_helper.dart';
+import 'package:dental_lab_app/core/helper/laboratory_scope.dart';
 import 'package:dental_lab_app/core/router/routes.dart';
 import 'package:dental_lab_app/core/theming/app_dimensions.dart';
 import 'package:dental_lab_app/core/theming/badge_variant.dart';
 import 'package:dental_lab_app/core/theming/glass.dart';
 import 'package:dental_lab_app/core/theming/styles.dart';
+import 'package:dental_lab_app/core/widgets/glass/glass_card.dart';
 import 'package:dental_lab_app/core/widgets/glass/glass_skeleton.dart';
+import 'package:dental_lab_app/features/cases/data/models/case_counts_model.dart';
+import 'package:dental_lab_app/features/cases/data/models/case_filters_model.dart';
 import 'package:dental_lab_app/features/cases/data/models/case_list_item_model.dart';
 import 'package:dental_lab_app/features/cases/ui/widgets/case_list_item_widget.dart';
 import 'package:dental_lab_app/features/dashboard/data/models/dashboard_breakdown_models.dart';
@@ -125,8 +127,13 @@ class _DashboardBodyState extends State<DashboardBody> {
                 section: state.casesByPhase,
                 onRetry: () => cubit.loadDeferred(force: true),
                 emptyMessage: 'لا توجد حالات',
-                builder: (context, phases) =>
-                    DashboardPhaseFunnel(phases: phases),
+                builder: (context, phases) => DashboardPhaseFunnel(
+                  phases: phases,
+                  onTapPhase: (phase) => _openCases(
+                    context,
+                    CaseFiltersModel(phaseTab: CasePhaseTab.forPhase(phase)),
+                  ),
+                ),
               ),
               const SizedBox(height: AppSpacing.sectionGap),
 
@@ -152,6 +159,12 @@ class _DashboardBodyState extends State<DashboardBody> {
                         label: stage.label.isEmpty ? 'بدون مرحلة' : stage.label,
                         value: stage.count.toDouble(),
                         color: badgeVariantColor(context, stage.badgeVariant),
+                        onTap: stage.stageId.isEmpty
+                            ? null
+                            : () => _openCases(
+                                context,
+                                CaseFiltersModel(stageIds: {stage.stageId}),
+                              ),
                       ),
                   ],
                 ),
@@ -176,6 +189,15 @@ class _DashboardBodyState extends State<DashboardBody> {
                         // borrowing colours that would not match the badge the
                         // same priority shows on a case row.
                         color: Theme.of(context).colorScheme.primary,
+                        onTap: priority.priorityId.isEmpty
+                            ? null
+                            : () => _openCases(
+                                context,
+                                CaseFiltersModel(
+                                  priorityId: priority.priorityId,
+                                  priorityName: priority.label,
+                                ),
+                              ),
                       ),
                   ],
                 ),
@@ -247,8 +269,6 @@ class _Greeting extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final glass = context.glass;
-    final laboratoryName =
-        CacheHelper.getData(key: CacheKeys.laboratoryName) as String?;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -257,15 +277,10 @@ class _Greeting extends StatelessWidget {
           'مرحباً بك',
           style: AppTextStyles.font24BoldText.copyWith(color: glass.onGlass),
         ),
-        if (laboratoryName != null && laboratoryName.isNotEmpty) ...[
-          const SizedBox(height: 4),
-          Text(
-            laboratoryName,
-            style: AppTextStyles.font14RegularSecondary.copyWith(
-              color: glass.onGlassMuted,
-            ),
-          ),
-        ],
+        const SizedBox(height: 6),
+        const _LaboratoryScopeChip(),
+        const SizedBox(height: AppSpacing.md),
+        const _SearchLauncher(),
       ],
     );
   }
@@ -369,4 +384,112 @@ class DashboardSkeleton extends StatelessWidget {
       ],
     );
   }
+}
+
+/// Which laboratories the numbers below are for — and, for whoever may
+/// switch, the way to switch without digging through the drawer.
+///
+/// Plain text for a user without Branches: the server pins them to their own
+/// laboratory whatever they pick, so offering a choice would be a lie.
+class _LaboratoryScopeChip extends StatelessWidget {
+  const _LaboratoryScopeChip();
+
+  /// Every name while they fit; past two, a count — a chip that wraps onto
+  /// three lines is no longer a glance.
+  static String _label(List<ScopedLaboratory> laboratories) {
+    if (laboratories.length > 2) return '${laboratories.length} مخابر';
+    final names = [
+      for (final lab in laboratories)
+        if (lab.name.isNotEmpty) lab.name,
+    ];
+    return names.isEmpty ? 'المخبر' : names.join('، ');
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final glass = context.glass;
+    final laboratories = LaboratoryScope.laboratories;
+    if (laboratories.isEmpty) return const SizedBox.shrink();
+
+    final label = _label(laboratories);
+    final canSwitch = getIt<SessionCubit>().state.canRead(
+      PermissionName.branches,
+    );
+
+    if (!canSwitch) {
+      return Text(
+        label,
+        style: AppTextStyles.font14RegularSecondary.copyWith(
+          color: glass.onGlassMuted,
+        ),
+      );
+    }
+
+    return ActionChip(
+      avatar: Icon(
+        laboratories.length > 1
+            ? Icons.layers_outlined
+            : Icons.science_outlined,
+        size: 18,
+      ),
+      label: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Flexible(
+            child: Text(label, maxLines: 1, overflow: TextOverflow.ellipsis),
+          ),
+          const SizedBox(width: 4),
+          const Icon(Icons.expand_more, size: 18),
+        ],
+      ),
+      tooltip: 'تغيير المخابر المعروضة',
+      onPressed: () => context.push(Routes.laboratorySelectionScreen),
+    );
+  }
+}
+
+/// Looks like a search box, opens the search screen — finding one case,
+/// patient or doctor straight from home, without going through a list.
+class _SearchLauncher extends StatelessWidget {
+  const _SearchLauncher();
+
+  @override
+  Widget build(BuildContext context) {
+    final glass = context.glass;
+
+    return Semantics(
+      button: true,
+      label: 'بحث',
+      child: GlassCard(
+        onTap: () => context.push(Routes.globalSearchScreen),
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.md,
+          vertical: AppSpacing.md,
+        ),
+        child: Row(
+          children: [
+            Icon(Icons.search, color: glass.onGlassMuted),
+            const SizedBox(width: AppSpacing.sm),
+            Expanded(
+              child: Text(
+                'ابحث عن حالة، مريض أو دكتور',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: AppTextStyles.font14RegularSecondary.copyWith(
+                  color: glass.onGlassMuted,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Opens the cases list narrowed to what a figure on this screen counted —
+/// the number was the question, these cases are the answer.
+void _openCases(BuildContext context, CaseFiltersModel filters) {
+  if (!getIt<SessionCubit>().state.canRead(PermissionName.cases)) return;
+  context.push(Routes.casesListScreen, extra: filters);
 }

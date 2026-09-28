@@ -201,6 +201,7 @@ class _PatientsRows extends StatelessWidget {
         fullName: patient.fullName,
         doctorName: patient.doctorName ?? '',
         clinicName: patient.clinicName ?? '',
+        laboratoryId: patient.laboratoryId,
         caseCount: patient.caseCount,
         gender: patient.gender,
         phoneNumber: patient.phoneNumber,

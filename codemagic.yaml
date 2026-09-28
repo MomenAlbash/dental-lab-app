@@ -1,0 +1,64 @@
+# Codemagic build for the iOS app, kept with the code instead of in the web UI.
+#
+# The build number is never set by hand: each build asks App Store Connect for
+# the latest one uploaded and uses the next — so an upload can no longer fail
+# with "The bundle version must be higher than the previously uploaded
+# version". The `+N` in pubspec.yaml is ignored for iOS builds made here.
+#
+# Before the first run, in Codemagic:
+#   1. Team settings → Integrations → App Store Connect: an API key must exist.
+#      Put its name in `integrations.app_store_connect` below (it is "codemagic"
+#      only if that is what it was named there).
+#   2. App settings → Environment variables: create a group `app_store` with
+#      APP_STORE_APPLE_ID = the app's Apple ID (App Store Connect → the app →
+#      App Information → Apple ID, a number like 6478xxxxxx).
+#   3. Switch the app in Codemagic from the Workflow Editor to codemagic.yaml.
+
+workflows:
+  ios-release:
+    name: iOS release
+    max_build_duration: 60
+    instance_type: mac_mini_m2
+    integrations:
+      app_store_connect: codemagic # ← the API key's name in Codemagic
+    environment:
+      groups:
+        - app_store # APP_STORE_APPLE_ID
+      ios_signing:
+        distribution_type: app_store
+        bundle_identifier: com.momenbash.dentallab
+      flutter: stable
+      xcode: latest
+      cocoapods: default
+    triggering:
+      events:
+        - push
+      branch_patterns:
+        - pattern: master
+          include: true
+    scripts:
+      - name: Get Flutter packages
+        script: flutter pub get
+
+      - name: Install pods
+        script: find . -name "Podfile" -execdir pod install \;
+
+      - name: Set up code signing
+        script: xcode-project use-profiles
+
+      - name: Build the IPA with the next build number
+        script: |
+          LATEST=$(app-store-connect get-latest-testflight-build-number "$APP_STORE_APPLE_ID")
+          NEXT=$((LATEST + 1))
+          echo "Latest build on App Store Connect: $LATEST — building $NEXT"
+          flutter build ipa --release \
+            --build-number="$NEXT" \
+            --export-options-plist=/Users/builder/export_options.plist
+    artifacts:
+      - build/ios/ipa/*.ipa
+      - /tmp/xcodebuild_logs/*.log
+      - $HOME/Library/Developer/Xcode/DerivedData/**/Build/**/*.dSYM
+    publishing:
+      app_store_connect:
+        auth: integration
+        submit_to_testflight: true

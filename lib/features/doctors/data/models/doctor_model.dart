@@ -77,6 +77,11 @@ class DoctorModel {
   final String? cityId;
   final CityModel? city;
   final String? clinicId;
+
+  /// The laboratory the doctor belongs to — shown as a badge while several
+  /// laboratories are in view.
+  final String? laboratoryId;
+  final String? laboratoryName;
   final ClinicModel? clinic;
 
   /// The zone this doctor resolves to for the calling laboratory — their
@@ -123,6 +128,8 @@ class DoctorModel {
     this.cityId,
     this.city,
     this.clinicId,
+    this.laboratoryId,
+    this.laboratoryName,
     this.clinic,
     this.zoneId,
     this.zoneName,
@@ -186,6 +193,8 @@ class DoctorModel {
           ? null
           : CityModel.fromJson(json['city'] as Map<String, dynamic>),
       clinicId: json['clinicId'] as String?,
+      laboratoryId: json['laboratoryId'] as String?,
+      laboratoryName: json['laboratoryName'] as String?,
       clinic: json['clinic'] == null
           ? null
           : ClinicModel.fromJson(json['clinic'] as Map<String, dynamic>),

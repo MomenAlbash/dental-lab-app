@@ -14,6 +14,7 @@ import 'package:dental_lab_app/core/widgets/glass/glass_app_bar.dart';
 import 'package:dental_lab_app/core/widgets/glass/glass_filter_button.dart';
 import 'package:dental_lab_app/core/widgets/glass/glass_scaffold.dart';
 import 'package:dental_lab_app/core/widgets/show_toast_widget.dart';
+import 'package:dental_lab_app/core/widgets/laboratory_picker_dialog.dart';
 import 'package:dental_lab_app/features/patients/data/models/patient_model.dart';
 import 'package:dental_lab_app/features/patients/logic/patients/patients_cubit.dart';
 import 'package:dental_lab_app/features/patients/logic/patients/patients_state.dart';
@@ -87,7 +88,10 @@ class _PatientsListViewState extends State<_PatientsListView> {
   }
 
   Future<void> _addPatient() async {
-    final created = await context.push<bool>(Routes.patientFormScreen);
+    final created = await openInLaboratory(
+      context,
+      () => context.push<bool>(Routes.patientFormScreen),
+    );
     if (created == true && mounted) {
       context.read<PatientsCubit>().getPatients();
     }

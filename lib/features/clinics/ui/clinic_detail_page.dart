@@ -11,6 +11,9 @@ import 'package:dental_lab_app/core/widgets/custom_circle_progress_indiacator_wi
 import 'package:dental_lab_app/core/widgets/glass/glass_app_bar.dart';
 import 'package:dental_lab_app/core/widgets/glass/glass_scaffold.dart';
 import 'package:dental_lab_app/core/widgets/show_toast_widget.dart';
+import 'package:dental_lab_app/core/widgets/detail_with_cases_tabs.dart';
+import 'package:dental_lab_app/features/cases/data/models/case_filters_model.dart';
+import 'package:dental_lab_app/features/cases/ui/widgets/filtered_cases_tab.dart';
 import 'package:dental_lab_app/features/clinics/data/models/clinic_model.dart';
 import 'package:dental_lab_app/features/clinics/data/repos/clinics_repo.dart';
 import 'package:dental_lab_app/features/clinics/logic/clinic_details/clinic_details_cubit.dart';
@@ -122,50 +125,52 @@ class _ClinicDetailBody extends StatelessWidget {
   Widget build(BuildContext context) {
     final canEdit = getIt<SessionCubit>().state.canEdit(PermissionName.doctor);
 
-    return CustomScrollView(
-      slivers: [
-        ClinicSliverHeader(
-          clinic: clinic,
-          onChangeLogo: canEdit ? () => _changeLogo(context) : null,
-          onEdit: () async {
-            await context.push(Routes.clinicFormScreen, extra: clinic);
-            if (context.mounted) {
-              context.read<ClinicDetailsCubit>().getClinicById(clinic.id);
-            }
-          },
-        ),
-        SliverToBoxAdapter(
-          child: AdaptiveDetailSections(
-            main: [
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  const _SectionTitle('المعلومات'),
-                  const SizedBox(height: AppSpacing.md),
-                  ClinicInfoTiles(clinic: clinic)
-                      .animate(delay: AppMotion.stagger * 2)
-                      .fadeIn(duration: AppMotion.base)
-                      .slideY(
-                        begin: 0.06,
-                        duration: AppMotion.base,
-                        curve: AppMotion.enter,
-                      ),
-                ],
-              ),
-            ],
-            side: [
-              ClinicQuickActions(clinic: clinic)
-                  .animate()
+    return DetailWithCasesTabs(
+      storageKey: 'clinic-details',
+      header: (tabBar) => ClinicSliverHeader(
+        clinic: clinic,
+        bottom: tabBar,
+        onChangeLogo: canEdit ? () => _changeLogo(context) : null,
+        onEdit: () async {
+          await context.push(Routes.clinicFormScreen, extra: clinic);
+          if (context.mounted) {
+            context.read<ClinicDetailsCubit>().getClinicById(clinic.id);
+          }
+        },
+      ),
+      cases: FilteredCasesTab(
+        filters: CaseFiltersModel(clinicId: clinic.id, clinicName: clinic.name),
+        laboratoryId: clinic.laboratoryId,
+      ),
+      details: AdaptiveDetailSections(
+        main: [
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const _SectionTitle('المعلومات'),
+              const SizedBox(height: AppSpacing.md),
+              ClinicInfoTiles(clinic: clinic)
+                  .animate(delay: AppMotion.stagger * 2)
                   .fadeIn(duration: AppMotion.base)
                   .slideY(
-                    begin: 0.15,
+                    begin: 0.06,
                     duration: AppMotion.base,
                     curve: AppMotion.enter,
                   ),
             ],
           ),
-        ),
-      ],
+        ],
+        side: [
+          ClinicQuickActions(clinic: clinic)
+              .animate()
+              .fadeIn(duration: AppMotion.base)
+              .slideY(
+                begin: 0.15,
+                duration: AppMotion.base,
+                curve: AppMotion.enter,
+              ),
+        ],
+      ),
     );
   }
 }

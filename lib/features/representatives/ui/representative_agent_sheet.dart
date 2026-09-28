@@ -6,10 +6,10 @@ import 'package:dental_lab_app/core/widgets/custom_text_field_widget.dart';
 import 'package:dental_lab_app/core/widgets/glass/glass_bottom_sheet.dart';
 import 'package:dental_lab_app/core/widgets/show_toast_widget.dart';
 import 'package:dental_lab_app/features/cases/ui/widgets/case_lookup_dropdown.dart';
+import 'package:dental_lab_app/features/employees/data/models/employee_model.dart';
 import 'package:dental_lab_app/features/representatives/data/models/representative_agent_model.dart';
 import 'package:dental_lab_app/features/representatives/data/repos/representative_agents_repo.dart';
-import 'package:dental_lab_app/features/users/logic/users/users_cubit.dart';
-import 'package:dental_lab_app/features/users/logic/users/users_state.dart';
+import 'package:dental_lab_app/features/representatives/logic/agents_cubit.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
@@ -27,11 +27,10 @@ Future<void> showRepresentativeAgentSheet(
 }) {
   return showGlassBottomSheet<void>(
     context: context,
-    // The candidate list is loaded here rather than passed in: an agent is an
-    // ordinary login, so the users list is the answer, and every caller would
-    // otherwise have to fetch it just to open this.
+    // The candidates are the agents — employees flagged `isAgent` — loaded
+    // here so no caller has to fetch them just to open this.
     builder: (_) => BlocProvider(
-      create: (_) => getIt<UsersCubit>()..getUsers(),
+      create: (_) => getIt<AgentsCubit>()..getAgents(),
       child: _RepresentativeAgentSheet(
         representativeUserId: representativeUserId,
         representativeName: representativeName,
@@ -149,21 +148,27 @@ class _RepresentativeAgentSheetState extends State<_RepresentativeAgentSheet> {
 
             const SizedBox(height: AppSpacing.lg),
             const _GroupLabel('تعيين وكيل'),
-            BlocBuilder<UsersCubit, UsersState>(
+            BlocBuilder<AgentsCubit, AgentsState>(
               builder: (context, state) {
-                final users = state is UsersLoaded ? state.users : const [];
+                final agents = state is AgentsLoaded
+                    ? state.agents
+                    : const <EmployeeModel>[];
 
                 return CaseLookupDropdown(
                   value: _selectedAgentId,
                   icon: Icons.supervisor_account_outlined,
                   hintText: 'الوكيل',
                   items: [
-                    for (final user in users)
-                      // Nobody reports to themselves.
-                      if (user.id != widget.representativeUserId)
+                    for (final agent in agents)
+                      // The link is between logins: an agent without one
+                      // cannot be assigned. Nobody reports to themselves.
+                      if (agent.userId case final userId?
+                          when userId != widget.representativeUserId)
                         DropdownMenuItem(
-                          value: user.id,
-                          child: Text(user.username ?? user.email ?? '—'),
+                          value: userId,
+                          child: Text(
+                            agent.fullName.isEmpty ? '—' : agent.fullName,
+                          ),
                         ),
                   ],
                   onChanged: (value) =>

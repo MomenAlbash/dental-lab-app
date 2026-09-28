@@ -75,6 +75,9 @@ class _EmployeeFormViewState extends State<_EmployeeFormView> {
       widget.initialEmployee?.gender ?? EmployeeGender.male;
   late DateTime? _dateOfBirth = _parseDate(widget.initialEmployee?.dateOfBirth);
   late String? _cityId = widget.initialEmployee?.cityId;
+  late bool _isRepresentative =
+      widget.initialEmployee?.isRepresentative ?? false;
+  late bool _isAgent = widget.initialEmployee?.isAgent ?? false;
 
   bool get _isEditing => widget.initialEmployee != null;
 
@@ -140,6 +143,8 @@ class _EmployeeFormViewState extends State<_EmployeeFormView> {
           address: _optional(_addressController),
           bankName: _optional(_bankNameController),
           bankAccountNumber: _optional(_bankAccountController),
+          isRepresentative: _isRepresentative,
+          isAgent: _isAgent,
         ),
       );
     } else {
@@ -225,6 +230,12 @@ class _EmployeeFormViewState extends State<_EmployeeFormView> {
                             setState(() => _cityId = value),
                         isSubmitting: state is EmployeeFormSubmitting,
                         isEditing: _isEditing,
+                        isRepresentative: _isRepresentative,
+                        onRepresentativeChanged: (value) =>
+                            setState(() => _isRepresentative = value),
+                        isAgent: _isAgent,
+                        onAgentChanged: (value) =>
+                            setState(() => _isAgent = value),
                         onSave: _onSavePressed,
                       ),
                     ),

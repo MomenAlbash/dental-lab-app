@@ -66,6 +66,10 @@ class EmployeeModel {
   /// Only a flagged employee can be put on a zone.
   final bool isRepresentative;
 
+  /// An agent (وكيل) — heads representatives and receives the cash they
+  /// collect. Set only through an update: the create body has no such field.
+  final bool isAgent;
+
   /// When they came off probation.
   final DateTime? stabilizationDate;
 
@@ -103,6 +107,7 @@ class EmployeeModel {
     this.files = const [],
     this.isActive = true,
     this.isRepresentative = false,
+    this.isAgent = false,
     this.stabilizationDate,
     this.terminationDate,
     this.userId,
@@ -165,6 +170,7 @@ class EmployeeModel {
           const [],
       isActive: json['isActive'] as bool? ?? true,
       isRepresentative: json['isRepresentative'] as bool? ?? false,
+      isAgent: json['isAgent'] as bool? ?? false,
       stabilizationDate: DateTime.tryParse(
         json['stabilizationDate'] as String? ?? '',
       ),

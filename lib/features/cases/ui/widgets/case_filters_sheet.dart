@@ -1,8 +1,10 @@
 import 'package:dental_lab_app/core/di/dependency_injection.dart';
+import 'package:dental_lab_app/core/helper/laboratory_scope.dart';
 import 'package:dental_lab_app/core/theming/app_dimensions.dart';
 import 'package:dental_lab_app/core/theming/glass.dart';
 import 'package:dental_lab_app/core/theming/styles.dart';
 import 'package:dental_lab_app/core/widgets/glass/glass_bottom_sheet.dart';
+import 'package:dental_lab_app/core/widgets/laboratory_badge.dart';
 import 'package:dental_lab_app/features/case_priorities/logic/case_priorities/case_priorities_cubit.dart';
 import 'package:dental_lab_app/features/case_priorities/logic/case_priorities/case_priorities_state.dart';
 import 'package:dental_lab_app/features/case_stages/logic/case_stages/case_stages_cubit.dart';
@@ -10,11 +12,8 @@ import 'package:dental_lab_app/features/case_stages/logic/case_stages/case_stage
 import 'package:dental_lab_app/features/cases/data/models/case_filters_model.dart';
 import 'package:dental_lab_app/features/cases/logic/cases/cases_cubit.dart';
 import 'package:dental_lab_app/features/cases/ui/widgets/case_lookup_dropdown.dart';
-import 'package:dental_lab_app/core/auth/session.dart';
 import 'package:dental_lab_app/features/cities/logic/cities/cities_cubit.dart';
 import 'package:dental_lab_app/features/cities/logic/cities/cities_state.dart';
-import 'package:dental_lab_app/features/laboratories/logic/laboratories/laboratories_cubit.dart';
-import 'package:dental_lab_app/features/laboratories/logic/laboratories/laboratories_state.dart';
 import 'package:dental_lab_app/features/clinics/logic/clinics/clinics_cubit.dart';
 import 'package:dental_lab_app/features/clinics/logic/clinics/clinics_state.dart';
 import 'package:dental_lab_app/features/doctors/logic/doctors/doctors_cubit.dart';
@@ -47,13 +46,6 @@ Future<void> openCaseFiltersSheet(BuildContext context) async {
         ),
         BlocProvider(create: (_) => getIt<CaseStagesCubit>()..getCaseStages()),
         BlocProvider(create: (_) => getIt<CitiesCubit>()..getCities()),
-        // Only fetched for a user who may actually browse across branches;
-        // for everyone else the server pins the list to the header's lab, so
-        // the control is not offered and the request would be wasted.
-        if (getIt<SessionCubit>().state.canBrowseAllLaboratories)
-          BlocProvider(
-            create: (_) => getIt<LaboratoriesCubit>()..getLaboratories(),
-          ),
       ],
       child: CaseFiltersSheet(initial: casesCubit.filters),
     ),
@@ -93,7 +85,13 @@ class _CaseFiltersSheetState extends State<CaseFiltersSheet> {
 
   /// Several labs at once — browsing branches side by side is the point of
   /// the filter. Empty means "just the active one".
-  late Set<String> _laboratoryIds = {...widget.initial.laboratoryIds};
+  /// Narrows within the laboratories in view — never beyond them: a pick
+  /// outside the scope would ask for cases the header does not cover. Picks
+  /// left over from an earlier, wider scope are dropped.
+  late Set<String> _laboratoryIds = {
+    for (final id in widget.initial.laboratoryIds)
+      if (LaboratoryScope.ids.contains(id)) id,
+  };
 
   /// Cities are narrowed client-side, so the names ride along to be shown
   /// back in the sheet without another lookup.
@@ -305,35 +303,35 @@ class _CaseFiltersSheetState extends State<CaseFiltersSheet> {
                             );
                           },
                         ),
-                        // Only for a user the server will actually honour it
-                        // for — see `canBrowseAllLaboratories`.
-                        if (getIt<SessionCubit>()
-                            .state
-                            .canBrowseAllLaboratories) ...[
+                        // A quick narrowing inside the laboratories in view
+                        // (the home screen's chip), so the chips are exactly
+                        // those — with one in view there is nothing to narrow.
+                        if (LaboratoryScope.isMulti) ...[
                           const SizedBox(height: 20),
                           const _Label('المخبر'),
-                          BlocBuilder<LaboratoriesCubit, LaboratoriesState>(
-                            builder: (context, state) {
-                              if (state is! LaboratoriesLoaded) {
-                                return const SizedBox.shrink();
-                              }
-                              return Wrap(
-                                spacing: 8,
-                                runSpacing: 8,
-                                children: [
-                                  for (final lab in state.laboratories)
-                                    FilterChip(
-                                      label: Text(lab.name ?? '—'),
-                                      selected: _laboratoryIds.contains(lab.id),
-                                      onSelected: (_) => setState(() {
-                                        if (!_laboratoryIds.remove(lab.id)) {
-                                          _laboratoryIds.add(lab.id);
-                                        }
-                                      }),
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 8,
+                            children: [
+                              for (final lab in LaboratoryScope.laboratories)
+                                FilterChip(
+                                  avatar: CircleAvatar(
+                                    backgroundColor: LaboratoryBadge.colorFor(
+                                      lab.id,
                                     ),
-                                ],
-                              );
-                            },
+                                    radius: 6,
+                                  ),
+                                  label: Text(
+                                    lab.name.isEmpty ? '—' : lab.name,
+                                  ),
+                                  selected: _laboratoryIds.contains(lab.id),
+                                  onSelected: (_) => setState(() {
+                                    if (!_laboratoryIds.remove(lab.id)) {
+                                      _laboratoryIds.add(lab.id);
+                                    }
+                                  }),
+                                ),
+                            ],
                           ),
                         ],
 

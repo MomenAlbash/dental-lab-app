@@ -12,7 +12,9 @@ import 'package:dental_lab_app/core/widgets/glass/glass_app_bar.dart';
 import 'package:dental_lab_app/core/widgets/glass/glass_filter_button.dart';
 import 'package:dental_lab_app/core/widgets/glass/glass_scaffold.dart';
 import 'package:dental_lab_app/core/widgets/show_toast_widget.dart';
+import 'package:dental_lab_app/core/widgets/laboratory_picker_dialog.dart';
 import 'package:dental_lab_app/features/case_priorities/logic/case_priorities/case_priorities_cubit.dart';
+import 'package:dental_lab_app/features/cases/data/models/case_filters_model.dart';
 import 'package:dental_lab_app/features/cases/data/repos/cases_repo.dart';
 import 'package:dental_lab_app/features/cases/logic/cases/cases_cubit.dart';
 import 'package:dental_lab_app/features/cases/logic/cases/cases_state.dart';
@@ -29,7 +31,15 @@ import 'package:share_plus/share_plus.dart';
 /// add button) rather than a second tab — same shape as every other feature
 /// in the app.
 class CasesListPage extends StatelessWidget {
-  const CasesListPage({super.key, this.showAddButton = true});
+  const CasesListPage({
+    super.key,
+    this.showAddButton = true,
+    this.initialFilters,
+  });
+
+  /// Opens the list already narrowed — from a figure on the home screen that
+  /// counts exactly these cases. Null opens it unfiltered.
+  final CaseFiltersModel? initialFilters;
 
   /// Whether the screen carries its own "إضافة حالة" action.
   ///
@@ -44,7 +54,14 @@ class CasesListPage extends StatelessWidget {
   Widget build(BuildContext context) {
     return MultiBlocProvider(
       providers: [
-        BlocProvider(create: (_) => getIt<CasesCubit>()..getCases()),
+        BlocProvider(
+          create: (_) {
+            final cubit = getIt<CasesCubit>();
+            final filters = initialFilters;
+            filters == null ? cubit.getCases() : cubit.applyFilters(filters);
+            return cubit;
+          },
+        ),
         // Rows carry only the priority's id and name; the list is what turns
         // that into the badge colour shown on each row. Same active-only
         // scope as the filter sheet, so a row's colour and its filter chip
@@ -203,7 +220,10 @@ class _CasesListViewState extends State<_CasesListView> {
                     label: 'إضافة حالة',
                     isExtended: _addButtonExtended,
                     onPressed: () async {
-                      await context.push(Routes.caseFormScreen);
+                      await openInLaboratory(
+                        context,
+                        () => context.push(Routes.caseFormScreen),
+                      );
                       if (context.mounted) {
                         context.read<CasesCubit>().getCases();
                       }

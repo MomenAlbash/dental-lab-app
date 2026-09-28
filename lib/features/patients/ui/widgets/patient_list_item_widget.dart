@@ -4,6 +4,8 @@ import 'package:dental_lab_app/core/theming/styles.dart';
 import 'package:dental_lab_app/core/widgets/glass/glass_card.dart';
 import 'package:dental_lab_app/core/widgets/glass/glass_row_action.dart';
 import 'package:dental_lab_app/core/widgets/show_toast_widget.dart';
+import 'package:dental_lab_app/core/widgets/laboratory_badge.dart';
+import 'package:dental_lab_app/core/helper/laboratory_scope.dart';
 import 'package:dental_lab_app/features/patients/data/models/patient_gender.dart';
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -21,6 +23,7 @@ class PatientListItemWidget extends StatelessWidget {
     required this.fullName,
     required this.doctorName,
     required this.clinicName,
+    this.laboratoryId,
     required this.caseCount,
     required this.onTap,
     required this.onEdit,
@@ -33,6 +36,7 @@ class PatientListItemWidget extends StatelessWidget {
   final String fullName;
   final String doctorName;
   final String clinicName;
+  final String? laboratoryId;
   final int caseCount;
   final VoidCallback onTap;
   final VoidCallback onEdit;
@@ -73,6 +77,10 @@ class PatientListItemWidget extends StatelessWidget {
                   clinicName: clinicName,
                   color: glass.onGlassMuted,
                 ),
+                if (laboratoryId != null && LaboratoryScope.isMulti) ...[
+                  const SizedBox(height: AppSpacing.sm),
+                  LaboratoryBadge(laboratoryId: laboratoryId),
+                ],
                 if (hasPhone) ...[
                   const SizedBox(height: AppSpacing.sm),
                   _CallChip(phoneNumber: phoneNumber!.trim()),

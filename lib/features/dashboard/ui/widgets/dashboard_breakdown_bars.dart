@@ -11,7 +11,11 @@ class BreakdownBar {
     required this.value,
     required this.color,
     this.valueLabel,
+    this.onTap,
   });
+
+  /// Opens the cases this row counts. Null for a row that is only a figure.
+  final VoidCallback? onTap;
 
   final String label;
 
@@ -86,8 +90,9 @@ class _Bar extends StatelessWidget {
   Widget build(BuildContext context) {
     final glass = context.glass;
 
-    return Semantics(
+    final row = Semantics(
       label: '${bar.label}: ${bar.valueLabel ?? bar.value.round()}',
+      button: bar.onTap != null,
       excludeSemantics: true,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -139,6 +144,14 @@ class _Bar extends StatelessWidget {
           ),
         ],
       ),
+    );
+
+    final onTap = bar.onTap;
+    if (onTap == null) return row;
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(AppRadius.glass),
+      child: row,
     );
   }
 }

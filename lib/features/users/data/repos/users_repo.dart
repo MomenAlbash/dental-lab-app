@@ -34,26 +34,39 @@ class UsersRepo {
         laboratoryId: filters.laboratoryId,
         doctorId: filters.type == UserType.doctor ? filters.linkedId : null,
         employeeId: filters.type == UserType.employee ? filters.linkedId : null,
+        types: filters.types,
         token: _token,
       );
 
       log('Fetched ${users.length} users');
-      return right(users);
+      return right(_narrow(users, filters));
     } on DioException catch (e) {
       log('DioException while fetching users: ${e.message}');
       return fallbackToCache(
         cacheKey: CacheKeys.cachedUsersList,
         fromJson: UserModel.fromJson,
         onFailure: () => ServerFailure.fromDioException(e),
-      );
+      ).map((users) => _narrow(users, filters));
     } catch (e) {
       log('General Exception while fetching users: ${e.toString()}');
       return fallbackToCache(
         cacheKey: CacheKeys.cachedUsersList,
         fromJson: UserModel.fromJson,
         onFailure: () => ServerFailure.fromException(e),
-      );
+      ).map((users) => _narrow(users, filters));
     }
+  }
+
+  /// What the server cannot filter: the representative flag — and, offline,
+  /// the account kind the cached full list was never narrowed by.
+  List<UserModel> _narrow(List<UserModel> users, UserFiltersModel filters) {
+    final types = filters.types;
+    return [
+      for (final user in users)
+        if ((types == null || types.contains(user.type.apiValue)) &&
+            (!filters.representativesOnly || user.isRepresentative))
+          user,
+    ];
   }
 
   Future<Either<Failure, UserModel>> getUserById(String id) async {

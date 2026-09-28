@@ -24,6 +24,7 @@ import 'package:dental_lab_app/features/cases/ui/widgets/case_patient_step.dart'
 import 'package:dental_lab_app/features/cases/ui/widgets/case_restorations_step.dart';
 import 'package:dental_lab_app/features/cases/ui/widgets/case_review_step.dart';
 import 'package:dental_lab_app/features/cases/ui/widgets/previous_case_picker.dart';
+import 'package:dental_lab_app/features/doctors/data/models/doctor_model.dart';
 import 'package:dental_lab_app/features/doctors/logic/doctors/doctors_cubit.dart';
 import 'package:dental_lab_app/features/patients/data/models/patient_model.dart';
 import 'package:dental_lab_app/features/patients/logic/patients/patients_cubit.dart';
@@ -102,7 +103,15 @@ class RestorationEntry {
 /// A standalone route like every other feature's form — it pops with `true`
 /// on success so the list behind it can refresh.
 class CaseFormPage extends StatelessWidget {
-  const CaseFormPage({super.key});
+  const CaseFormPage({super.key, this.initialDoctor, this.initialPatient});
+
+  /// Starts the form with this doctor (and their clinic) already picked —
+  /// opened from a doctor's own page, where asking again would be silly.
+  final DoctorModel? initialDoctor;
+
+  /// Starts the form with this patient — and so their doctor and clinic —
+  /// already picked, opened from the patient's own page.
+  final PatientModel? initialPatient;
 
   @override
   Widget build(BuildContext context) {
@@ -123,13 +132,22 @@ class CaseFormPage extends StatelessWidget {
         // optional stages exist depends on the restoration types picked.
         BlocProvider(create: (_) => getIt<OptionalStagesCubit>()),
       ],
-      child: const _CaseFormView(),
+      child: _CaseFormView(
+        initialDoctor: initialDoctor,
+        initialPatient: initialPatient,
+      ),
     );
   }
 }
 
 class _CaseFormView extends StatefulWidget {
-  const _CaseFormView();
+  const _CaseFormView({this.initialDoctor, this.initialPatient});
+
+  final DoctorModel? initialDoctor;
+  final PatientModel? initialPatient;
+
+  /// The doctor the form opens with, whichever page it was opened from.
+  String? get initialDoctorId => initialDoctor?.id ?? initialPatient?.doctorId;
 
   @override
   State<_CaseFormView> createState() => _CaseFormViewState();
@@ -137,6 +155,26 @@ class _CaseFormView extends StatefulWidget {
 
 class _CaseFormViewState extends State<_CaseFormView> {
   int _currentStep = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    final patient = widget.initialPatient;
+    if (patient != null) {
+      _patientId = patient.id;
+      _selectedPatient = patient;
+    }
+    final doctor = widget.initialDoctor;
+    if (doctor != null || patient?.doctorId != null) {
+      _doctorId = doctor?.id ?? patient!.doctorId;
+      _clinicId = doctor?.clinicId ?? patient?.clinicId;
+      // The restoration catalogue is per doctor — load theirs, once the
+      // cubits are reachable.
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _refreshRestorationCatalog();
+      });
+    }
+  }
 
   final _referenceController = TextEditingController();
   final _notesController = TextEditingController();
@@ -248,8 +286,10 @@ class _CaseFormViewState extends State<_CaseFormView> {
   bool get _isDirty =>
       isTextDirty(_referenceController) ||
       isTextDirty(_notesController) ||
-      _patientId != null ||
-      _doctorId != null ||
+      // Neither is something the user did when the form opened with them.
+      _patientId != widget.initialPatient?.id ||
+      // A doctor the form was opened with is not something the user did.
+      _doctorId != widget.initialDoctorId ||
       _priorityTouched ||
       _dueDate != null ||
       // Compared against the default, not against null: it is pre-filled with

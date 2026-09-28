@@ -2,7 +2,9 @@ import 'dart:developer';
 import 'dart:convert';
 import 'package:dental_lab_app/core/connectivity/connectivity_cubit.dart';
 import 'package:dental_lab_app/core/di/dependency_injection.dart';
+import 'package:dental_lab_app/core/helper/debug_log.dart';
 import 'package:dental_lab_app/core/helper/laboratory_scope.dart';
+import 'package:dental_lab_app/core/helper/last_sync.dart';
 import 'package:dental_lab_app/core/helper/local/cache_keys.dart';
 import 'package:dental_lab_app/core/helper/local/cached_helper.dart';
 import 'package:dio/dio.dart';
@@ -26,6 +28,24 @@ class Api {
   /// the transport layer and must stay free of UI and feature imports. `main`
   /// wires it to "clear the session and hard-route to login".
   static void Function()? onSessionExpired;
+
+  /// Invoked when the server answers `laboratory_required`. A hook, like
+  /// [onSessionExpired]: `main` wires it to the laboratory picker.
+  static void Function()? onLaboratoryRequired;
+
+  static DateTime? _lastLaboratoryRequired;
+
+  /// One screen fires several requests together, and each would answer the
+  /// same way — the picker opens once, not once per request.
+  static void _announceLaboratoryRequired() {
+    final now = DateTime.now();
+    final last = _lastLaboratoryRequired;
+    if (last != null && now.difference(last) < const Duration(seconds: 5)) {
+      return;
+    }
+    _lastLaboratoryRequired = now;
+    onLaboratoryRequired?.call();
+  }
 
   static void init() {
     dio = Dio(
@@ -53,11 +73,15 @@ class Api {
             options.headers['Authorization'] = 'Bearer $token';
           }
 
+          // The server translates its error messages by this header alone
+          // (not Accept-Language); without it they came back in English.
+          options.headers['lang'] = 'ar';
+
           final method = options.method.toUpperCase();
           if (method == 'GET') {
             // Every selected laboratory, always — even just one. The server
             // answers 400 `laboratory_required` to a GET without it.
-            final ids = LaboratoryScope.ids;
+            final ids = LaboratoryScope.requestIds;
             if (ids.isNotEmpty) {
               options.headers['X-Laboratory-Ids'] = ids.join(',');
             }
@@ -97,6 +121,7 @@ class Api {
         // banner, since nothing may ever call markOnline() again to correct it.
         onResponse: (response, handler) {
           getIt<ConnectivityCubit>().markOnline();
+          LastSync.markNow();
           return handler.next(response);
         },
         onError: (error, handler) {
@@ -116,6 +141,14 @@ class Api {
           if (error.response?.statusCode == 401) {
             log('401 received — clearing the session');
             onSessionExpired?.call();
+          }
+
+          // The server's `code`, not its wording, says what went wrong. This
+          // one means the request named no laboratory the user may use — the
+          // answer is to pick one, not to read an error.
+          final body = error.response?.data;
+          if (body is Map && body['code'] == 'laboratory_required') {
+            _announceLaboratoryRequired();
           }
 
           return handler.next(error);
@@ -163,15 +196,14 @@ class Api {
       );
 
       log('GET Request: $url');
-      if (token != null) log('Token: $token');
 
       Response response = await dio.get(url, options: options);
-      log('GET Response: ${response.statusCode} - ${response.data}');
+      logBody('GET Response ${response.statusCode}', response.data);
       return response.data;
     } on DioException catch (e) {
       log('DioError: ${e.message}');
       log('Status Code: ${e.response?.statusCode}');
-      log('Response Data: ${e.response?.data}');
+      logBody('Response Data', e.response?.data);
       // Unwrapped the same way as post/put/delete. This used to throw a fixed
       // 'there is a problem in status Code', which meant every failed read in
       // the app reported the same unusable sentence no matter what went wrong.
@@ -201,12 +233,21 @@ class Api {
         ),
       );
     } on DioException catch (e) {
-      log(
-        'DioError: ${e.response?.statusCode} - ${e.response?.data ?? e.message}',
-      );
+      log('DioError: ${e.response?.statusCode} - ${e.message}');
+      logBody('Response Data', e.response?.data);
       throw Exception(_readError(e));
     }
   }
+
+  static String _statusMessage(int status) => switch (status) {
+    400 => 'الطلب غير مقبول',
+    401 => 'انتهت الجلسة، الرجاء تسجيل الدخول من جديد',
+    403 => 'لا تملك صلاحية لهذا الإجراء',
+    404 => 'العنصر المطلوب غير موجود',
+    409 => 'العملية تعارض بيانات موجودة مسبقاً',
+    >= 500 => 'حدث خطأ في الخادم، حاول لاحقاً',
+    _ => 'تعذّر إتمام الطلب ($status)',
+  };
 
   /// Extracts a human-readable message from a failed request, unwrapping
   /// ASP.NET ProblemDetails (`errors` / `title`) and never returning empty.
@@ -235,11 +276,13 @@ class Api {
       if (!_looksLikeHtml(text)) return text;
     }
 
+    // Dio's own `message` is a paragraph of English for developers; the user
+    // gets a sentence about what the status means instead.
+    if (status != null) return _statusMessage(status);
     final fallback = e.message;
     if (fallback != null && fallback.trim().isNotEmpty) {
-      return status != null ? '$fallback (HTTP $status)' : fallback;
+      return 'تعذّر إتمام الطلب، حاول مجدداً';
     }
-    if (status != null) return 'خطأ من الخادم (HTTP $status)';
     // No response and no message at all — almost always a transport-level
     // failure (DNS, TLS, connection refused) rather than a genuine mystery.
     // Naming the DioException type turns the next occurrence into something
@@ -263,8 +306,7 @@ class Api {
   }) async {
     try {
       log('PUT Request: $url');
-      log('PUT Body: $body');
-      if (token != null) log('Token: $token');
+      logBody('PUT Body', body);
 
       final options = Options(
         headers: {
@@ -280,12 +322,12 @@ class Api {
         options: options,
       );
 
-      log('PUT Response: ${response.statusCode} - ${response.data}');
+      logBody('PUT Response ${response.statusCode}', response.data);
       return response;
     } on DioException catch (e) {
       log('DioError in PUT: ${e.message}');
       log('Status Code: ${e.response?.statusCode}');
-      log('Response Data: ${e.response?.data}');
+      logBody('Response Data', e.response?.data);
 
       throw Exception(_readError(e));
     } catch (e) {
@@ -297,7 +339,6 @@ class Api {
   Future<Response> delete({required String url, String? token}) async {
     try {
       log('delete Request: $url');
-      if (token != null) log('Token: $token');
 
       final options = Options(
         headers: {
@@ -308,12 +349,12 @@ class Api {
 
       final response = await dio.delete(url, options: options);
 
-      log('delete Response: ${response.statusCode} - ${response.data}');
+      logBody('delete Response ${response.statusCode}', response.data);
       return response;
     } on DioException catch (e) {
       log('DioError in delete: ${e.message}');
       log('Status Code: ${e.response?.statusCode}');
-      log('Response Data: ${e.response?.data}');
+      logBody('Response Data', e.response?.data);
 
       throw Exception(_readError(e));
     } catch (e) {

@@ -31,6 +31,10 @@ class EmployeeFormFields extends StatelessWidget {
     required this.onCityChanged,
     required this.isSubmitting,
     required this.isEditing,
+    this.isRepresentative = false,
+    this.onRepresentativeChanged,
+    this.isAgent = false,
+    this.onAgentChanged,
     required this.onSave,
   });
 
@@ -51,6 +55,13 @@ class EmployeeFormFields extends StatelessWidget {
   final ValueChanged<String?> onCityChanged;
   final bool isSubmitting;
   final bool isEditing;
+
+  /// The roles — shown only while editing, since the create request carries
+  /// neither flag.
+  final bool isRepresentative;
+  final ValueChanged<bool>? onRepresentativeChanged;
+  final bool isAgent;
+  final ValueChanged<bool>? onAgentChanged;
   final VoidCallback onSave;
 
   @override
@@ -181,6 +192,23 @@ class EmployeeFormFields extends StatelessWidget {
           const SizedBox(height: 20),
           const _Label('المدينة'),
           _CityDropdown(value: cityId, onChanged: onCityChanged),
+          if (isEditing) ...[
+            const SizedBox(height: 20),
+            const _Label('الدور'),
+            SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              title: const Text('مندوب'),
+              value: isRepresentative,
+              onChanged: onRepresentativeChanged,
+            ),
+            SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              title: const Text('وكيل'),
+              subtitle: const Text('رئيس مندوبين يستلم ما يجمعونه'),
+              value: isAgent,
+              onChanged: onAgentChanged,
+            ),
+          ],
           const SizedBox(height: 24),
           if (isSubmitting)
             const Center(child: CustomCircleProgressIndiacatorWidget())

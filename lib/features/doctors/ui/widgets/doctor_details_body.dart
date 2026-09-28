@@ -1,9 +1,16 @@
+import 'package:dental_lab_app/core/auth/permissions.dart';
+import 'package:dental_lab_app/core/auth/session.dart';
+import 'package:dental_lab_app/core/di/dependency_injection.dart';
 import 'package:dental_lab_app/core/theming/app_dimensions.dart';
 import 'package:dental_lab_app/core/theming/app_motion.dart';
 import 'package:dental_lab_app/core/theming/glass.dart';
 import 'package:dental_lab_app/core/theming/styles.dart';
 import 'package:dental_lab_app/core/widgets/adaptive_detail_sections.dart';
+import 'package:dental_lab_app/core/widgets/detail_with_cases_tabs.dart';
+import 'package:dental_lab_app/features/accounting/ui/widgets/doctor_account_tab.dart';
 import 'package:dental_lab_app/features/case_priorities/ui/widgets/doctor_quota_section.dart';
+import 'package:dental_lab_app/features/cases/data/models/case_filters_model.dart';
+import 'package:dental_lab_app/features/cases/ui/widgets/filtered_cases_tab.dart';
 import 'package:dental_lab_app/features/doctors/data/models/doctor_attachment_file_model.dart';
 import 'package:dental_lab_app/features/doctors/data/models/doctor_model.dart';
 import 'package:dental_lab_app/features/doctors/ui/widgets/doctor_approval_panel.dart';
@@ -16,11 +23,12 @@ import 'package:dental_lab_app/features/doctors/ui/widgets/doctor_quick_actions.
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 
-/// Doctor detail screen content.
+/// Doctor detail screen content: the doctor's details, and their cases.
 ///
 /// Built as slivers so the identity panel can collapse into the toolbar as the
 /// user scrolls — the page owns its own app bar, which is why the route does
-/// not supply one.
+/// not supply one. The two tabs are pinned under that header, and each tab
+/// scrolls on its own beneath it.
 class DoctorDetailsBody extends StatelessWidget {
   const DoctorDetailsBody({
     super.key,
@@ -61,85 +69,29 @@ class DoctorDetailsBody extends StatelessWidget {
   Widget build(BuildContext context) {
     return Stack(
       children: [
-        CustomScrollView(
-          slivers: [
-            DoctorSliverHeader(
-              doctor: doctor,
-              onEdit: onEdit,
-              onOpenAnswers: onOpenAnswers,
-              onChangePhoto: onChangePhoto,
+        DetailWithCasesTabs(
+          storageKey: 'doctor-details',
+          header: (tabBar) => DoctorSliverHeader(
+            doctor: doctor,
+            onEdit: onEdit,
+            onOpenAnswers: onOpenAnswers,
+            onChangePhoto: onChangePhoto,
+            bottom: tabBar,
+          ),
+          details: _details(),
+          cases: FilteredCasesTab(
+            filters: CaseFiltersModel(
+              doctorId: doctor.id,
+              doctorName: doctor.fullName,
             ),
-            SliverToBoxAdapter(
-              child: AdaptiveDetailSections(
-                // What the doctor *is*.
-                main: [
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      const _SectionTitle('المعلومات'),
-                      const SizedBox(height: AppSpacing.md),
-                      DoctorInfoTiles(doctor: doctor)
-                          .animate(delay: AppMotion.stagger * 2)
-                          .fadeIn(duration: AppMotion.base)
-                          .slideY(
-                            begin: 0.06,
-                            duration: AppMotion.base,
-                            curve: AppMotion.enter,
-                          ),
-                    ],
-                  ),
-                  // Both are part of what the doctor *is*, not actions: a
-                  // standing pricing arrangement the lab reads as often as it
-                  // edits. The tier comes first — it decides what a case
-                  // costs at all, while the quota only decides what is free.
-                  DoctorPriceTierSection(
-                    doctor: doctor,
-                    isBusy: isBusy,
-                    onChanged: onPriceTierChanged,
-                  ),
-                  DoctorQuotaSection(doctorId: doctor.id),
-                  DoctorExcludedRepresentativesSection(
-                    doctorId: doctor.id,
-                    zoneId: doctor.zoneId,
-                  ),
-                  DoctorAttachmentsSection(
-                    files: doctor.files,
-                    isBusy: isBusy,
-                    onAddFile: onAddFile,
-                    onDeleteFile: onDeleteFile,
-                    onOpenFile: onOpenFile,
-                  ),
-                ],
-                // What the user can do about them. On a phone these still
-                // come first — an application waiting on a decision is the
-                // thing to deal with before reading anything else, and it
-                // renders nothing once the doctor is approved.
-                side: [
-                  if (doctor.approvalStatus != DoctorApprovalStatus.approved)
-                    DoctorApprovalPanel(
-                          doctor: doctor,
-                          isBusy: isBusy,
-                          onApprove: onApprove,
-                          onReject: onReject,
-                        )
-                        .animate()
-                        .fadeIn(duration: AppMotion.base)
-                        .slideY(
-                          begin: 0.15,
-                          duration: AppMotion.base,
-                          curve: AppMotion.enter,
-                        ),
-                  DoctorQuickActions(doctor: doctor)
-                      .animate()
-                      .fadeIn(duration: AppMotion.base)
-                      .slideY(
-                        begin: 0.15,
-                        duration: AppMotion.base,
-                        curve: AppMotion.enter,
-                      ),
-                ],
-              ),
-            ),
+            formExtra: doctor,
+            laboratoryId: doctor.laboratoryId,
+          ),
+          // The doctor's money, for whoever may see the lab's accounts —
+          // the same statement the accounting section shows.
+          extraTabs: [
+            if (getIt<SessionCubit>().state.canRead(PermissionName.finance))
+              (label: 'الحساب', child: DoctorAccountTab(doctorId: doctor.id)),
           ],
         ),
         if (isBusy)
@@ -149,6 +101,79 @@ class DoctorDetailsBody extends StatelessWidget {
             right: 0,
             child: LinearProgressIndicator(minHeight: 2),
           ),
+      ],
+    );
+  }
+
+  /// Everything the doctor's page showed before it had tabs.
+  Widget _details() {
+    return AdaptiveDetailSections(
+      // What the doctor *is*.
+      main: [
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const _SectionTitle('المعلومات'),
+            const SizedBox(height: AppSpacing.md),
+            DoctorInfoTiles(doctor: doctor)
+                .animate(delay: AppMotion.stagger * 2)
+                .fadeIn(duration: AppMotion.base)
+                .slideY(
+                  begin: 0.06,
+                  duration: AppMotion.base,
+                  curve: AppMotion.enter,
+                ),
+          ],
+        ),
+        // Both are part of what the doctor *is*, not actions: a
+        // standing pricing arrangement the lab reads as often as it
+        // edits. The tier comes first — it decides what a case
+        // costs at all, while the quota only decides what is free.
+        DoctorPriceTierSection(
+          doctor: doctor,
+          isBusy: isBusy,
+          onChanged: onPriceTierChanged,
+        ),
+        DoctorQuotaSection(doctorId: doctor.id),
+        DoctorExcludedRepresentativesSection(
+          doctorId: doctor.id,
+          zoneId: doctor.zoneId,
+        ),
+        DoctorAttachmentsSection(
+          files: doctor.files,
+          isBusy: isBusy,
+          onAddFile: onAddFile,
+          onDeleteFile: onDeleteFile,
+          onOpenFile: onOpenFile,
+        ),
+      ],
+      // What the user can do about them. On a phone these still
+      // come first — an application waiting on a decision is the
+      // thing to deal with before reading anything else, and it
+      // renders nothing once the doctor is approved.
+      side: [
+        if (doctor.approvalStatus != DoctorApprovalStatus.approved)
+          DoctorApprovalPanel(
+                doctor: doctor,
+                isBusy: isBusy,
+                onApprove: onApprove,
+                onReject: onReject,
+              )
+              .animate()
+              .fadeIn(duration: AppMotion.base)
+              .slideY(
+                begin: 0.15,
+                duration: AppMotion.base,
+                curve: AppMotion.enter,
+              ),
+        DoctorQuickActions(doctor: doctor)
+            .animate()
+            .fadeIn(duration: AppMotion.base)
+            .slideY(
+              begin: 0.15,
+              duration: AppMotion.base,
+              curve: AppMotion.enter,
+            ),
       ],
     );
   }

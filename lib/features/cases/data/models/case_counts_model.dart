@@ -1,3 +1,5 @@
+import 'package:dental_lab_app/features/cases/data/models/case_intake_enums.dart';
+
 /// Which of the list's lifecycle tabs is selected (`CasePhaseTab`).
 ///
 /// **Four tabs for six phases.** `Received` and `QualityCheck` have no tab of
@@ -23,6 +25,17 @@ enum CasePhaseTab {
   /// For the tab strip, where five tiles share a phone's width and the full
   /// label would be ellipsed into something unreadable.
   final String shortLabel;
+
+  /// The list tab a lifecycle phase is shown under. Six phases, four tabs:
+  /// receiving covers "new" and "received", production covers the quality
+  /// check too.
+  static CasePhaseTab forPhase(CasePhase phase) => switch (phase) {
+    CasePhase.newCase || CasePhase.received => CasePhaseTab.newCases,
+    CasePhase.inProduction ||
+    CasePhase.qualityCheck => CasePhaseTab.inProduction,
+    CasePhase.ready => CasePhaseTab.ready,
+    CasePhase.delivered => CasePhaseTab.delivered,
+  };
 }
 
 /// The list's SLA segment: one of three date questions, or none.

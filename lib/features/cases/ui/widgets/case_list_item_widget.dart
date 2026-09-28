@@ -1,6 +1,8 @@
 import 'package:dental_lab_app/core/theming/app_dimensions.dart';
 import 'package:dental_lab_app/core/theming/glass.dart';
 import 'package:dental_lab_app/core/theming/styles.dart';
+import 'package:dental_lab_app/core/widgets/laboratory_badge.dart';
+import 'package:dental_lab_app/core/helper/laboratory_scope.dart';
 import 'package:flutter/material.dart';
 
 /// A case row — matches the doctor/employee/role card: an accent rail
@@ -12,6 +14,7 @@ class CaseListItemWidget extends StatelessWidget {
     required this.patientName,
     required this.doctorName,
     this.laboratoryName = '',
+    this.laboratoryId,
     this.cityName = '',
     this.productionSummary = '',
     required this.stageName,
@@ -34,6 +37,10 @@ class CaseListItemWidget extends StatelessWidget {
   /// on a single-lab, single-city view they would repeat on every row and
   /// say nothing.
   final String laboratoryName;
+
+  /// Drives the coloured laboratory badge, which stands in for
+  /// [laboratoryName] while several laboratories are in view.
+  final String? laboratoryId;
   final String cityName;
 
   /// One representative restoration's stage while the case is mid-production,
@@ -89,6 +96,10 @@ class CaseListItemWidget extends StatelessWidget {
     final glass = context.glass;
     final radius = BorderRadius.circular(AppRadius.glass);
     final railColor = priorityColor;
+    // With several laboratories in view the name moves into the coloured
+    // badge; the plain line keeps only the city then.
+    final showsBadge = laboratoryId != null && LaboratoryScope.isMulti;
+    final plainLaboratory = showsBadge ? '' : laboratoryName;
 
     return Container(
       margin: const EdgeInsets.only(bottom: AppSpacing.md),
@@ -200,7 +211,14 @@ class CaseListItemWidget extends StatelessWidget {
                                   // when the row carried them: browsing one
                                   // lab prints the same name on every card,
                                   // which is noise rather than information.
-                                  if (laboratoryName.isNotEmpty ||
+                                  if (showsBadge) ...[
+                                    LaboratoryBadge(
+                                      laboratoryId: laboratoryId,
+                                      fallbackName: laboratoryName,
+                                    ),
+                                    const SizedBox(height: 3),
+                                  ],
+                                  if (plainLaboratory.isNotEmpty ||
                                       cityName.isNotEmpty) ...[
                                     Row(
                                       children: [
@@ -212,7 +230,7 @@ class CaseListItemWidget extends StatelessWidget {
                                         const SizedBox(width: 4),
                                         Flexible(
                                           child: Text(
-                                            [laboratoryName, cityName]
+                                            [plainLaboratory, cityName]
                                                 .where((v) => v.isNotEmpty)
                                                 .join(' · '),
                                             style: AppTextStyles

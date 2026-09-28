@@ -166,6 +166,8 @@ class _DoctorsListViewState extends State<DoctorsListView> {
                         initials: doctor.initials,
                         phoneNumber: doctor.phoneNumber ?? '',
                         clinicName: doctor.clinicName ?? '',
+                        laboratoryId: doctor.laboratoryId,
+                        laboratoryName: doctor.laboratoryName,
                         isActive: doctor.isActive,
                         approvalStatus: doctor.approvalStatus,
                         heroTag: 'doctor-avatar-${doctor.id}',

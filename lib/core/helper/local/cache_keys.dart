@@ -30,6 +30,13 @@ class CacheKeys {
   /// The names of [laboratoryIds], JSON-encoded, in the same order.
   static const String laboratoryNames = 'laboratoryNames';
 
+  /// The last records opened from the search, newest first. Device-only,
+  /// and cleared on logout so the next person does not see them.
+  static const String recentSearchItems = 'recentSearchItems';
+
+  /// When the server last answered — how old offline data is.
+  static const String lastSyncAt = 'lastSyncAt';
+
   /// The signed-in user's permission grants, cached so a cold start draws the
   /// correct navigation before `/ClinicAuth/me` answers.
   static const String permissions = 'permissions';

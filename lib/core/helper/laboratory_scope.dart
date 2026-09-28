@@ -58,6 +58,45 @@ abstract final class LaboratoryScope {
 
   static bool get isMulti => ids.length > 1;
 
+  /// The name of a selected laboratory, or null when [id] is not selected.
+  static String? nameOf(String id) {
+    for (final lab in laboratories) {
+      if (lab.id == id) return lab.name;
+    }
+    return null;
+  }
+
+  static String? _pinned;
+
+  /// The one laboratory a create form is working in, while it is open. Null
+  /// outside such a form.
+  static String? get pinned => _pinned;
+
+  /// What a GET is scoped to: the pinned laboratory while a create form is
+  /// open — so its pickers only offer that laboratory's doctors, clinics and
+  /// patients — otherwise every selected one.
+  static List<String> get requestIds {
+    final pinned = _pinned;
+    return pinned == null ? ids : [pinned];
+  }
+
+  /// Runs [body] — typically "open the create form and wait for it" — with
+  /// the scope narrowed to [laboratoryId], restoring it afterwards whatever
+  /// happens. A form opened inside it (adding a doctor from the case form)
+  /// finds the pin already set and works in the same laboratory.
+  static Future<T> runPinned<T>(
+    String laboratoryId,
+    Future<T> Function() body,
+  ) async {
+    final previous = _pinned;
+    _pinned = laboratoryId;
+    try {
+      return await body();
+    } finally {
+      _pinned = previous;
+    }
+  }
+
   /// Replaces the scope. The first laboratory is also kept under the old
   /// single-laboratory keys, which the rest of the app still reads as "the
   /// session's own laboratory" (the login redirect, the dashboard title).
@@ -97,6 +136,8 @@ abstract final class LaboratoryScope {
   /// The laboratory a create goes to: the only one selected, or the user's
   /// pick among several. Null when there is none, or the user cancelled.
   static Future<String?> resolveForCreate() async {
+    final pinned = _pinned;
+    if (pinned != null) return pinned;
     final options = laboratories;
     if (options.isEmpty) return null;
     if (options.length == 1) return options.single.id;

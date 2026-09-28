@@ -18,7 +18,7 @@ class EmployeeListItemWidget extends StatelessWidget {
     required this.code,
     required this.phoneNumber,
     required this.onEdit,
-    required this.onDelete,
+    this.onDelete,
     this.onTap,
     this.heroTag,
   });
@@ -28,7 +28,9 @@ class EmployeeListItemWidget extends StatelessWidget {
   final String code;
   final String phoneNumber;
   final VoidCallback onEdit;
-  final VoidCallback onDelete;
+
+  /// Null hides the delete action — e.g. on the agents list.
+  final VoidCallback? onDelete;
   final VoidCallback? onTap;
 
   /// Shares the avatar with the detail screen. Null disables the transition.
@@ -110,12 +112,13 @@ class EmployeeListItemWidget extends StatelessWidget {
                                   tooltip: 'تعديل',
                                   onPressed: onEdit,
                                 ),
-                                _RowAction(
-                                  icon: Icons.delete_outline,
-                                  color: glass.error,
-                                  tooltip: 'حذف',
-                                  onPressed: onDelete,
-                                ),
+                                if (onDelete case final onDelete?)
+                                  _RowAction(
+                                    icon: Icons.delete_outline,
+                                    color: glass.error,
+                                    tooltip: 'حذف',
+                                    onPressed: onDelete,
+                                  ),
                               ],
                             ),
                           ],

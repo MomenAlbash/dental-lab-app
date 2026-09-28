@@ -74,9 +74,9 @@ class EmployeeEmploymentCard extends StatelessWidget {
                   ),
                 ),
               ),
-              if (employee.isRepresentative)
+              if (employee.isAgent || employee.isRepresentative)
                 Text(
-                  'مندوب',
+                  employee.isAgent ? 'وكيل' : 'مندوب',
                   style: AppTextStyles.font12RegularHint.copyWith(
                     color: glass.info,
                   ),

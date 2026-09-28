@@ -28,7 +28,7 @@ class ServerFailure extends Failure {
     );
     return ServerFailure(
       message.isEmpty
-          ? 'Oops , there was an error , Please try again'
+          ? 'حدث خطأ، حاول مرة أخرى'
           : message,
     );
   }
@@ -36,16 +36,13 @@ class ServerFailure extends Failure {
   factory ServerFailure.fromDioException(DioException dioException) {
     switch (dioException.type) {
       case DioExceptionType.connectionTimeout:
-        return ServerFailure('Connection timeout with ApiServer');
+        return ServerFailure('انتهت مهلة الاتصال بالخادم، تحقق من الإنترنت وحاول مجدداً');
       case DioExceptionType.sendTimeout:
-        // TODO: Handle this case.
-        return ServerFailure('Send timeout with ApiServer');
+        return ServerFailure('انتهت مهلة إرسال الطلب، حاول مجدداً');
       case DioExceptionType.receiveTimeout:
-        // TODO: Handle this case.
-        return ServerFailure('Receive timeout with ApiServer');
+        return ServerFailure('تأخر الخادم في الرد، حاول مجدداً');
       case DioExceptionType.badCertificate:
-        // TODO: Handle this case.
-        return ServerFailure('badCertificate  with ApiServer');
+        return ServerFailure('تعذّر التحقق من شهادة الخادم');
       case DioExceptionType.badResponse:
         return ServerFailure.fromResponse(
           dioException.response!.statusCode ?? 405,
@@ -60,21 +57,21 @@ class ServerFailure extends Failure {
         // e.g. no laboratory picked for a create — and that is what to show.
         final reason = dioException.error;
         if (reason is String && reason.isNotEmpty) return ServerFailure(reason);
-        return ServerFailure('Request From ApiServer was cancelled');
+        return ServerFailure('أُلغي الطلب');
       case DioExceptionType.connectionError:
-        return ServerFailure('Connection Error with Api');
+        return ServerFailure('تعذّر الاتصال بالخادم، تحقق من الإنترنت');
       case DioExceptionType.unknown:
         // Null-safe: an unknown-type DioException can carry no message at all,
         // and dereferencing it threw a null-check error out of the very code
         // meant to turn an error into a readable failure.
         if (dioException.message?.contains('SocketException') ?? false) {
-          return ServerFailure('No Internet Connection');
+          return ServerFailure('لا يوجد اتصال بالإنترنت');
         } else {
-          return ServerFailure('UnExpected Error , Please try later');
+          return ServerFailure('حدث خطأ غير متوقع، حاول لاحقاً');
         }
 
       default:
-        return ServerFailure('Oops , there was an error , try later');
+        return ServerFailure('حدث خطأ، حاول لاحقاً');
     }
   }
 
@@ -125,17 +122,17 @@ class ServerFailure extends Failure {
       );
     } else if (statusCode == 404) {
       return ServerFailure(
-        'Your Request not found , Please try later',
+        'العنصر المطلوب غير موجود',
         statusCode: statusCode,
       );
     } else if (statusCode == 500) {
       return ServerFailure(
-        'Internal Server Error , Please try later',
+        'حدث خطأ في الخادم، حاول لاحقاً',
         statusCode: statusCode,
       );
     } else {
       return ServerFailure(
-        'Oops , there was an error , Please try again',
+        'حدث خطأ، حاول مرة أخرى',
         statusCode: statusCode,
       );
     }

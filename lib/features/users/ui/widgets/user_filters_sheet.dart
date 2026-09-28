@@ -64,6 +64,7 @@ class _UserFiltersSheetState extends State<UserFiltersSheet> {
   late UserType? _type = widget.initial.type;
   late String? _doctorId = widget.initial.doctorId;
   late String? _employeeId = widget.initial.employeeId;
+  late bool _representativesOnly = widget.initial.representativesOnly;
 
   void _clearAll() {
     setState(() {
@@ -71,6 +72,7 @@ class _UserFiltersSheetState extends State<UserFiltersSheet> {
       _type = null;
       _doctorId = null;
       _employeeId = null;
+      _representativesOnly = false;
     });
   }
 
@@ -81,6 +83,7 @@ class _UserFiltersSheetState extends State<UserFiltersSheet> {
         type: _type,
         doctorId: _doctorId,
         employeeId: _employeeId,
+        representativesOnly: _representativesOnly,
       ),
     );
   }
@@ -170,19 +173,38 @@ class _UserFiltersSheetState extends State<UserFiltersSheet> {
                             ChoiceChip(
                               label: const Text('الكل'),
                               selected: _type == null,
-                              onSelected: (_) => setState(() => _type = null),
+                              onSelected: (_) => setState(() {
+                                _type = null;
+                                _representativesOnly = false;
+                              }),
                             ),
                             ChoiceChip(
                               label: const Text('موظف'),
-                              selected: _type == UserType.employee,
-                              onSelected: (_) =>
-                                  setState(() => _type = UserType.employee),
+                              selected:
+                                  _type == UserType.employee &&
+                                  !_representativesOnly,
+                              onSelected: (_) => setState(() {
+                                _type = UserType.employee;
+                                _representativesOnly = false;
+                              }),
+                            ),
+                            // Representatives are employee accounts flagged
+                            // `isRepresentative` — still an employee link.
+                            ChoiceChip(
+                              label: const Text('مندوب'),
+                              selected: _representativesOnly,
+                              onSelected: (_) => setState(() {
+                                _type = UserType.employee;
+                                _representativesOnly = true;
+                              }),
                             ),
                             ChoiceChip(
                               label: const Text('طبيب'),
                               selected: _type == UserType.doctor,
-                              onSelected: (_) =>
-                                  setState(() => _type = UserType.doctor),
+                              onSelected: (_) => setState(() {
+                                _type = UserType.doctor;
+                                _representativesOnly = false;
+                              }),
                             ),
                           ],
                         ),

@@ -38,7 +38,9 @@ class CasesDueTab extends StatelessWidget {
             BlocProvider(
               create: (_) {
                 final cubit = getIt<CasesCubit>();
-                if (canRead) cubit.getCases();
+                // Every case, not a first page: the schedule sorts by due
+                // date itself, so a page would drop whatever sorts later.
+                if (canRead) cubit.loadEverything();
                 return cubit;
               },
             ),

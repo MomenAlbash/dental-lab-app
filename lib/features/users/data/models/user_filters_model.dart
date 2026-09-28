@@ -17,6 +17,7 @@ class UserFiltersModel {
     this.doctorName,
     this.employeeId,
     this.employeeName,
+    this.representativesOnly = false,
   });
 
   static const empty = UserFiltersModel();
@@ -24,9 +25,24 @@ class UserFiltersModel {
   final String? laboratoryId;
   final String? laboratoryName;
 
-  /// Which linked-record picker the sheet shows. Not itself sent to the
-  /// API — only whichever of [doctorId] / [employeeId] it resolves to is.
+  /// Which kind of account — sent as `types`, and deciding which of
+  /// [doctorId] / [employeeId] the linked-record filter uses.
   final UserType? type;
+
+  /// Only field representatives (مندوب). They are employee accounts with
+  /// `isRepresentative` set — the server refuses a user `type` of 2 — so this
+  /// asks for employees and keeps the flagged ones: `GET /Users` has no
+  /// parameter for the flag itself.
+  final bool representativesOnly;
+
+  /// The `types` query parameter: the account kinds to return, or null for
+  /// all of them.
+  List<int>? get types => representativesOnly
+      ? [UserType.employee.apiValue]
+      : switch (type) {
+          final type? => [type.apiValue],
+          null => null,
+        };
 
   final String? doctorId;
   final String? doctorName;
@@ -42,10 +58,11 @@ class UserFiltersModel {
     null => null,
   };
 
-  bool get isEmpty => laboratoryId == null && linkedId == null;
+  bool get isEmpty =>
+      laboratoryId == null && linkedId == null && types == null;
 
   int get activeCount =>
-      [laboratoryId, linkedId].where((v) => v != null).length;
+      [laboratoryId, linkedId, types].where((v) => v != null).length;
 
   UserFiltersModel copyWith({
     String? laboratoryId,
@@ -59,6 +76,7 @@ class UserFiltersModel {
     String? employeeId,
     String? employeeName,
     bool clearEmployee = false,
+    bool? representativesOnly,
   }) {
     return UserFiltersModel(
       laboratoryId: clearLaboratory
@@ -72,6 +90,7 @@ class UserFiltersModel {
       doctorName: clearDoctor ? null : (doctorName ?? this.doctorName),
       employeeId: clearEmployee ? null : (employeeId ?? this.employeeId),
       employeeName: clearEmployee ? null : (employeeName ?? this.employeeName),
+      representativesOnly: representativesOnly ?? this.representativesOnly,
     );
   }
 }

@@ -10,6 +10,7 @@ import 'package:dental_lab_app/core/widgets/glass/glass_app_bar.dart';
 import 'package:dental_lab_app/core/widgets/glass/glass_scaffold.dart';
 import 'package:dental_lab_app/core/widgets/glass/glass_skeleton.dart';
 import 'package:dental_lab_app/core/widgets/show_toast_widget.dart';
+import 'package:dental_lab_app/core/widgets/laboratory_picker_dialog.dart';
 import 'package:dental_lab_app/features/clinics/data/models/clinic_model.dart';
 import 'package:dental_lab_app/features/clinics/logic/clinics/clinics_cubit.dart';
 import 'package:dental_lab_app/features/clinics/logic/clinics/clinics_state.dart';
@@ -119,7 +120,10 @@ class _ClinicsListViewState extends State<_ClinicsListView> {
             label: 'إضافة عيادة',
             isExtended: _addButtonExtended,
             onPressed: () async {
-              await context.push(Routes.clinicFormScreen);
+              await openInLaboratory(
+                context,
+                () => context.push(Routes.clinicFormScreen),
+              );
               if (context.mounted) {
                 context.read<ClinicsCubit>().getClinics();
               }

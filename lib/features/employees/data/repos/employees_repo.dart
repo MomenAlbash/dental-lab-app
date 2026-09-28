@@ -6,6 +6,7 @@ import 'package:dental_lab_app/core/helper/local/cache_keys.dart';
 import 'package:dental_lab_app/core/helper/local/cacheable_fetch.dart';
 import 'package:dental_lab_app/core/helper/local/cached_helper.dart';
 import 'package:dental_lab_app/core/helper/network_helper/api_service.dart';
+import 'package:dental_lab_app/core/helper/network_helper/employees_api.dart';
 import 'package:dental_lab_app/core/helper/network_helper/people_api.dart';
 import 'package:dental_lab_app/features/employees/data/models/create_employee_request_model.dart';
 import 'package:dental_lab_app/features/employees/data/models/employee_attachment_file_model.dart';
@@ -18,6 +19,21 @@ class EmployeesRepo {
   EmployeesRepo(this._apiService);
 
   String? get _token => CacheHelper.getData(key: CacheKeys.token) as String?;
+
+  /// The agents (وكلاء) — employees a representative hands collected cash
+  /// to. Searched by the server, with no offline fallback: the cache holds
+  /// every employee, and passing that off as the agents would be wrong.
+  Future<Either<Failure, List<EmployeeModel>>> getAgents() async {
+    try {
+      return right(await _apiService.getAgents(token: _token));
+    } on DioException catch (e) {
+      log('DioException while fetching agents: ${e.message}');
+      return left(ServerFailure.fromDioException(e));
+    } catch (e) {
+      log('General Exception while fetching agents: $e');
+      return left(ServerFailure.fromException(e));
+    }
+  }
 
   Future<Either<Failure, List<EmployeeModel>>> getEmployees() async {
     try {
